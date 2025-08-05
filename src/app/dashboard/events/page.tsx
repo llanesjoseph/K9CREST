@@ -3,8 +3,8 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { PlusCircle } from "lucide-react";
-import { collection, onSnapshot, QuerySnapshot, DocumentData } from "firebase/firestore";
+import { PlusCircle, Trash2 } from "lucide-react";
+import { collection, onSnapshot, QuerySnapshot, DocumentData, deleteDoc, doc } from "firebase/firestore";
 import { format } from "date-fns";
 
 import {
@@ -27,6 +27,18 @@ import { Badge } from "@/components/ui/badge";
 import { db } from "@/lib/firebase";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/components/auth-provider";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { useToast } from "@/hooks/use-toast";
 
 interface Event {
     id: string;
@@ -41,6 +53,7 @@ export default function EventsPage() {
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const { isAdmin } = useAuth();
+  const { toast } = useToast();
 
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(db, "events"), (snapshot: QuerySnapshot<DocumentData>) => {
@@ -72,6 +85,23 @@ export default function EventsPage() {
     }
     return startDate;
   }
+
+  const handleDelete = async (eventId: string, eventName: string) => {
+    try {
+      await deleteDoc(doc(db, "events", eventId));
+      toast({
+        title: "Event Deleted",
+        description: `The event "${eventName}" has been successfully deleted.`,
+      });
+    } catch (error) {
+      console.error("Error deleting event: ", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "There was a problem deleting the event. Please try again.",
+      });
+    }
+  };
 
   return (
     <Card>
@@ -128,10 +158,35 @@ export default function EventsPage() {
                   <TableCell>
                     <Badge variant={event.status === 'Completed' ? 'outline' : 'default'}>{event.status}</Badge>
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="text-right flex items-center justify-end gap-2">
                     <Button variant="ghost" size="sm" asChild>
                       <Link href={`/dashboard/events/${event.id}/schedule`}>View</Link>
                     </Button>
+                    {isAdmin && (
+                       <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                           <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
+                              <Trash2 className="h-4 w-4" />
+                           </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                            <AlertDialogHeader>
+                                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    This action cannot be undone. This will permanently delete the event
+                                    <span className="font-bold"> {event.name} </span>
+                                    and all of its associated data, including schedules, rubrics, and scores.
+                                </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => handleDelete(event.id, event.name)}>
+                                    Continue
+                                </AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
+                    )}
                   </TableCell>
                 </TableRow>
               ))
