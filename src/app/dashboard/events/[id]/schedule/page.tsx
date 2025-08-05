@@ -421,7 +421,7 @@ export default function SchedulePage() {
                 <Card className="w-full lg:w-1/3 xl:w-1/4 print-hide flex flex-col">
                     <CardHeader>
                         <CardTitle>Unscheduled Competitors</CardTitle>
-                         <CardDescription>{unscheduledCompetitors.length} remaining for {format(new Date(selectedDate), 'EEEE, MMM dd')}</CardDescription>
+                         <CardDescription>{unscheduledCompetitors.length} remaining for {selectedDate ? format(new Date(selectedDate), 'EEEE, MMM dd') : '...'}</CardDescription>
                     </CardHeader>
                     <CardContent className="flex-grow overflow-y-auto">
                         {loading.competitors ? (
