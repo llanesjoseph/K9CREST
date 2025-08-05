@@ -117,7 +117,6 @@ const CompetitorItem = ({ competitor, isDraggable }: { competitor: DisplayCompet
             draggable={isDraggable}
             onDragStart={handleDragStart}
         >
-            <GripVertical className="h-5 w-5 text-muted-foreground" />
             <div className="flex-grow">
                 <span className="font-semibold text-primary">{competitor.dogName}</span>
                 <span className="text-sm text-muted-foreground"> ({competitor.name})</span>
