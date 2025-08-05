@@ -36,6 +36,7 @@ import {
 } from "@/components/ui/tooltip";
 import { useParams } from 'next/navigation';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
 
 
 // --- State Structures ---
@@ -316,7 +317,7 @@ export default function SchedulePage() {
             const scheduledSpecialties = scheduledSpecialtiesForCompetitor[comp.id] || new Set();
 
             if (scheduledSpecialties.size === 0) {
-                statusMap[comp.id] = 'unscheduled';
+                 statusMap[comp.id] = 'unscheduled';
             } else if (requiredSpecialties.size > 0 && scheduledSpecialties.size >= requiredSpecialties.size) {
                  // Check if all required are met
                 const allMet = Array.from(requiredSpecialties).every(req => scheduledSpecialties.has(req));
@@ -344,6 +345,34 @@ export default function SchedulePage() {
             });
     }, [competitors, schedule, arenas]);
 
+    const groupedCompetitors = useMemo(() => {
+        const groups: { [key: string]: DisplayCompetitor[] } = {
+            'Bite Work': [],
+            'Detection (Narcotics)': [],
+            'Detection (Explosives)': [],
+            'No Specialty': []
+        };
+
+        displayCompetitors.forEach(comp => {
+            if (comp.specialties.length === 0) {
+                groups['No Specialty'].push(comp);
+                return;
+            }
+            comp.specialties.forEach(spec => {
+                if (spec.type === 'Bite Work') {
+                    groups['Bite Work'].push(comp);
+                } else if (spec.type === 'Detection') {
+                    if (spec.detectionType === 'Narcotics') {
+                        groups['Detection (Narcotics)'].push(comp);
+                    } else if (spec.detectionType === 'Explosives') {
+                        groups['Detection (Explosives)'].push(comp);
+                    }
+                }
+            });
+        });
+
+        return groups;
+    }, [displayCompetitors]);
 
     // --- Functions ---
     const addArena = async () => {
@@ -521,15 +550,21 @@ export default function SchedulePage() {
                                               <p>No competitors have been imported for this event yet.</p>
                                               {isAdmin && <CompetitorImportDialog eventId={eventId} />}
                                           </div>
-                                      ) : displayCompetitors.length > 0 ? (
-                                          <div className="space-y-3">
-                                              {displayCompetitors
-                                                  .map(comp => <CompetitorItem key={comp.id} competitor={comp} isDraggable={isAdmin} />)
-                                              }
-                                          </div>
                                       ) : (
-                                          <div className="text-center text-muted-foreground p-8 border border-dashed rounded-md h-full flex items-center justify-center">
-                                              <p>No competitors found.</p>
+                                          <div className="space-y-4">
+                                             {Object.entries(groupedCompetitors).map(([groupName, groupCompetitors]) => (
+                                                groupCompetitors.length > 0 && (
+                                                <div key={groupName}>
+                                                    <h4 className="text-sm font-semibold text-muted-foreground mb-2 px-1">{groupName}</h4>
+                                                    <Separator className="mb-3"/>
+                                                    <div className="space-y-2">
+                                                        {groupCompetitors.map(comp => (
+                                                            <CompetitorItem key={comp.id} competitor={comp} isDraggable={isAdmin} />
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                                )
+                                             ))}
                                           </div>
                                       )}
                                   </>
