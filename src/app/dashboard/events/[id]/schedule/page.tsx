@@ -1,10 +1,11 @@
 
+
 "use client";
 
 import React, { useState, useRef, useEffect } from 'react';
 import { collection, onSnapshot, doc, setDoc, deleteDoc, writeBatch, query, getDocs, getDoc, Timestamp } from 'firebase/firestore';
 import { generateTimeSlots } from '@/lib/schedule-helpers';
-import { Trash2, GripVertical, AlertTriangle, PlusCircle, Users } from 'lucide-react';
+import { Trash2, GripVertical, AlertTriangle, PlusCircle, Users, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -172,7 +173,7 @@ const TimeSlot = ({
                             className="absolute top-0 right-0 h-6 w-6 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity duration-200 print-hide-controls"
                             title="Remove from schedule"
                         >
-                           <Trash2 className="h-4 w-4" />
+                           <X className="h-4 w-4" />
                         </Button>
                     )}
                 </div>
@@ -415,7 +416,7 @@ export default function SchedulePage() {
                 `}</style>
 
                 {/* Left Panel: Competitor List & Arena Mgmt */}
-                <div className="lg:col-span-1 flex flex-col gap-4 print-hide">
+                 <div className="lg:col-span-1 flex flex-col gap-4 print-hide">
                     <Card className="flex-grow flex flex-col">
                         <CardHeader>
                             <CardTitle>Unscheduled Competitors</CardTitle>
@@ -612,5 +613,3 @@ export default function SchedulePage() {
         </TooltipProvider>
     );
 }
-
-    
