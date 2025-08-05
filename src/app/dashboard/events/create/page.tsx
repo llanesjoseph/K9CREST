@@ -1,3 +1,4 @@
+
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -37,7 +38,12 @@ import { AddressAutocomplete } from "@/components/address-autocomplete";
 
 const formSchema = z.object({
   eventName: z.string().min(2, "Event name must be at least 2 characters."),
-  date: z.date({ required_error: "An event date is required." }),
+  date: z.object({
+    from: z.date({
+      required_error: "A start date is required.",
+    }),
+    to: z.date().optional(),
+  }),
   location: z.string().min(2, "Location is required."),
   description: z.string().optional(),
   bannerImage: z.any().optional(),
@@ -109,33 +115,42 @@ export default function CreateEventPage() {
                   name="date"
                   render={({ field }) => (
                     <FormItem className="flex flex-col">
-                      <FormLabel>Event Date</FormLabel>
+                      <FormLabel>Event Dates</FormLabel>
                       <Popover>
                         <PopoverTrigger asChild>
                           <FormControl>
                             <Button
                               variant={"outline"}
                               className={cn(
-                                "w-full pl-3 text-left font-normal",
-                                !field.value && "text-muted-foreground"
+                                "w-full justify-start text-left font-normal",
+                                !field.value?.from && "text-muted-foreground"
                               )}
                             >
-                              {field.value ? (
-                                format(field.value, "PPP")
+                              <CalendarIcon className="mr-2 h-4 w-4" />
+                              {field.value?.from ? (
+                                field.value.to ? (
+                                  <>
+                                    {format(field.value.from, "LLL dd, y")} -{" "}
+                                    {format(field.value.to, "LLL dd, y")}
+                                  </>
+                                ) : (
+                                  format(field.value.from, "LLL dd, y")
+                                )
                               ) : (
-                                <span>Pick a date</span>
+                                <span>Pick a date range</span>
                               )}
-                              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                             </Button>
                           </FormControl>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0" align="start">
                           <Calendar
-                            mode="single"
+                            initialFocus
+                            mode="range"
+                            defaultMonth={field.value?.from}
                             selected={field.value}
                             onSelect={field.onChange}
-                            disabled={(date) => date < new Date()}
-                            initialFocus
+                            numberOfMonths={2}
+                            disabled={(date) => date < new Date(new Date().setHours(0,0,0,0))}
                           />
                         </PopoverContent>
                       </Popover>
