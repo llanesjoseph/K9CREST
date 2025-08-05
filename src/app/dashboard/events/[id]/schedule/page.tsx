@@ -2,7 +2,7 @@
 
 "use client";
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { collection, onSnapshot, doc, setDoc, deleteDoc, writeBatch, query, getDocs, getDoc, Timestamp } from 'firebase/firestore';
 import { generateTimeSlots } from '@/lib/schedule-helpers';
 import { Trash2, GripVertical, AlertTriangle, PlusCircle, Users, X, Eraser } from 'lucide-react';
@@ -75,8 +75,14 @@ interface EventDetails {
     endDate?: Timestamp;
 }
 
+type SchedulingStatus = 'unscheduled' | 'partiallyScheduled' | 'fullyScheduled';
+
+interface DisplayCompetitor extends Competitor {
+    status: SchedulingStatus;
+}
+
 // --- CompetitorItem Component ---
-const CompetitorItem = ({ competitor, isDraggable }: { competitor: Competitor, isDraggable: boolean }) => {
+const CompetitorItem = ({ competitor, isDraggable }: { competitor: DisplayCompetitor, isDraggable: boolean }) => {
     const handleDragStart = (e: React.DragEvent<HTMLDivElement>) => {
         if (!isDraggable) {
             e.preventDefault();
@@ -97,10 +103,16 @@ const CompetitorItem = ({ competitor, isDraggable }: { competitor: Competitor, i
             return s.type;
         }).join(', ');
     };
+    
+    const statusClasses = {
+        unscheduled: 'bg-purple-100 dark:bg-purple-900/30 border-purple-500/30',
+        partiallyScheduled: 'bg-yellow-100 dark:bg-yellow-900/30 border-yellow-500/30',
+        fullyScheduled: 'bg-green-100 dark:bg-green-900/30 border-green-500/30',
+    };
 
     return (
         <div
-            className={`bg-secondary border border-border rounded-md p-3 mb-2 flex items-center gap-3 shadow-sm ${isDraggable ? 'cursor-grab hover:shadow-md transition-all duration-200 ease-in-out transform hover:-translate-y-px' : 'cursor-not-allowed opacity-70'}`}
+            className={`border rounded-md p-3 mb-2 flex items-center gap-3 shadow-sm ${isDraggable ? 'cursor-grab hover:shadow-md transition-all duration-200 ease-in-out transform hover:-translate-y-px' : 'cursor-not-allowed opacity-70'} ${statusClasses[competitor.status]}`}
             draggable={isDraggable}
             onDragStart={handleDragStart}
         >
@@ -278,6 +290,60 @@ export default function SchedulePage() {
         };
 
     }, [eventId, toast]);
+    
+    // --- Logic for competitor status and sorting ---
+    const displayCompetitors = useMemo<DisplayCompetitor[]>(() => {
+        const statusMap: { [key: string]: SchedulingStatus } = {};
+
+        const getArenaSpecialtyForRun = (arenaId: string): ArenaSpecialty => {
+            const arena = arenas.find(a => a.id === arenaId);
+            return arena ? arena.specialtyType : 'Any';
+        };
+
+        const scheduledSpecialtiesForCompetitor = schedule.reduce((acc, run) => {
+            if (!acc[run.competitorId]) {
+                acc[run.competitorId] = new Set();
+            }
+            const arenaSpecialty = getArenaSpecialtyForRun(run.arenaId);
+            if (arenaSpecialty !== 'Any') {
+                acc[run.competitorId].add(arenaSpecialty);
+            }
+            return acc;
+        }, {} as Record<string, Set<string>>);
+        
+        competitors.forEach(comp => {
+            const requiredSpecialties = new Set(comp.specialties.map(s => s.type === 'Detection' ? `Detection (${s.detectionType})` : s.type));
+            const scheduledSpecialties = scheduledSpecialtiesForCompetitor[comp.id] || new Set();
+
+            if (scheduledSpecialties.size === 0) {
+                statusMap[comp.id] = 'unscheduled';
+            } else if (requiredSpecialties.size > 0 && scheduledSpecialties.size >= requiredSpecialties.size) {
+                 // Check if all required are met
+                const allMet = Array.from(requiredSpecialties).every(req => scheduledSpecialties.has(req));
+                statusMap[comp.id] = allMet ? 'fullyScheduled' : 'partiallyScheduled';
+            } else {
+                 statusMap[comp.id] = 'partiallyScheduled';
+            }
+        });
+
+        const statusOrder: Record<SchedulingStatus, number> = {
+            'partiallyScheduled': 1,
+            'unscheduled': 2,
+            'fullyScheduled': 3,
+        };
+
+        return competitors
+            .map(comp => ({
+                ...comp,
+                status: statusMap[comp.id] || 'unscheduled',
+            }))
+            .sort((a, b) => {
+                const statusDiff = statusOrder[a.status] - statusOrder[b.status];
+                if (statusDiff !== 0) return statusDiff;
+                return a.name.localeCompare(b.name);
+            });
+    }, [competitors, schedule, arenas]);
+
 
     // --- Functions ---
     const addArena = async () => {
@@ -413,9 +479,6 @@ export default function SchedulePage() {
         window.print();
     };
     
-    const allScheduledCompetitorIds = schedule.map(s => s.competitorId);
-    const unscheduledCompetitors = competitors.filter(c => !allScheduledCompetitorIds.includes(c.id));
-
     const isFullyLoading = loading.arenas || loading.schedule || loading.competitors || loading.event;
 
     // --- Render ---
@@ -439,8 +502,8 @@ export default function SchedulePage() {
                  <div className="xl:col-span-1 flex flex-col gap-4 print-hide">
                     <Card className="flex-grow flex flex-col h-full min-h-0">
                         <CardHeader>
-                            <CardTitle>Unscheduled Competitors</CardTitle>
-                             <CardDescription>{unscheduledCompetitors.length} remaining for the event.</CardDescription>
+                            <CardTitle>Competitors</CardTitle>
+                             <CardDescription>Drag competitors to the schedule. Colors indicate status.</CardDescription>
                         </CardHeader>
                         <CardContent className="flex-grow p-0 overflow-hidden relative">
                            <div className="absolute inset-0">
@@ -458,15 +521,15 @@ export default function SchedulePage() {
                                               <p>No competitors have been imported for this event yet.</p>
                                               {isAdmin && <CompetitorImportDialog eventId={eventId} />}
                                           </div>
-                                      ) : unscheduledCompetitors.length > 0 ? (
+                                      ) : displayCompetitors.length > 0 ? (
                                           <div className="space-y-3">
-                                              {unscheduledCompetitors
+                                              {displayCompetitors
                                                   .map(comp => <CompetitorItem key={comp.id} competitor={comp} isDraggable={isAdmin} />)
                                               }
                                           </div>
                                       ) : (
                                           <div className="text-center text-muted-foreground p-8 border border-dashed rounded-md h-full flex items-center justify-center">
-                                              <p>All competitors have been scheduled.</p>
+                                              <p>No competitors found.</p>
                                           </div>
                                       )}
                                   </>
