@@ -1,6 +1,6 @@
 "use client";
 
-import { useFieldArray, useForm } from "react-hook-form";
+import { useFieldArray, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import Link from "next/link";
@@ -37,6 +37,7 @@ import {
 } from "@/components/ui/accordion";
 import { useToast } from "@/hooks/use-toast";
 import { useParams } from "next/navigation";
+import { cn } from "@/lib/utils";
 
 const exerciseSchema = z.object({
   name: z.string().min(1, "Exercise name is required."),
@@ -163,7 +164,40 @@ function PhaseExercises({ control, phaseIndex }: { control: any, phaseIndex: num
   return (
     <div className="space-y-4 pl-8 border-l ml-2">
       {fields.map((exercise, exerciseIndex) => (
-        <div key={exercise.id} className="flex items-start gap-4 p-4 rounded-md border bg-secondary/50">
+        <ExerciseItem 
+            key={exercise.id} 
+            control={control} 
+            phaseIndex={phaseIndex} 
+            exerciseIndex={exerciseIndex} 
+            remove={remove}
+        />
+      ))}
+       {fields.length === 0 && (
+          <p className="text-sm text-muted-foreground pt-4">No exercises in this phase.</p>
+      )}
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="mt-2"
+        onClick={() => append({ name: "", type: "points", maxPoints: 10 })}
+      >
+        <PlusCircle className="mr-2 h-4 w-4" /> Add Exercise
+      </Button>
+    </div>
+  );
+}
+
+function ExerciseItem({ control, phaseIndex, exerciseIndex, remove }: { control: any, phaseIndex: number, exerciseIndex: number, remove: (index: number) => void}) {
+    const exerciseType = useWatch({
+        control,
+        name: `phases.${phaseIndex}.exercises.${exerciseIndex}.type`,
+    });
+
+    const showMaxPoints = exerciseType === 'points' || exerciseType === 'time';
+
+    return (
+        <div className="flex items-start gap-4 p-4 rounded-md border bg-secondary/50">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 flex-grow">
             <FormField
               control={control}
@@ -198,18 +232,20 @@ function PhaseExercises({ control, phaseIndex }: { control: any, phaseIndex: num
                 </FormItem>
               )}
             />
-            <FormField
-              control={control}
-              name={`phases.${phaseIndex}.exercises.${exerciseIndex}.maxPoints`}
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Max Points</FormLabel>
-                  <FormControl>
-                    <Input {...field} type="number" placeholder="e.g., 10" />
-                  </FormControl>
-                </FormItem>
-              )}
-            />
+            <div className={cn("transition-opacity duration-300", showMaxPoints ? "opacity-100" : "opacity-0 pointer-events-none")}>
+                <FormField
+                  control={control}
+                  name={`phases.${phaseIndex}.exercises.${exerciseIndex}.maxPoints`}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Max Points</FormLabel>
+                      <FormControl>
+                        <Input {...field} type="number" placeholder="e.g., 10" disabled={!showMaxPoints} />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+            </div>
           </div>
           <Button
             type="button"
@@ -221,21 +257,5 @@ function PhaseExercises({ control, phaseIndex }: { control: any, phaseIndex: num
             <Trash2 className="h-4 w-4" />
           </Button>
         </div>
-      ))}
-       {fields.length === 0 && (
-          <p className="text-sm text-muted-foreground pt-4">No exercises in this phase.</p>
-      )}
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        className="mt-2"
-        onClick={() => append({ name: "", type: "points", maxPoints: 10 })}
-      >
-        <PlusCircle className="mr-2 h-4 w-4" /> Add Exercise
-      </Button>
-    </div>
-  );
+    )
 }
-
-    
