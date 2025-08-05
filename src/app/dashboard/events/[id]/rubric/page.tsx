@@ -5,7 +5,7 @@ import { useFieldArray, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import Link from "next/link";
-import { PlusCircle, Trash2, ChevronLeft, GripVertical, CheckCircle, XCircle } from "lucide-react";
+import { PlusCircle, Trash2, ChevronLeft, GripVertical, CheckCircle, XCircle, Loader2 } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -29,7 +29,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
 import {
   Accordion,
   AccordionContent,
@@ -41,6 +40,9 @@ import { useParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { useEffect, useState } from "react";
+import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
 const exerciseSchema = z.object({
   name: z.string().min(1, "Exercise name is required."),
@@ -60,7 +62,9 @@ const rubricSchema = z.object({
 export default function RubricPage() {
   const { toast } = useToast();
   const params = useParams();
-  const eventId = params.id;
+  const eventId = params.id as string;
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   const form = useForm<z.infer<typeof rubricSchema>>({
     resolver: zodResolver(rubricSchema),
@@ -69,17 +73,53 @@ export default function RubricPage() {
     },
   });
 
+  useEffect(() => {
+    if (!eventId) return;
+    const fetchRubric = async () => {
+      try {
+        const eventRef = doc(db, 'events', eventId);
+        const eventSnap = await getDoc(eventRef);
+        if (eventSnap.exists() && eventSnap.data().rubric) {
+          form.reset({ phases: eventSnap.data().rubric.phases || [] });
+        }
+      } catch (error) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Could not fetch rubric data.",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchRubric();
+  }, [eventId, form, toast]);
+
   const { fields, append, remove } = useFieldArray({
     control: form.control,
     name: "phases",
   });
 
-  function onSubmit(data: z.infer<typeof rubricSchema>) {
-    console.log(data);
-    toast({
-      title: "Rubric Saved!",
-      description: "The scoring rubric has been successfully updated.",
-    });
+  async function onSubmit(data: z.infer<typeof rubricSchema>) {
+    if (!eventId) return;
+    setIsSubmitting(true);
+    try {
+      const eventRef = doc(db, "events", eventId);
+      await updateDoc(eventRef, { rubric: data });
+      toast({
+        title: "Rubric Saved!",
+        description: "The scoring rubric has been successfully updated.",
+      });
+    } catch (error) {
+      console.error(error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to save the rubric.",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -94,7 +134,7 @@ export default function RubricPage() {
         <CardHeader>
           <CardTitle>Scoring Rubric</CardTitle>
           <CardDescription>
-            Define the phases and exercises for this event.
+            Define the phases and exercises for this event. Your changes are saved when you click the "Save Rubric" button.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -131,7 +171,12 @@ export default function RubricPage() {
                   </AccordionItem>
                 ))}
               </Accordion>
-                {fields.length === 0 && (
+                {isLoading ? (
+                    <div className="text-center text-muted-foreground py-12">
+                        <Loader2 className="h-6 w-6 animate-spin mx-auto" />
+                        <p>Loading Rubric...</p>
+                    </div>
+                ) : fields.length === 0 && (
                     <div className="text-center text-muted-foreground py-12">
                         <p>No phases defined.</p>
                         <p>Click "Add Phase" to get started.</p>
@@ -147,7 +192,10 @@ export default function RubricPage() {
                 </Button>
                 <div className="flex gap-2">
                     <Button variant="ghost" asChild><Link href={`/dashboard/events/${eventId}/schedule`}>Cancel</Link></Button>
-                    <Button type="submit">Save Rubric</Button>
+                    <Button type="submit" disabled={isSubmitting}>
+                      {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Save Rubric
+                    </Button>
                 </div>
               </div>
             </form>
