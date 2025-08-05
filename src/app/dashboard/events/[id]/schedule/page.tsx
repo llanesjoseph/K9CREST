@@ -393,8 +393,8 @@ export default function SchedulePage() {
         window.print();
     };
     
-    const scheduledToday = schedule.filter(s => s.date === selectedDate).map(s => s.competitorId);
-    const unscheduledCompetitors = competitors.filter(c => !scheduledToday.includes(c.id))
+    const allScheduledCompetitorIds = schedule.map(s => s.competitorId);
+    const unscheduledCompetitors = competitors.filter(c => !allScheduledCompetitorIds.includes(c.id));
 
     const isFullyLoading = loading.arenas || loading.schedule || loading.competitors || loading.event;
 
@@ -418,7 +418,7 @@ export default function SchedulePage() {
                 <Card className="w-full lg:w-1/3 xl:w-1/4 print-hide flex flex-col">
                     <CardHeader>
                         <CardTitle>Unscheduled Competitors</CardTitle>
-                         <CardDescription>{unscheduledCompetitors.length} remaining for {selectedDate ? format(new Date(selectedDate.replace(/-/g, '/')), 'EEEE, MMM dd') : '...'}</CardDescription>
+                         <CardDescription>{unscheduledCompetitors.length} remaining for the event.</CardDescription>
                     </CardHeader>
                     <CardContent className="flex-grow overflow-y-auto">
                         {loading.competitors ? (
@@ -442,7 +442,7 @@ export default function SchedulePage() {
                                     </div>
                                 ) : (
                                     <div className="text-center text-muted-foreground p-8 border border-dashed rounded-md h-full flex items-center justify-center">
-                                        <p>All competitors have been scheduled for this day.</p>
+                                        <p>All competitors have been scheduled for this event.</p>
                                     </div>
                                 )}
                              </>
