@@ -42,7 +42,7 @@ const GenerateScheduleInputSchema = z.object({
     .array(z.string())
     .describe("An array of available time slots in 'HH:mm' format."),
 });
-export type GenerateScheduleInput = z.infer<typeof GenerateScheduleInputSchema>;
+type GenerateScheduleInput = z.infer<typeof GenerateScheduleInputSchema>;
 
 const ScheduledRunSchema = z.object({
   competitorId: z.string(),
