@@ -44,13 +44,15 @@ interface Competitor {
     name: string;
     dogName: string;
     agency: string;
-    specialties: Specialty[]; // This might need to be added/managed elsewhere
+    specialties: Specialty[];
 }
+
+type ArenaSpecialty = 'Any' | 'Bite Work' | 'Detection (Narcotics)' | 'Detection (Explosives)';
 
 interface Arena {
     id: string;
     name: string;
-    specialtyType: 'Any' | 'Bite Work' | 'Detection';
+    specialtyType: ArenaSpecialty;
 }
 
 interface ScheduledEvent {
@@ -72,7 +74,6 @@ const CompetitorItem = ({ competitor, isDraggable }: { competitor: Competitor, i
         e.dataTransfer.effectAllowed = 'move';
     };
 
-    // Placeholder until specialties are managed in the DB
     const getSpecialtyDisplay = (specialties: Specialty[] = []) => {
         if (!specialties || specialties.length === 0) {
             return "No specialty listed";
@@ -95,8 +96,8 @@ const CompetitorItem = ({ competitor, isDraggable }: { competitor: Competitor, i
             <div className="flex-grow">
                 <span className="font-semibold text-primary">{competitor.dogName}</span>
                 <span className="text-sm text-muted-foreground"> ({competitor.name})</span>
-                {/* <div className="text-xs text-muted-foreground/80">{getSpecialtyDisplay(competitor.specialties)}</div> */}
                  <div className="text-xs text-muted-foreground/80">{competitor.agency}</div>
+                 <div className="text-xs text-muted-foreground/80 mt-1">{getSpecialtyDisplay(competitor.specialties)}</div>
             </div>
         </div>
     );
@@ -186,7 +187,7 @@ export default function SchedulePage() {
     const [loading, setLoading] = useState({ arenas: true, schedule: true, competitors: true });
 
     const [newArenaName, setNewArenaName] = useState('');
-    const [newArenaSpecialty, setNewArenaSpecialty] = useState<'Any' | 'Bite Work' | 'Detection'>('Any');
+    const [newArenaSpecialty, setNewArenaSpecialty] = useState<ArenaSpecialty>('Any');
 
     const timeSlots = generateTimeSlots();
 
@@ -212,8 +213,22 @@ export default function SchedulePage() {
             setLoading(prev => ({...prev, schedule: false}));
         });
         
+        // Mock specialties until they are in the database
+        const mockSpecialties: { [key: string]: Specialty[] } = {
+          'user1': [{ type: 'Bite Work' }],
+          'user2': [{ type: 'Detection', detectionType: 'Narcotics' }],
+          'user3': [{ type: 'Detection', detectionType: 'Explosives' }],
+          'user4': [{ type: 'Bite Work' }, { type: 'Detection', detectionType: 'Narcotics' }],
+        };
+
         const competitorsUnsub = onSnapshot(collection(db, `events/${eventId}/competitors`), (snapshot) => {
-            const competitorsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Competitor));
+            let competitorCount = 0;
+            const competitorsData = snapshot.docs.map(doc => {
+                 const data = { id: doc.id, ...doc.data() } as Omit<Competitor, 'specialties'>;
+                 const specialties = mockSpecialties[`user${(competitorCount % 4) + 1}`] || [];
+                 competitorCount++;
+                 return { ...data, specialties };
+            });
             setCompetitors(competitorsData);
             setLoading(prev => ({...prev, competitors: false}));
         }, (error) => {
@@ -254,7 +269,6 @@ export default function SchedulePage() {
         try {
             const batch = writeBatch(db);
 
-            // Delete associated schedule items
             const scheduleQuery = query(collection(db, `events/${eventId}/schedule`));
             const scheduleSnapshot = await getDocs(scheduleQuery);
             scheduleSnapshot.forEach(doc => {
@@ -263,7 +277,6 @@ export default function SchedulePage() {
                 }
             });
 
-            // Delete the arena itself
             const arenaRef = doc(db, `events/${eventId}/arenas`, arena.id);
             batch.delete(arenaRef);
 
@@ -300,12 +313,20 @@ export default function SchedulePage() {
             return;
         }
 
-        // NOTE: Specialty checks are commented out as competitor specialties are not yet in the data model.
-        // const arenaSpecialty = targetArena.specialtyType;
-        // if (arenaSpecialty !== 'Any' && !competitor.specialties.some(s => s.type === arenaSpecialty)) {
-        //     toast({ variant: 'destructive', title: 'Specialty Mismatch', description: `Cannot schedule ${competitor.k9Name}. ${targetArena.name} is for ${arenaSpecialty} only.` });
-        //     return;
-        // }
+        const arenaSpecialty = targetArena.specialtyType;
+        if (arenaSpecialty !== 'Any') {
+            const hasSpecialty = competitor.specialties.some(s => {
+                if (s.type === 'Bite Work' && arenaSpecialty === 'Bite Work') return true;
+                if (s.type === 'Detection') {
+                    if (arenaSpecialty === `Detection (${s.detectionType})`) return true;
+                }
+                return false;
+            });
+            if(!hasSpecialty) {
+                toast({ variant: 'destructive', title: 'Specialty Mismatch', description: `${competitor.dogName} cannot be scheduled. ${targetArena.name} is for ${arenaSpecialty}.`, duration: 5000 });
+                return;
+            }
+        }
 
         const endTime = new Date(new Date(`2000/01/01 ${startTime}`).getTime() + 30 * 60 * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
         
@@ -363,9 +384,9 @@ export default function SchedulePage() {
                     <CardContent className="flex-grow overflow-y-auto">
                         {loading.competitors ? (
                             <div className="space-y-2">
-                                <Skeleton className="h-16 w-full" />
-                                <Skeleton className="h-16 w-full" />
-                                <Skeleton className="h-16 w-full" />
+                                <Skeleton className="h-20 w-full" />
+                                <Skeleton className="h-20 w-full" />
+                                <Skeleton className="h-20 w-full" />
                             </div>
                         ) : (
                             <>
@@ -406,14 +427,15 @@ export default function SchedulePage() {
                                     onChange={e => setNewArenaName(e.target.value)}
                                     className="flex-grow"
                                 />
-                                <Select value={newArenaSpecialty} onValueChange={(val: Arena['specialtyType']) => setNewArenaSpecialty(val)}>
-                                     <SelectTrigger className="w-full sm:w-[180px]">
+                                <Select value={newArenaSpecialty} onValueChange={(val: ArenaSpecialty) => setNewArenaSpecialty(val)}>
+                                     <SelectTrigger className="w-full sm:w-[240px]">
                                         <SelectValue placeholder="Select specialty" />
                                      </SelectTrigger>
                                      <SelectContent>
                                         <SelectItem value="Any">Any Specialty</SelectItem>
                                         <SelectItem value="Bite Work">Bite Work</SelectItem>
-                                        <SelectItem value="Detection">Detection</SelectItem>
+                                        <SelectItem value="Detection (Narcotics)">Detection (Narcotics)</SelectItem>
+                                        <SelectItem value="Detection (Explosives)">Detection (Explosives)</SelectItem>
                                     </SelectContent>
                                 </Select>
                                 <Button onClick={addArena} className="w-full sm:w-auto">
