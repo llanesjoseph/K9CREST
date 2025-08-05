@@ -448,7 +448,7 @@ export default function SchedulePage() {
                             <CardTitle>Unscheduled Competitors</CardTitle>
                              <CardDescription>{unscheduledCompetitors.length} remaining for the event.</CardDescription>
                         </CardHeader>
-                        <CardContent className="flex-grow p-0">
+                        <CardContent className="flex-grow p-0 overflow-hidden">
                            <ScrollArea className="h-full w-full p-6">
                             {loading.competitors ? (
                                 <div className="space-y-2">
