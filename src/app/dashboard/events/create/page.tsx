@@ -33,6 +33,7 @@ import {
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { useToast } from "@/hooks/use-toast";
+import { AddressAutocomplete } from "@/components/address-autocomplete";
 
 const formSchema = z.object({
   eventName: z.string().min(2, "Event name must be at least 2 characters."),
@@ -94,7 +95,10 @@ export default function CreateEventPage() {
                     <FormItem>
                       <FormLabel>Location</FormLabel>
                       <FormControl>
-                        <Input placeholder="e.g., Springfield, IL" {...field} />
+                        <AddressAutocomplete
+                          value={field.value}
+                          onChange={(value) => field.onChange(value)}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
