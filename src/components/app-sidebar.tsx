@@ -35,7 +35,6 @@ import { Button } from "@/components/ui/button";
 import { auth } from "@/lib/firebase";
 import { useAuth, UserRole } from "@/components/auth-provider";
 import { useRouter, useParams } from "next/navigation";
-import { CompetitorImportDialog } from "./competitor-import-dialog";
 import {
   Select,
   SelectContent,
@@ -87,7 +86,6 @@ export function AppSidebar() {
     admin: [
         { href: "/dashboard", label: "Dashboard", icon: LayoutGrid },
         { href: "/dashboard/events", label: "Events", icon: Calendar },
-        { component: CompetitorImportDialog, label: "Import Competitors", icon: Users, eventSpecific: true },
         { href: `/dashboard/events/${eventId}/rubric`, label: "Configure Rubric", icon: ListChecks, eventSpecific: true },
         { href: `/dashboard/judging/${eventId || 1}`, label: "Judging", icon: Gavel, eventSpecific: true },
         { href: `/dashboard/events/${eventId || 1}/leaderboard`, label: "Leaderboards", icon: Trophy, eventSpecific: true },
@@ -113,14 +111,6 @@ export function AppSidebar() {
         <SidebarMenu>
           {menuItems.map((item) => {
              const disabled = item.eventSpecific && !eventId;
-             if (item.component) {
-                const Comp = item.component
-                return (
-                     <SidebarMenuItem key={item.label}>
-                        <Comp eventId={eventId} />
-                     </SidebarMenuItem>
-                )
-             }
              return (
                 <SidebarMenuItem key={item.label}>
                     <SidebarMenuButton
@@ -185,5 +175,3 @@ export function AppSidebar() {
     </Sidebar>
   );
 }
-
-    

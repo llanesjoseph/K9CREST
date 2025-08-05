@@ -14,6 +14,7 @@ import { db } from '@/lib/firebase';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { eachDayOfInterval, format } from 'date-fns';
+import { CompetitorImportDialog } from '@/components/competitor-import-dialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -433,9 +434,9 @@ export default function SchedulePage() {
                         ) : (
                             <>
                                 {competitors.length === 0 ? (
-                                     <div className="text-center text-muted-foreground p-8 border border-dashed rounded-md h-full flex flex-col justify-center">
+                                     <div className="text-center text-muted-foreground p-8 border border-dashed rounded-md h-full flex flex-col justify-center items-center gap-4">
                                         <p>No competitors have been imported for this event yet.</p>
-                                        {isAdmin && <p className="text-sm">Use the "Import Competitors" tool in the sidebar.</p>}
+                                        {isAdmin && <CompetitorImportDialog eventId={eventId} />}
                                     </div>
                                 ) : unscheduledCompetitors.length > 0 ? (
                                     <div className="space-y-3">

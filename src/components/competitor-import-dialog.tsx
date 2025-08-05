@@ -12,12 +12,12 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { Progress } from './ui/progress';
-import { SidebarMenuButton } from './ui/sidebar';
 import { processCompetitorCsv } from '@/ai/flows/process-competitor-csv';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 
@@ -235,16 +235,14 @@ export function CompetitorImportDialog({ eventId }: CompetitorImportDialogProps)
 
   return (
     <>
-        <SidebarMenuButton 
-            variant="ghost" 
-            className="justify-start w-full" 
+        <Button 
+            variant="outline"
             disabled={!eventId} 
-            tooltip={{children: "Import Competitors", side: "right"}}
             onClick={handleTriggerClick}
         >
-            <Users className="h-5 w-5" />
-            <span className="group-data-[collapsible=icon]:hidden">Import Competitors</span>
-        </SidebarMenuButton>
+            <Users className="mr-2 h-4 w-4" />
+            Import Competitors
+        </Button>
         <input
             ref={fileInputRef}
             type="file"
