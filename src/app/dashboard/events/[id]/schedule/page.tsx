@@ -349,28 +349,32 @@ export default function SchedulePage() {
 
     const groupedCompetitors = useMemo(() => {
         const groups: { [key: string]: DisplayCompetitor[] } = {
-            'Bite Work': [],
-            'Detection (Narcotics)': [],
-            'Detection (Explosives)': [],
-            'No Specialty': []
+            'Bite Work Only': [],
+            'Detection (Narcotics) Only': [],
+            'Detection (Explosives) Only': [],
+            'Bite Work & Detection (Narcotics)': [],
+            'Bite Work & Detection (Explosives)': [],
+            'No Specialty': [],
         };
 
         displayCompetitors.forEach(comp => {
+            const hasBiteWork = comp.specialties.some(s => s.type === 'Bite Work');
+            const hasNarcotics = comp.specialties.some(s => s.detectionType === 'Narcotics');
+            const hasExplosives = comp.specialties.some(s => s.detectionType === 'Explosives');
+
             if (comp.specialties.length === 0) {
                 groups['No Specialty'].push(comp);
-                return;
+            } else if (hasBiteWork && hasNarcotics) {
+                groups['Bite Work & Detection (Narcotics)'].push(comp);
+            } else if (hasBiteWork && hasExplosives) {
+                groups['Bite Work & Detection (Explosives)'].push(comp);
+            } else if (hasBiteWork) {
+                groups['Bite Work Only'].push(comp);
+            } else if (hasNarcotics) {
+                groups['Detection (Narcotics) Only'].push(comp);
+            } else if (hasExplosives) {
+                groups['Detection (Explosives) Only'].push(comp);
             }
-            comp.specialties.forEach(spec => {
-                if (spec.type === 'Bite Work') {
-                    groups['Bite Work'].push(comp);
-                } else if (spec.type === 'Detection') {
-                    if (spec.detectionType === 'Narcotics') {
-                        groups['Detection (Narcotics)'].push(comp);
-                    } else if (spec.detectionType === 'Explosives') {
-                        groups['Detection (Explosives)'].push(comp);
-                    }
-                }
-            });
         });
 
         return groups;
