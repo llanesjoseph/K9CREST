@@ -5,7 +5,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { collection, onSnapshot, doc, setDoc, deleteDoc, writeBatch, query, getDocs, getDoc, Timestamp } from 'firebase/firestore';
 import { generateTimeSlots } from '@/lib/schedule-helpers';
-import { Trash2, GripVertical, AlertTriangle, PlusCircle, Users, X, Eraser } from 'lucide-react';
+import { Trash2, GripVertical, AlertTriangle, PlusCircle, Users, X, Eraser, Wand2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -37,6 +37,7 @@ import {
 import { useParams } from 'next/navigation';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
+import { AiScheduleDialog } from '@/components/ai-schedule-dialog';
 
 
 // --- State Structures ---
@@ -53,15 +54,15 @@ export interface Competitor {
     specialties: Specialty[];
 }
 
-type ArenaSpecialty = 'Any' | 'Bite Work' | 'Detection (Narcotics)' | 'Detection (Explosives)';
+export type ArenaSpecialty = 'Any' | 'Bite Work' | 'Detection (Narcotics)' | 'Detection (Explosives)';
 
-interface Arena {
+export interface Arena {
     id: string;
     name: string;
     specialtyType: ArenaSpecialty;
 }
 
-interface ScheduledEvent {
+export interface ScheduledEvent {
     id: string;
     competitorId: string;
     arenaId: string;
@@ -628,6 +629,16 @@ export default function SchedulePage() {
                                 <CardDescription>Drag and drop competitors to build the schedule for each day.</CardDescription>
                             </div>
                             <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                               {isAdmin && (
+                                     <AiScheduleDialog 
+                                        eventId={eventId}
+                                        arenas={arenas}
+                                        competitors={competitors}
+                                        eventDays={eventDays}
+                                        timeSlots={timeSlots}
+                                        currentSchedule={schedule}
+                                     />
+                                )}
                                 <Button onClick={handlePrint} variant="outline" className="w-full">
                                     Print Schedule
                                 </Button>
