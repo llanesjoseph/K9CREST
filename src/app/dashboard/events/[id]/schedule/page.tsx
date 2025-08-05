@@ -499,7 +499,12 @@ export default function SchedulePage() {
             if (draggedScheduleId) {
                 // This is a move
                 const scheduleRef = doc(db, `events/${eventId}/schedule`, draggedScheduleId);
-                await updateDoc(scheduleRef, newScheduleData);
+                await updateDoc(scheduleRef, {
+                    arenaId,
+                    startTime,
+                    endTime,
+                    date
+                });
                 toast({ title: 'Moved!', description: `${competitor.dogName} moved to ${targetArena.name} at ${startTime} on ${format(parse(date, 'yyyy-MM-dd', new Date()), 'MMM dd')}.`});
 
             } else {
