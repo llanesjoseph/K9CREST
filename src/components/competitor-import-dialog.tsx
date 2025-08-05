@@ -20,6 +20,7 @@ import { db } from '@/lib/firebase';
 import { Progress } from './ui/progress';
 import { SidebarMenuButton } from './ui/sidebar';
 import { processCompetitorCsv } from '@/ai/flows/process-competitor-csv';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 
 interface CompetitorImportDialogProps {
   eventId: string;
@@ -175,7 +176,7 @@ export function CompetitorImportDialog({ eventId }: CompetitorImportDialogProps)
         )
       case ImportStep.Confirming:
         return (
-          <div>
+          <div className="flex flex-col h-full">
             <div className="flex items-center gap-3 bg-muted/50 p-3 rounded-lg mb-4">
               <FileCheck2 className="h-6 w-6 text-green-500 shrink-0" />
               <div>
@@ -185,10 +186,27 @@ export function CompetitorImportDialog({ eventId }: CompetitorImportDialogProps)
                 </p>
               </div>
             </div>
-             <div className="max-h-40 overflow-y-auto text-xs border rounded-md p-2 bg-background">
-                <pre>{JSON.stringify(parsedData.slice(0, 5), null, 2)}</pre>
-                {parsedData.length > 5 && <p className="text-center text-muted-foreground mt-2">...and {parsedData.length - 5} more rows.</p>}
+            <div className="flex-grow overflow-y-auto border rounded-md">
+                <Table>
+                    <TableHeader className="sticky top-0 bg-muted">
+                        <TableRow>
+                            <TableHead>Handler</TableHead>
+                            <TableHead>K9 Name</TableHead>
+                            <TableHead>Agency</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {parsedData.slice(0, 10).map((c, i) => (
+                             <TableRow key={i}>
+                                <TableCell className="font-medium">{c.name}</TableCell>
+                                <TableCell>{c.dogName}</TableCell>
+                                <TableCell>{c.agency}</TableCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
             </div>
+            {parsedData.length > 10 && <p className="text-center text-muted-foreground mt-2 text-sm">...and {parsedData.length - 10} more rows.</p>}
           </div>
         );
       case ImportStep.Uploading:
@@ -227,7 +245,7 @@ export function CompetitorImportDialog({ eventId }: CompetitorImportDialogProps)
             <span className="group-data-[collapsible=icon]:hidden">Import Competitors</span>
         </SidebarMenuButton>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg h-[80vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Bulk Import Competitors</DialogTitle>
           <DialogDescription>
@@ -235,7 +253,7 @@ export function CompetitorImportDialog({ eventId }: CompetitorImportDialogProps)
           </DialogDescription>
         </DialogHeader>
         <div 
-          className="relative flex items-center justify-center w-full h-56 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50 transition-colors p-4"
+          className="relative flex items-center justify-center w-full flex-grow border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50 transition-colors p-4"
           onClick={() => step !== ImportStep.Processing && step !== ImportStep.Uploading && fileInputRef.current?.click()}
         >
           {renderContent()}
@@ -264,3 +282,5 @@ export function CompetitorImportDialog({ eventId }: CompetitorImportDialogProps)
     </Dialog>
   );
 }
+
+    
