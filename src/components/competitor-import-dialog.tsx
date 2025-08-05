@@ -3,7 +3,7 @@
 
 import { useState, useRef } from 'react';
 import { Upload, Loader2, FileCheck2, AlertTriangle, Users, Wand2 } from 'lucide-react';
-import { collection, writeBatch } from 'firebase/firestore';
+import { collection, writeBatch, doc } from 'firebase/firestore';
 
 import {
   Dialog,
@@ -12,24 +12,19 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { Progress } from './ui/progress';
-import { processCompetitorCsv } from '@/ai/flows/process-competitor-csv';
+import { processCompetitorCsv, ProcessCompetitorCsvOutput } from '@/ai/flows/process-competitor-csv';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 
 interface CompetitorImportDialogProps {
   eventId: string;
 }
 
-interface ParsedCompetitor {
-    name: string;
-    dogName: string;
-    agency: string;
-}
+type ParsedCompetitor = ProcessCompetitorCsvOutput['competitors'][0];
 
 enum ImportStep {
   Idle,
@@ -118,15 +113,17 @@ export function CompetitorImportDialog({ eventId }: CompetitorImportDialogProps)
 
     setStep(ImportStep.Uploading);
     const batch = writeBatch(db);
-    const competitorsRef = collection(db, `events/${eventId}/competitors`);
+    
 
     try {
       parsedData.forEach((row, index) => {
-        const docRef = collection(competitorsRef).doc();
+        const competitorsRef = collection(db, `events/${eventId}/competitors`);
+        const docRef = doc(competitorsRef); // Creates a new doc with a random ID
         batch.set(docRef, {
             name: row.name || '',
             dogName: row.dogName || '',
             agency: row.agency || '',
+            specialties: row.specialties || [],
             createdAt: new Date(),
         });
         setUploadProgress(((index + 1) / parsedData.length) * 100);
@@ -157,6 +154,19 @@ export function CompetitorImportDialog({ eventId }: CompetitorImportDialogProps)
           setTimeout(resetState, 300);
       }
   }
+  
+  const getSpecialtyDisplay = (specialties: ParsedCompetitor['specialties'] = []) => {
+    if (!specialties || specialties.length === 0) {
+        return "N/A";
+    }
+    return specialties.map(s => {
+        if (s.type === 'Detection' && s.detectionType) {
+            return `${s.type} (${s.detectionType})`;
+        }
+        return s.type;
+    }).join(', ');
+  };
+
 
   const renderContent = () => {
     switch (step) {
@@ -187,6 +197,7 @@ export function CompetitorImportDialog({ eventId }: CompetitorImportDialogProps)
                             <TableHead>Handler</TableHead>
                             <TableHead>K9 Name</TableHead>
                             <TableHead>Agency</TableHead>
+                            <TableHead>Specialties</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -195,6 +206,7 @@ export function CompetitorImportDialog({ eventId }: CompetitorImportDialogProps)
                                 <TableCell className="font-medium">{c.name}</TableCell>
                                 <TableCell>{c.dogName}</TableCell>
                                 <TableCell>{c.agency}</TableCell>
+                                <TableCell>{getSpecialtyDisplay(c.specialties)}</TableCell>
                             </TableRow>
                         ))}
                     </TableBody>
@@ -228,6 +240,15 @@ export function CompetitorImportDialog({ eventId }: CompetitorImportDialogProps)
             <p className="text-sm text-destructive mt-1 max-w-full break-words p-2">{error}</p>
           </div>
         );
+      case ImportStep.Idle:
+          return (
+            <div className="flex flex-col items-center justify-center h-full text-center border-2 border-dashed rounded-lg">
+                <Upload className="mx-auto h-12 w-12 text-muted-foreground" />
+                <p className="mt-4 font-medium">Drag & drop your CSV file here</p>
+                <p className="text-sm text-muted-foreground">or click the button to browse.</p>
+                <p className="text-xs text-muted-foreground mt-4">AI will automatically map columns.</p>
+            </div>
+          )
       default:
         return null;
     }
@@ -265,7 +286,7 @@ export function CompetitorImportDialog({ eventId }: CompetitorImportDialogProps)
                 {renderContent()}
             </div>
             <DialogFooter>
-              {step === ImportStep.Processing && <Button variant="outline" disabled>Processing...</Button>}
+              {[ImportStep.Processing, ImportStep.Uploading].includes(step) && <Button variant="outline" disabled>Processing...</Button>}
               {step === ImportStep.Confirming && (
                 <>
                   <Button variant="outline" onClick={() => setIsOpen(false)}>Cancel</Button>

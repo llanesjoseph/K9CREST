@@ -4,7 +4,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { collection, onSnapshot, doc, setDoc, deleteDoc, writeBatch, query, getDocs, getDoc, Timestamp } from 'firebase/firestore';
 import { generateTimeSlots } from '@/lib/schedule-helpers';
-import { Trash2, GripVertical, AlertTriangle, PlusCircle } from 'lucide-react';
+import { Trash2, GripVertical, AlertTriangle, PlusCircle, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -255,21 +255,17 @@ export default function SchedulePage() {
             console.error("Error fetching schedule:", error);
             setLoading(prev => ({...prev, schedule: false}));
         });
-        
-        const mockSpecialties: { [key: string]: Specialty[] } = {
-          'user1': [{ type: 'Bite Work' }],
-          'user2': [{ type: 'Detection', detectionType: 'Narcotics' }],
-          'user3': [{ type: 'Detection', detectionType: 'Explosives' }],
-          'user4': [{ type: 'Bite Work' }, { type: 'Detection', detectionType: 'Narcotics' }],
-        };
 
         const competitorsUnsub = onSnapshot(collection(db, `events/${eventId}/competitors`), (snapshot) => {
-            let competitorCount = 0;
             const competitorsData = snapshot.docs.map(doc => {
-                 const data = { id: doc.id, ...doc.data() } as Omit<Competitor, 'specialties'>;
-                 const specialties = mockSpecialties[`user${(competitorCount % 4) + 1}`] || [];
-                 competitorCount++;
-                 return { ...data, specialties };
+                 const data = doc.data();
+                 return { 
+                     id: doc.id,
+                     name: data.name,
+                     dogName: data.dogName,
+                     agency: data.agency,
+                     specialties: data.specialties || []
+                 } as Competitor;
             });
             setCompetitors(competitorsData);
             setLoading(prev => ({...prev, competitors: false}));
@@ -452,6 +448,11 @@ export default function SchedulePage() {
                              </>
                         )}
                     </CardContent>
+                     {isAdmin && competitors.length > 0 && (
+                        <CardFooter className="border-t pt-4">
+                            <CompetitorImportDialog eventId={eventId} />
+                        </CardFooter>
+                    )}
                 </Card>
 
                 {/* Right Panel: Scheduler */}
