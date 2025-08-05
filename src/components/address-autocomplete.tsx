@@ -33,7 +33,7 @@ export function AddressAutocomplete({ value, onChange }: AddressAutocompleteProp
           }
         } catch (error: any) {
           console.error("Failed to fetch address suggestions:", error);
-          if (error.message && error.message.includes('503')) {
+          if (error.message && (error.message.includes('503') || error.message.includes('overloaded'))) {
             setErrorMessage("Suggestion service is temporarily busy. Please try again in a moment.");
           } else {
             setErrorMessage("Could not fetch suggestions.");
