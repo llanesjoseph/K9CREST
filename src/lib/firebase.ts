@@ -24,11 +24,11 @@ const db = getFirestore(app);
 const storage = getStorage(app);
 const googleProvider = new GoogleAuthProvider();
 
-let analytics;
+let analytics = null;
 if (typeof window !== 'undefined') {
     isSupported().then((supported) => {
         if (supported) {
-            analytics = getAnalytics(app);
+            // analytics = getAnalytics(app);
         }
     });
 }
