@@ -140,7 +140,7 @@ export default function LoginPage() {
       </div>
       <div className="hidden bg-muted lg:flex lg:flex-col lg:items-center lg:justify-center p-12">
         <div className="flex items-center gap-4 text-primary mb-8">
-           <Image src="https://placehold.co/250x250.png" alt="Desert Dog Trials Logo" width={250} height={250} data-ai-hint="logo" />
+           <Image src="https://placehold.co/250x250.png" alt="Desert Dog Trials Logo" width={250} height={250} data-ai-hint="logo company" />
         </div>
         <div className="space-y-6 max-w-md text-center">
           <h2 className="text-3xl font-bold tracking-tight">
