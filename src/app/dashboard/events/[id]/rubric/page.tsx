@@ -36,6 +36,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { useToast } from "@/hooks/use-toast";
+import { useParams } from "next/navigation";
 
 const exerciseSchema = z.object({
   name: z.string().min(1, "Exercise name is required."),
@@ -54,6 +55,9 @@ const rubricSchema = z.object({
 
 export default function RubricPage() {
   const { toast } = useToast();
+  const params = useParams();
+  const eventId = params.id;
+
   const form = useForm<z.infer<typeof rubricSchema>>({
     resolver: zodResolver(rubricSchema),
     defaultValues: {
@@ -78,7 +82,7 @@ export default function RubricPage() {
     <div className="flex flex-col gap-6">
        <div className="flex items-center gap-4">
         <Button variant="outline" size="icon" asChild>
-            <Link href="/dashboard/events/1/schedule"><ChevronLeft className="h-4 w-4" /></Link>
+            <Link href={`/dashboard/events/${eventId}/schedule`}><ChevronLeft className="h-4 w-4" /></Link>
         </Button>
         <h1 className="text-2xl font-semibold">Rubric Configuration</h1>
       </div>
@@ -138,7 +142,7 @@ export default function RubricPage() {
                   <PlusCircle className="mr-2 h-4 w-4" /> Add Phase
                 </Button>
                 <div className="flex gap-2">
-                    <Button variant="ghost" asChild><Link href="/dashboard/events/1/schedule">Cancel</Link></Button>
+                    <Button variant="ghost" asChild><Link href={`/dashboard/events/${eventId}/schedule`}>Cancel</Link></Button>
                     <Button type="submit">Save Rubric</Button>
                 </div>
               </div>
@@ -233,3 +237,5 @@ function PhaseExercises({ control, phaseIndex }: { control: any, phaseIndex: num
     </div>
   );
 }
+
+    

@@ -1,3 +1,4 @@
+
 import Link from "next/link";
 import { ChevronLeft, Trophy } from "lucide-react";
 import {
@@ -18,16 +19,20 @@ import {
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useParams } from "next/navigation";
 
 const overallStandings: any[] = [];
 const agencyStandings: any[] = [];
 
 export default function LeaderboardPage() {
+  const params = useParams();
+  const eventId = params.id;
+  
   return (
     <div className="flex flex-col gap-6">
        <div className="flex items-center gap-4">
         <Button variant="outline" size="icon" asChild>
-            <Link href="/dashboard/events/1/schedule"><ChevronLeft className="h-4 w-4" /></Link>
+            <Link href={`/dashboard/events/${eventId}/schedule`}><ChevronLeft className="h-4 w-4" /></Link>
         </Button>
         <h1 className="text-2xl font-semibold">Live Leaderboard</h1>
       </div>
@@ -127,3 +132,5 @@ export default function LeaderboardPage() {
     </div>
   );
 }
+
+    

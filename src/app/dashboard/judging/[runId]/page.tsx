@@ -18,14 +18,17 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { useParams } from "next/navigation";
 
 const rubric = {
   phases: [],
 };
 
-export default function JudgingPage({ params }: { params: { runId: string } }) {
+export default function JudgingPage() {
   const { toast } = useToast();
   const form = useForm();
+  const params = useParams();
+  const runId = params.runId as string;
 
   function onSubmit(data: any) {
     console.log(data);
@@ -128,3 +131,5 @@ export default function JudgingPage({ params }: { params: { runId: string } }) {
     </div>
   );
 }
+
+    

@@ -8,7 +8,7 @@ import { Trash2, GripVertical, AlertTriangle, PlusCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useAuth } from '@/components/auth-provider';
 import { db } from '@/lib/firebase';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -30,6 +30,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useParams } from 'next/navigation';
 
 
 // --- State Structures ---
@@ -40,9 +41,10 @@ interface Specialty {
 
 interface Competitor {
     id: string;
-    handlerName: string;
-    k9Name: string;
-    specialties: Specialty[];
+    name: string;
+    dogName: string;
+    agency: string;
+    specialties: Specialty[]; // This might need to be added/managed elsewhere
 }
 
 interface Arena {
@@ -70,7 +72,11 @@ const CompetitorItem = ({ competitor, isDraggable }: { competitor: Competitor, i
         e.dataTransfer.effectAllowed = 'move';
     };
 
-    const getSpecialtyDisplay = (specialties: Specialty[]) => {
+    // Placeholder until specialties are managed in the DB
+    const getSpecialtyDisplay = (specialties: Specialty[] = []) => {
+        if (!specialties || specialties.length === 0) {
+            return "No specialty listed";
+        }
         return specialties.map(s => {
             if (s.type === 'Detection' && s.detectionType) {
                 return `${s.type} (${s.detectionType})`;
@@ -87,9 +93,10 @@ const CompetitorItem = ({ competitor, isDraggable }: { competitor: Competitor, i
         >
             <GripVertical className="h-5 w-5 text-muted-foreground" />
             <div className="flex-grow">
-                <span className="font-semibold text-primary">{competitor.k9Name}</span>
-                <span className="text-sm text-muted-foreground"> ({competitor.handlerName})</span>
-                <div className="text-xs text-muted-foreground/80">{getSpecialtyDisplay(competitor.specialties)}</div>
+                <span className="font-semibold text-primary">{competitor.dogName}</span>
+                <span className="text-sm text-muted-foreground"> ({competitor.name})</span>
+                {/* <div className="text-xs text-muted-foreground/80">{getSpecialtyDisplay(competitor.specialties)}</div> */}
+                 <div className="text-xs text-muted-foreground/80">{competitor.agency}</div>
             </div>
         </div>
     );
@@ -144,8 +151,8 @@ const TimeSlot = ({
         >
             {scheduledEvent && eventCompetitor ? (
                 <div className="flex flex-col items-center justify-center p-1 group w-full h-full">
-                    <span className="font-bold text-green-800 dark:text-green-300 text-sm">{eventCompetitor.k9Name}</span>
-                    <span className="text-xs text-green-700 dark:text-green-400">({eventCompetitor.handlerName})</span>
+                    <span className="font-bold text-green-800 dark:text-green-300 text-sm">{eventCompetitor.dogName}</span>
+                    <span className="text-xs text-green-700 dark:text-green-400">({eventCompetitor.name})</span>
                     {isDraggable && (
                          <Button
                             variant="ghost"
@@ -166,21 +173,14 @@ const TimeSlot = ({
 };
 
 
-export default function SchedulePage({ params }: { params: { id: string } }) {
+export default function SchedulePage() {
     const { isAdmin } = useAuth();
     const { toast } = useToast();
-    const eventId = params.id;
+    const params = useParams();
+    const eventId = params.id as string;
 
     // --- State Management ---
-    const [competitors, setCompetitors] = useState<Competitor[]>([
-        { id: 'comp-1', handlerName: 'Alice Johnson', k9Name: 'Max', specialties: [{ type: 'Bite Work' }] },
-        { id: 'comp-2', handlerName: 'Bob Williams', k9Name: 'Bella', specialties: [{ type: 'Detection', detectionType: 'Narcotics' }] },
-        { id: 'comp-3', handlerName: 'Charlie Brown', k9Name: 'Rocky', specialties: [{ type: 'Detection', detectionType: 'Explosives' }] },
-        { id: 'comp-4', handlerName: 'Diana Prince', k9Name: 'Krypto', specialties: [{ type: 'Bite Work' }] },
-        { id: 'comp-5', handlerName: 'Eve Adams', k9Name: 'Shadow', specialties: [{ type: 'Detection', detectionType: 'Narcotics' }] },
-        { id: 'comp-6', handlerName: 'Frank Green', k9Name: 'Ace', specialties: [{ type: 'Bite Work' }, { type: 'Detection', detectionType: 'Explosives' }] },
-    ]);
-
+    const [competitors, setCompetitors] = useState<Competitor[]>([]);
     const [arenas, setArenas] = useState<Arena[]>([]);
     const [schedule, setSchedule] = useState<ScheduledEvent[]>([]);
     const [loading, setLoading] = useState({ arenas: true, schedule: true, competitors: true });
@@ -194,28 +194,38 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
     useEffect(() => {
         if (!eventId) return;
 
-        // Fetch Arenas
         const arenasUnsub = onSnapshot(collection(db, `events/${eventId}/arenas`), (snapshot) => {
             const arenasData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Arena));
             setArenas(arenasData);
             setLoading(prev => ({...prev, arenas: false}));
+        }, (error) => {
+            console.error("Error fetching arenas:", error);
+            setLoading(prev => ({...prev, arenas: false}));
         });
         
-        // Fetch Schedule
         const scheduleUnsub = onSnapshot(collection(db, `events/${eventId}/schedule`), (snapshot) => {
             const scheduleData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ScheduledEvent));
             setSchedule(scheduleData);
             setLoading(prev => ({...prev, schedule: false}));
+        }, (error) => {
+            console.error("Error fetching schedule:", error);
+            setLoading(prev => ({...prev, schedule: false}));
         });
         
-        // Fetch Competitors (replace with your actual implementation)
-        // For now, using static data and setting loading to false.
-        setLoading(prev => ({...prev, competitors: false}));
+        const competitorsUnsub = onSnapshot(collection(db, `events/${eventId}/competitors`), (snapshot) => {
+            const competitorsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Competitor));
+            setCompetitors(competitorsData);
+            setLoading(prev => ({...prev, competitors: false}));
+        }, (error) => {
+            console.error("Error fetching competitors:", error);
+            setLoading(prev => ({...prev, competitors: false}));
+        });
 
 
         return () => {
             arenasUnsub();
             scheduleUnsub();
+            competitorsUnsub();
         };
 
     }, [eventId]);
@@ -242,11 +252,11 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
     const removeArena = async (arena: Arena) => {
         if (!eventId) return;
         try {
-            // Batch delete associated schedule items
-            const scheduleQuery = query(collection(db, `events/${eventId}/schedule`));
-            const scheduleSnapshot = await getDocs(scheduleQuery);
             const batch = writeBatch(db);
 
+            // Delete associated schedule items
+            const scheduleQuery = query(collection(db, `events/${eventId}/schedule`));
+            const scheduleSnapshot = await getDocs(scheduleQuery);
             scheduleSnapshot.forEach(doc => {
                 if (doc.data().arenaId === arena.id) {
                     batch.delete(doc.ref);
@@ -286,15 +296,16 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
         const personalConflict = schedule.find(event => event.competitorId === competitorId && event.startTime === startTime);
         if (personalConflict) {
             const conflictingArena = arenas.find(a => a.id === personalConflict.arenaId);
-            toast({ variant: 'destructive', title: 'Error', description: `${competitor.k9Name} is already scheduled in ${conflictingArena?.name || 'another arena'} at this time.` });
+            toast({ variant: 'destructive', title: 'Error', description: `${competitor.dogName} is already scheduled in ${conflictingArena?.name || 'another arena'} at this time.` });
             return;
         }
 
-        const arenaSpecialty = targetArena.specialtyType;
-        if (arenaSpecialty !== 'Any' && !competitor.specialties.some(s => s.type === arenaSpecialty)) {
-            toast({ variant: 'destructive', title: 'Specialty Mismatch', description: `Cannot schedule ${competitor.k9Name}. ${targetArena.name} is for ${arenaSpecialty} only.` });
-            return;
-        }
+        // NOTE: Specialty checks are commented out as competitor specialties are not yet in the data model.
+        // const arenaSpecialty = targetArena.specialtyType;
+        // if (arenaSpecialty !== 'Any' && !competitor.specialties.some(s => s.type === arenaSpecialty)) {
+        //     toast({ variant: 'destructive', title: 'Specialty Mismatch', description: `Cannot schedule ${competitor.k9Name}. ${targetArena.name} is for ${arenaSpecialty} only.` });
+        //     return;
+        // }
 
         const endTime = new Date(new Date(`2000/01/01 ${startTime}`).getTime() + 30 * 60 * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
         
@@ -303,7 +314,7 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
         
         try {
             await setDoc(scheduleRef, newScheduleEntry);
-            toast({ title: 'Scheduled!', description: `${competitor.k9Name} scheduled in ${targetArena.name} at ${startTime}.`});
+            toast({ title: 'Scheduled!', description: `${competitor.dogName} scheduled in ${targetArena.name} at ${startTime}.`});
         } catch (error) {
              toast({ variant: 'destructive', title: 'Error', description: 'Could not save schedule entry.' });
         }
@@ -325,10 +336,12 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
     
     const unscheduledCompetitors = competitors.filter(c => !schedule.some(s => s.competitorId === c.id))
 
+    const isFullyLoading = loading.arenas || loading.schedule || loading.competitors;
+
     // --- Render ---
     return (
         <TooltipProvider>
-            <div className="flex flex-col lg:flex-row gap-4 xl:gap-6 p-4 sm:p-6 min-h-screen">
+            <div className="flex flex-col lg:flex-row gap-4 xl:gap-6 min-h-[calc(100vh-theme(spacing.16))]">
                 <style>{`
                     @media print {
                         body { font-size: 10pt; }
@@ -338,7 +351,6 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
                         .print-no-bg { background-color: transparent !important; }
                          h1, h2, h3, h4 { color: #000 !important; }
                         .print-break-inside-avoid { page-break-inside: avoid; }
-                        .timeslot-print { border-color: #ccc !important; }
                     }
                 `}</style>
 
@@ -346,6 +358,7 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
                 <Card className="w-full lg:w-1/3 xl:w-1/4 print-hide flex flex-col">
                     <CardHeader>
                         <CardTitle>Unscheduled Competitors</CardTitle>
+                         <CardDescription>{unscheduledCompetitors.length} remaining</CardDescription>
                     </CardHeader>
                     <CardContent className="flex-grow overflow-y-auto">
                         {loading.competitors ? (
@@ -356,15 +369,20 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
                             </div>
                         ) : (
                             <>
-                                {unscheduledCompetitors.length > 0 ? (
+                                {competitors.length === 0 ? (
+                                     <div className="text-center text-muted-foreground p-8 border border-dashed rounded-md h-full flex flex-col justify-center">
+                                        <p>No competitors have been imported for this event yet.</p>
+                                        {isAdmin && <p className="text-sm">Use the "Import Competitors" tool in the sidebar.</p>}
+                                    </div>
+                                ) : unscheduledCompetitors.length > 0 ? (
                                     <div className="space-y-3">
                                         {unscheduledCompetitors
                                             .map(comp => <CompetitorItem key={comp.id} competitor={comp} isDraggable={isAdmin} />)
                                         }
                                     </div>
                                 ) : (
-                                    <div className="text-center text-muted-foreground p-8 border border-dashed rounded-md">
-                                        All competitors have been scheduled.
+                                    <div className="text-center text-muted-foreground p-8 border border-dashed rounded-md h-full flex items-center justify-center">
+                                        <p>All competitors have been scheduled.</p>
                                     </div>
                                 )}
                              </>
@@ -407,25 +425,32 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
                     )}
                     
                     <Card className="flex-grow print-expand">
-                         <CardHeader className="flex flex-row items-center justify-between">
-                            <CardTitle>Event Schedule</CardTitle>
-                             <Button onClick={handlePrint} variant="outline" className="print-hide">
+                         <CardHeader className="flex flex-row items-center justify-between print-hide">
+                            <div>
+                                <CardTitle>Event Schedule</CardTitle>
+                                <CardDescription>Drag and drop competitors to build the schedule.</CardDescription>
+                            </div>
+                             <Button onClick={handlePrint} variant="outline">
                                 Print Schedule
                             </Button>
                         </CardHeader>
                         <CardContent>
                              <div className="overflow-x-auto overflow-y-hidden print-visible relative pb-2">
-                                {loading.arenas || loading.schedule ? (
+                                {isFullyLoading ? (
                                     <div className="space-y-4">
                                         <Skeleton className="h-10 w-full" />
-                                        <Skeleton className="h-20 w-full" />
-                                        <Skeleton className="h-20 w-full" />
+                                        <Skeleton className="h-24 w-full" />
+                                        <Skeleton className="h-24 w-full" />
                                     </div>
                                 ) : arenas.length === 0 ? (
-                                     <div className="text-center text-muted-foreground py-12 border-2 border-dashed rounded-lg">
+                                     <div className="text-center text-muted-foreground py-12 border-2 border-dashed rounded-lg h-96 flex flex-col justify-center items-center">
                                         <AlertTriangle className="mx-auto h-8 w-8 text-muted-foreground" />
-                                        <p className="mt-4">No arenas have been created for this event.</p>
-                                        {isAdmin && <p>Use the 'Manage Arenas' section to add one.</p>}
+                                        <p className="mt-4 font-semibold">No Arenas Found</p>
+                                        {isAdmin ? (
+                                            <p>Use the 'Manage Arenas' section above to create one.</p>
+                                        ) : (
+                                            <p>The event administrator has not set up any arenas yet.</p>
+                                        )}
                                     </div>
                                 ) : (
                                     <div className="grid gap-2 min-w-max">
