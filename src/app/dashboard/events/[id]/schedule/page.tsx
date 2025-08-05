@@ -28,7 +28,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { AIScheduler } from "@/components/ai-scheduler";
 import { CompetitorImportDialog } from "@/components/competitor-import-dialog";
 import { useEffect, useState } from "react";
 import { collection, onSnapshot, QuerySnapshot, DocumentData } from "firebase/firestore";
@@ -150,7 +149,6 @@ export default function SchedulePage() {
             <CompetitorImportDialog eventId={eventId} />
             <Button variant="outline" asChild><Link href={`/dashboard/events/${eventId}/rubric`}>Configure Rubric</Link></Button>
             <Button variant="outline" asChild><Link href={`/dashboard/events/${eventId}/leaderboard`}>View Leaderboard</Link></Button>
-            <AIScheduler />
         </div>
       </div>
 
