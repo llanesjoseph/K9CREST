@@ -428,7 +428,7 @@ export default function SchedulePage() {
     // --- Render ---
     return (
         <TooltipProvider>
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 xl:gap-6 min-h-[calc(100vh-theme(spacing.16))]">
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 xl:gap-6 h-full min-h-[calc(100vh-theme(spacing.16))]">
                 <style>{`
                     @media print {
                         body { font-size: 10pt; }
@@ -443,40 +443,42 @@ export default function SchedulePage() {
 
                 {/* Left Panel: Competitor List & Arena Mgmt */}
                  <div className="xl:col-span-1 flex flex-col gap-4 print-hide">
-                    <Card className="flex-grow flex flex-col">
+                    <Card className="flex-grow flex flex-col h-full min-h-0">
                         <CardHeader>
                             <CardTitle>Unscheduled Competitors</CardTitle>
                              <CardDescription>{unscheduledCompetitors.length} remaining for the event.</CardDescription>
                         </CardHeader>
-                        <CardContent className="flex-grow p-0 overflow-hidden">
-                           <ScrollArea className="h-full w-full p-6">
-                            {loading.competitors ? (
-                                <div className="space-y-2">
-                                    <Skeleton className="h-20 w-full" />
-                                    <Skeleton className="h-20 w-full" />
-                                    <Skeleton className="h-20 w-full" />
-                                </div>
-                            ) : (
-                                <>
-                                    {competitors.length === 0 ? (
-                                        <div className="text-center text-muted-foreground p-8 border border-dashed rounded-md h-full flex flex-col justify-center items-center gap-4">
-                                            <p>No competitors have been imported for this event yet.</p>
-                                            {isAdmin && <CompetitorImportDialog eventId={eventId} />}
-                                        </div>
-                                    ) : unscheduledCompetitors.length > 0 ? (
-                                        <div className="space-y-3">
-                                            {unscheduledCompetitors
-                                                .map(comp => <CompetitorItem key={comp.id} competitor={comp} isDraggable={isAdmin} />)
-                                            }
-                                        </div>
-                                    ) : (
-                                        <div className="text-center text-muted-foreground p-8 border border-dashed rounded-md h-full flex items-center justify-center">
-                                            <p>All competitors have been scheduled for this event.</p>
-                                        </div>
-                                    )}
-                                </>
-                            )}
-                             </ScrollArea>
+                        <CardContent className="flex-grow p-0 overflow-hidden relative">
+                           <div className="absolute inset-0">
+                             <ScrollArea className="h-full w-full p-6">
+                              {loading.competitors ? (
+                                  <div className="space-y-2">
+                                      <Skeleton className="h-20 w-full" />
+                                      <Skeleton className="h-20 w-full" />
+                                      <Skeleton className="h-20 w-full" />
+                                  </div>
+                              ) : (
+                                  <>
+                                      {competitors.length === 0 ? (
+                                          <div className="text-center text-muted-foreground p-8 border border-dashed rounded-md h-full flex flex-col justify-center items-center gap-4">
+                                              <p>No competitors have been imported for this event yet.</p>
+                                              {isAdmin && <CompetitorImportDialog eventId={eventId} />}
+                                          </div>
+                                      ) : unscheduledCompetitors.length > 0 ? (
+                                          <div className="space-y-3">
+                                              {unscheduledCompetitors
+                                                  .map(comp => <CompetitorItem key={comp.id} competitor={comp} isDraggable={isAdmin} />)
+                                              }
+                                          </div>
+                                      ) : (
+                                          <div className="text-center text-muted-foreground p-8 border border-dashed rounded-md h-full flex items-center justify-center">
+                                              <p>All competitors have been scheduled for this event.</p>
+                                          </div>
+                                      )}
+                                  </>
+                              )}
+                               </ScrollArea>
+                           </div>
                         </CardContent>
                         {isAdmin && competitors.length > 0 && (
                             <CardFooter className="border-t pt-4 flex-wrap gap-2">
