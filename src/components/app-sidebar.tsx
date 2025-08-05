@@ -31,11 +31,11 @@ import {
 } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { auth } from "@/lib/firebase";
 import { useAuth } from "@/components/auth-provider";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
+import { CompetitorImportDialog } from "./competitor-import-dialog";
 
 const menuItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutGrid },
@@ -46,16 +46,19 @@ const menuItems = [
   { href: "/dashboard/settings", label: "Settings", icon: Settings },
 ];
 
-const adminMenuItems = [
-    { href: "/dashboard/events/create", label: "Create Event", icon: FilePlus },
-    { href: "/dashboard/events", label: "Manage Rubrics", icon: ListChecks },
-    { href: "/dashboard/events", label: "Import Competitors", icon: FileUp },
-]
 
 export function AppSidebar() {
   const pathname = usePathname();
+  const params = useParams();
   const { user, isAdmin } = useAuth();
   const router = useRouter();
+  const eventId = params.id as string;
+
+  const adminMenuItems = [
+    { href: "/dashboard/events/create", label: "Create Event", icon: FilePlus },
+    { href: `/dashboard/events/${eventId}/rubric`, label: "Configure Rubric", icon: ListChecks, eventSpecific: true },
+    { component: <CompetitorImportDialog eventId={eventId} />, label: "Import Competitors", icon: FileUp, eventSpecific: true },
+  ]
 
   const handleSignOut = async () => {
     await auth.signOut();
@@ -64,6 +67,7 @@ export function AppSidebar() {
 
 
   const isActive = (href: string) => {
+    if (!href) return false;
     if (href === "/dashboard") {
         return pathname === href;
     }
@@ -85,22 +89,24 @@ export function AppSidebar() {
       <SidebarContent className="p-0">
         <SidebarMenu>
           {menuItems.map((item) => (
-            <SidebarMenuItem key={item.label}>
-              <SidebarMenuButton
-                asChild
-                isActive={isActive(item.href)}
-                tooltip={{
-                  children: item.label,
-                  side: "right",
-                }}
-                className="justify-start"
-              >
-                <Link href={item.href}>
-                  <item.icon className="h-5 w-5" />
-                  <span>{item.label}</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
+             !item.href.includes('[id]') && (
+                <SidebarMenuItem key={item.label}>
+                    <SidebarMenuButton
+                        asChild
+                        isActive={isActive(item.href)}
+                        tooltip={{
+                        children: item.label,
+                        side: "right",
+                        }}
+                        className="justify-start"
+                    >
+                        <Link href={item.href}>
+                        <item.icon className="h-5 w-5" />
+                        <span>{item.label}</span>
+                        </Link>
+                    </SidebarMenuButton>
+                </SidebarMenuItem>
+                )
           ))}
         </SidebarMenu>
         {isAdmin && (
@@ -110,25 +116,39 @@ export function AppSidebar() {
                     Admin Tools
                 </SidebarGroupLabel>
                  <SidebarMenu>
-                    {adminMenuItems.map((item) => (
-                        <SidebarMenuItem key={item.label}>
-                        <SidebarMenuButton
-                            asChild
-                            isActive={isActive(item.href)}
-                            tooltip={{
-                            children: item.label,
-                            side: "right",
-                            }}
-                            className="justify-start"
-                            variant="ghost"
-                        >
-                            <Link href={item.href}>
-                            <item.icon className="h-5 w-5" />
-                            <span>{item.label}</span>
-                            </Link>
-                        </SidebarMenuButton>
-                        </SidebarMenuItem>
-                    ))}
+                    {adminMenuItems.map((item) => {
+                        const disabled = item.eventSpecific && !eventId;
+                        if (item.component) {
+                            return (
+                                 <SidebarMenuItem key={item.label}>
+                                     <div className={`flex w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm [&>svg]:size-4 [&>svg]:shrink-0 ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                                        <item.icon className="h-5 w-5" />
+                                        {disabled ? <span>Import Competitors</span> : item.component}
+                                     </div>
+                                 </SidebarMenuItem>
+                            )
+                        }
+                        return (
+                            <SidebarMenuItem key={item.label}>
+                                <SidebarMenuButton
+                                    asChild
+                                    isActive={isActive(item.href)}
+                                    tooltip={{
+                                    children: item.label,
+                                    side: "right",
+                                    }}
+                                    className="justify-start"
+                                    variant="ghost"
+                                    disabled={disabled}
+                                >
+                                    <Link href={item.href}>
+                                    <item.icon className="h-5 w-5" />
+                                    <span>{item.label}</span>
+                                    </Link>
+                                </SidebarMenuButton>
+                            </SidebarMenuItem>
+                        )
+                    })}
                 </SidebarMenu>
             </SidebarGroup>
         )}

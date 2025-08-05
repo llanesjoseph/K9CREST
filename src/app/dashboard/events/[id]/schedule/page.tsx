@@ -141,25 +141,13 @@ export default function SchedulePage() {
         </Button>
         <h1 className="text-2xl font-semibold">Event Schedule</h1>
       </div>
-      <div className="flex justify-between items-center">
-        <div>
-            {/* Can add filters or other controls here */}
-        </div>
-        <div className="flex gap-2">
-            <Button variant="outline" asChild><Link href={`/dashboard/events/${eventId}/rubric`}>Configure Rubric</Link></Button>
-            <Button variant="outline" asChild><Link href={`/dashboard/events/${eventId}/leaderboard`}>View Leaderboard</Link></Button>
-        </div>
-      </div>
-
+      
        <Tabs defaultValue="schedule" className="w-full">
         <div className="flex items-center">
             <TabsList>
                 <TabsTrigger value="schedule">Schedule</TabsTrigger>
                 <TabsTrigger value="competitors">Competitors ({competitors.length})</TabsTrigger>
             </TabsList>
-            <div className="ml-auto">
-                <CompetitorImportDialog eventId={eventId} />
-            </div>
         </div>
         <TabsContent value="schedule">
             <Card>
