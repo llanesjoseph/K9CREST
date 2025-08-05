@@ -15,6 +15,7 @@ import {
   Shield,
   FileUp,
   ListChecks,
+  Eye,
 } from "lucide-react";
 
 import {
@@ -32,14 +33,23 @@ import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { auth } from "@/lib/firebase";
-import { useAuth } from "@/components/auth-provider";
+import { useAuth, UserRole } from "@/components/auth-provider";
 import { useRouter, useParams } from "next/navigation";
 import { CompetitorImportDialog } from "./competitor-import-dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Label } from "./ui/label";
+
 
 export function AppSidebar() {
   const pathname = usePathname();
   const params = useParams();
-  const { user, role, isAdmin } = useAuth();
+  const { user, role, isAdmin, isTrueAdmin, setViewAsRole, viewAsRole } = useAuth();
   const router = useRouter();
   const eventId = params.id as string;
 
@@ -122,7 +132,7 @@ export function AppSidebar() {
                 )
           ))}
         </SidebarMenu>
-        {isAdmin && (
+        {isTrueAdmin && (
             <SidebarGroup className="pt-4">
                 <SidebarGroupLabel className="flex items-center">
                     <Shield className="mr-2" />
@@ -161,6 +171,23 @@ export function AppSidebar() {
                         )
                     })}
                 </SidebarMenu>
+                <div className="px-2 pt-4">
+                    <Label className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
+                        <Eye className="h-4 w-4" />
+                        View As
+                    </Label>
+                    <Select onValueChange={(value) => setViewAsRole(value as UserRole)} value={viewAsRole || 'admin'}>
+                        <SelectTrigger className="h-9">
+                            <SelectValue placeholder="Select a role" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="admin">Admin</SelectItem>
+                            <SelectItem value="judge">Judge</SelectItem>
+                            <SelectItem value="competitor">Competitor</SelectItem>
+                            <SelectItem value="spectator">Spectator</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
             </SidebarGroup>
         )}
       </SidebarContent>
@@ -174,7 +201,7 @@ export function AppSidebar() {
           <div className="flex flex-col flex-grow overflow-hidden">
             <span className="text-sm font-medium truncate">{user?.displayName || user?.email || "User"}</span>
             <span className="text-xs text-muted-foreground truncate">
-              {user?.email}
+              {role.charAt(0).toUpperCase() + role.slice(1)} {viewAsRole && isTrueAdmin ? '(Viewing)' : ''}
             </span>
           </div>
            <Button variant="ghost" size="icon" onClick={handleSignOut} className="shrink-0">

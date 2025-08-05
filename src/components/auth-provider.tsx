@@ -23,15 +23,27 @@ interface AuthContextType {
   loading: boolean;
   role: UserRole;
   isAdmin: boolean;
+  isTrueAdmin: boolean;
+  setViewAsRole: (role: UserRole) => void;
+  viewAsRole: UserRole | null;
 }
 
-const AuthContext = createContext<AuthContextType>({ user: null, loading: true, role: 'spectator', isAdmin: false });
+const AuthContext = createContext<AuthContextType>({ 
+    user: null, 
+    loading: true, 
+    role: 'spectator', 
+    isAdmin: false,
+    isTrueAdmin: false,
+    setViewAsRole: () => {},
+    viewAsRole: null,
+});
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [role, setRole] = useState<UserRole>('spectator');
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [trueRole, setTrueRole] = useState<UserRole>('spectator');
+  const [viewAsRole, setViewAsRole] = useState<UserRole | null>(null);
+
   const router = useRouter();
   const pathname = usePathname();
 
@@ -40,13 +52,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setUser(user);
       const userEmail = user?.email || '';
       const userRole = USER_ROLES[userEmail] || 'spectator';
-      setRole(userRole);
-      setIsAdmin(userRole === 'admin');
+      setTrueRole(userRole);
+      // Reset viewAsRole on user change
+      setViewAsRole(null);
       setLoading(false);
     });
 
     return () => unsubscribe();
   }, []);
+  
+  const isTrueAdmin = trueRole === 'admin';
+  const role = viewAsRole && isTrueAdmin ? viewAsRole : trueRole;
+  const isAdmin = role === 'admin';
 
   useEffect(() => {
     if (!loading && !user && !pathname.startsWith('/auth') && pathname !== '/') {
@@ -62,7 +79,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     )
   }
 
-  return <AuthContext.Provider value={{ user, loading, role, isAdmin }}>{children}</AuthContext.Provider>;
+  const value = {
+      user,
+      loading,
+      role,
+      isAdmin,
+      isTrueAdmin,
+      setViewAsRole: (newRole: UserRole) => {
+          if(isTrueAdmin) {
+              setViewAsRole(newRole === trueRole ? null : newRole);
+          }
+      },
+      viewAsRole,
+  }
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
 export const useAuth = () => {
