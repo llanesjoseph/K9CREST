@@ -74,19 +74,27 @@ const prompt = ai.definePrompt({
   prompt: `You are an expert event scheduler for K9 trials. Your task is to generate a complete and valid schedule based on the provided competitors, arenas, and event timeline.
 
 **Rules and Constraints:**
-1.  **Specialty Matching:** A competitor MUST be scheduled in an arena that matches their specialty.
+1.  **Complete Scheduling:** You **MUST** schedule every competitor for **ALL** of their required runs. Each specialty a competitor has requires one run in a matching arena.
+2.  **Specialty Matching:** A competitor MUST be scheduled in an arena that matches their specialty.
     -   If a competitor has a specialty of "Bite Work", they must have one run in an arena with the "Bite Work" specialty.
     -   If a competitor has a specialty of "Detection (Narcotics)", they must have one run in an arena with the "Detection (Narcotics)" specialty.
     -   If a competitor has a specialty of "Detection (Explosives)", they must have one run in an arena with the "Detection (Explosives)" specialty.
-    -   Competitors with multiple specialties must be scheduled for a run in EACH corresponding specialty arena.
-    -   Arenas with specialty "Any" can be used for any competitor, but should be prioritized for competitors with NO specialties. If a competitor has no specialties, schedule them for one run in an "Any" arena if available.
-2.  **No Double Booking:**
-    -   An arena time slot can only have ONE competitor scheduled at a time on a given day.
-    -   A competitor cannot be scheduled in two different arenas at the SAME time on the SAME day.
-3.  **Complete Scheduling:** Ensure every competitor is scheduled for all of their required runs based on their specialties.
-4.  **Distribution:** Distribute the runs as evenly as possible across all available event days.
+    -   Competitors with multiple specialties must be scheduled for a run in **EACH** corresponding specialty arena. For example, a competitor with "Bite Work" and "Detection (Narcotics)" needs two separate runs.
+    -   Arenas with specialty "Any" can be used for any competitor, but should be prioritized for competitors with **NO** specialties. If a competitor has no specialties, schedule them for one run in an "Any" arena if available.
+3.  **No Double Booking:**
+    -   An arena time slot can only have **ONE** competitor scheduled at a time on a given day.
+    -   A competitor **CANNOT** be scheduled in two different arenas at the **SAME** time on the **SAME** day.
+4.  **Even Distribution:** Distribute the runs as evenly as possible across all available event days and arenas to avoid overloading any single day or arena.
 5.  **Randomness:** The assignment of competitors to specific time slots should be random, as long as it adheres to all other rules.
 6.  **Run Duration:** Each run (schedule entry) lasts for exactly 30 minutes. The \`endTime\` must be 30 minutes after the \`startTime\`.
+
+**Chain of Thought / Process:**
+To ensure a valid schedule, follow these steps:
+1.  **Identify All Required Runs:** Go through each competitor. For each specialty they have, create a "required run" item. For example, if a competitor has two specialties, they need two runs. If they have no specialties, they need one run in an "Any" arena if possible.
+2.  **Map Runs to Arenas:** For each required run, identify a compatible arena based on the specialty.
+3.  **Assign to Time Slots:** Iterate through your list of required runs. For each run, find a vacant time slot on one of the event days in the appropriate arena. A time slot is vacant if no other competitor is scheduled in that arena at that time on that day, AND the competitor is not scheduled in any other arena at that same time on that day.
+4.  **Create Schedule Entries:** Once a valid slot is found, create the schedule entry object. Ensure the \`endTime\` is 30 minutes after the \`startTime\`.
+5.  **Verify Completeness:** Before outputting the final JSON, double-check that every single required run you identified in step 1 has been successfully scheduled. If not, repeat the process to find slots for the remaining runs. You must not finish until all competitors are fully scheduled.
 
 **Inputs:**
 -   **Competitors:** A list of all competitors, including their ID and specialties.
