@@ -458,10 +458,9 @@ export default function SchedulePage() {
             return;
         }
         
-        // Prevent dropping onto the original slot if it's a move
         const originalEvent = draggedScheduleId ? schedule.find(s => s.id === draggedScheduleId) : null;
         if (originalEvent && originalEvent.arenaId === arenaId && originalEvent.startTime === startTime && originalEvent.date === date) {
-            return;
+            return; // Dropped on the same slot, do nothing
         }
 
         const conflict = schedule.find(event => event.id !== draggedScheduleId && event.arenaId === arenaId && event.startTime === startTime && event.date === date);
@@ -501,15 +500,16 @@ export default function SchedulePage() {
                 // This is a move
                 const scheduleRef = doc(db, `events/${eventId}/schedule`, draggedScheduleId);
                 await updateDoc(scheduleRef, newScheduleData);
-                toast({ title: 'Moved!', description: `${competitor.dogName} moved to ${targetArena.name} at ${startTime} on ${format(new Date(date.replace(/-/g, '/')), 'MMM dd')}.`});
+                toast({ title: 'Moved!', description: `${competitor.dogName} moved to ${targetArena.name} at ${startTime} on ${format(parse(date, 'yyyy-MM-dd', new Date()), 'MMM dd')}.`});
 
             } else {
                 // This is a new placement
                 const scheduleRef = doc(collection(db, `events/${eventId}/schedule`));
                 await setDoc(scheduleRef, { ...newScheduleData, id: scheduleRef.id });
-                toast({ title: 'Scheduled!', description: `${competitor.dogName} scheduled in ${targetArena.name} at ${startTime} on ${format(new Date(date.replace(/-/g, '/')), 'MMM dd')}.`});
+                toast({ title: 'Scheduled!', description: `${competitor.dogName} scheduled in ${targetArena.name} at ${startTime} on ${format(parse(date, 'yyyy-MM-dd', new Date()), 'MMM dd')}.`});
             }
         } catch (error) {
+             console.error("Error saving schedule:", error);
              toast({ variant: 'destructive', title: 'Error', description: 'Could not save schedule entry.' });
         }
     };
