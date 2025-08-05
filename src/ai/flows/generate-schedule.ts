@@ -34,7 +34,7 @@ const ArenaSchema = z.object({
   ]),
 });
 
-export const GenerateScheduleInputSchema = z.object({
+const GenerateScheduleInputSchema = z.object({
   competitors: z.array(CompetitorSchema),
   arenas: z.array(ArenaSchema),
   eventDays: z
@@ -44,7 +44,7 @@ export const GenerateScheduleInputSchema = z.object({
     .array(z.string())
     .describe("An array of available time slots in 'HH:mm' format."),
 });
-export type GenerateScheduleInput = z.infer<typeof GenerateScheduleInputSchema>;
+type GenerateScheduleInput = z.infer<typeof GenerateScheduleInputSchema>;
 
 const ScheduledRunSchema = z.object({
   competitorId: z.string(),
@@ -54,10 +54,10 @@ const ScheduledRunSchema = z.object({
   date: z.string().describe("The date of the run in 'YYYY-MM-DD' format."),
 });
 
-export const GenerateScheduleOutputSchema = z.object({
+const GenerateScheduleOutputSchema = z.object({
   schedule: z.array(ScheduledRunSchema),
 });
-export type GenerateScheduleOutput = z.infer<
+type GenerateScheduleOutput = z.infer<
   typeof GenerateScheduleOutputSchema
 >;
 
