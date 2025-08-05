@@ -2,8 +2,7 @@
 "use client";
 
 import { useState, useRef } from 'react';
-import Papa from 'papaparse';
-import { Upload, Loader2, FileCheck2, AlertTriangle, Users } from 'lucide-react';
+import { Upload, Loader2, FileCheck2, AlertTriangle, Users, Wand2 } from 'lucide-react';
 import { collection, writeBatch } from 'firebase/firestore';
 
 import {
@@ -20,13 +19,21 @@ import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { Progress } from './ui/progress';
 import { SidebarMenuButton } from './ui/sidebar';
+import { processCompetitorCsv } from '@/ai/flows/process-competitor-csv';
 
 interface CompetitorImportDialogProps {
   eventId: string;
 }
 
+interface ParsedCompetitor {
+    name: string;
+    dogName: string;
+    agency: string;
+}
+
 enum ImportStep {
   SelectFile,
+  Processing,
   Confirming,
   Uploading,
   Complete,
@@ -37,7 +44,7 @@ export function CompetitorImportDialog({ eventId }: CompetitorImportDialogProps)
   const [isOpen, setIsOpen] = useState(false);
   const [step, setStep] = useState<ImportStep>(ImportStep.SelectFile);
   const [fileName, setFileName] = useState('');
-  const [parsedData, setParsedData] = useState<any[]>([]);
+  const [parsedData, setParsedData] = useState<ParsedCompetitor[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -61,40 +68,44 @@ export function CompetitorImportDialog({ eventId }: CompetitorImportDialogProps)
     resetState();
     setFileName(file.name);
 
-    if (file.type !== 'text/csv') {
+    if (file.type !== 'text/csv' && !file.name.endsWith('.csv')) {
       setError('Invalid file type. Please upload a CSV file.');
       setStep(ImportStep.Error);
       return;
     }
+    
+    setStep(ImportStep.Processing);
 
-    Papa.parse(file, {
-      header: true,
-      skipEmptyLines: true,
-      complete: (results) => {
-        if (results.errors.length) {
-          setError(`Error parsing CSV: ${results.errors[0].message}`);
-          setStep(ImportStep.Error);
-          return;
-        }
-        
-        const requiredHeaders = ['name', 'dogName', 'agency'];
-        const headers = Object.keys(results.data[0] || {});
-        const missingHeaders = requiredHeaders.filter(h => !headers.includes(h));
-
-        if(missingHeaders.length > 0) {
-            setError(`Missing required columns in CSV: ${missingHeaders.join(', ')}. The header must be lowercase.`);
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+        const csvData = e.target?.result as string;
+        if (!csvData) {
+            setError('Could not read file content.');
             setStep(ImportStep.Error);
             return;
         }
 
-        setParsedData(results.data);
-        setStep(ImportStep.Confirming);
-      },
-      error: () => {
-        setError('Failed to parse the CSV file.');
+        try {
+            const result = await processCompetitorCsv({ csvData });
+            if (!result || !result.competitors || result.competitors.length === 0) {
+                 setError('The AI could not identify any competitor data in the file. Please check the file content and column headers.');
+                 setStep(ImportStep.Error);
+                 return;
+            }
+            setParsedData(result.competitors);
+            setStep(ImportStep.Confirming);
+
+        } catch (aiError: any) {
+            console.error("AI processing error:", aiError);
+            setError(`An AI error occurred while processing the file: ${aiError.message || 'Unknown error'}. Please ensure the file is a valid CSV.`);
+            setStep(ImportStep.Error);
+        }
+    };
+    reader.onerror = () => {
+        setError('Failed to read the file.');
         setStep(ImportStep.Error);
-      },
-    });
+    }
+    reader.readAsText(file);
   };
 
   const handleImport = async () => {
@@ -113,6 +124,7 @@ export function CompetitorImportDialog({ eventId }: CompetitorImportDialogProps)
             agency: row.agency || '',
             createdAt: new Date(),
         });
+        // This state update can be slow for large lists, but fine for now
         setUploadProgress(((index + 1) / parsedData.length) * 100);
       });
 
@@ -150,22 +162,33 @@ export function CompetitorImportDialog({ eventId }: CompetitorImportDialogProps)
           <div className="text-center">
             <Upload className="mx-auto h-12 w-12 text-muted-foreground" />
             <p className="mt-4 text-sm text-muted-foreground">Drag & drop your CSV file here or click to browse.</p>
-            <p className="mt-1 text-xs text-muted-foreground">Required columns: name, dogName, agency</p>
+             <p className="mt-1 text-xs text-muted-foreground flex items-center justify-center gap-1.5"><Wand2 className="h-3 w-3 text-primary" /> AI will automatically map columns.</p>
           </div>
         );
+      case ImportStep.Processing:
+        return (
+            <div className="text-center">
+                <Loader2 className="mx-auto h-12 w-12 animate-spin text-primary" />
+                <p className="mt-4 font-medium">AI is processing your file...</p>
+                <p className="text-sm text-muted-foreground">This may take a moment.</p>
+            </div>
+        )
       case ImportStep.Confirming:
         return (
           <div>
-            <div className="flex items-center gap-3 bg-muted/50 p-3 rounded-lg">
-              <FileCheck2 className="h-6 w-6 text-green-500" />
+            <div className="flex items-center gap-3 bg-muted/50 p-3 rounded-lg mb-4">
+              <FileCheck2 className="h-6 w-6 text-green-500 shrink-0" />
               <div>
-                <p className="font-medium">{fileName}</p>
+                <p className="font-medium truncate">{fileName}</p>
                 <p className="text-sm text-muted-foreground">
                   Found {parsedData.length} competitors. Ready to import.
                 </p>
               </div>
             </div>
-            {/* You could show a preview of the data here if desired */}
+             <div className="max-h-40 overflow-y-auto text-xs border rounded-md p-2 bg-background">
+                <pre>{JSON.stringify(parsedData.slice(0, 5), null, 2)}</pre>
+                {parsedData.length > 5 && <p className="text-center text-muted-foreground mt-2">...and {parsedData.length - 5} more rows.</p>}
+            </div>
           </div>
         );
       case ImportStep.Uploading:
@@ -190,7 +213,7 @@ export function CompetitorImportDialog({ eventId }: CompetitorImportDialogProps)
           <div className="text-center">
             <AlertTriangle className="mx-auto h-12 w-12 text-destructive" />
             <p className="mt-4 font-medium">Import Failed</p>
-            <p className="text-sm text-destructive mt-1">{error}</p>
+            <p className="text-sm text-destructive mt-1 max-w-full break-words p-2">{error}</p>
           </div>
         );
     }
@@ -199,37 +222,38 @@ export function CompetitorImportDialog({ eventId }: CompetitorImportDialogProps)
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <SidebarMenuButton variant="ghost" className="justify-start w-full" disabled={!eventId}>
+        <SidebarMenuButton variant="ghost" className="justify-start w-full" disabled={!eventId} tooltip={{children: "Import Competitors", side: "right"}}>
             <Users className="h-5 w-5" />
-            <span>Import Competitors</span>
+            <span className="group-data-[collapsible=icon]:hidden">Import Competitors</span>
         </SidebarMenuButton>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Bulk Import Competitors</DialogTitle>
           <DialogDescription>
-            Upload a CSV file with competitor data. The file must contain 'name', 'dogName', and 'agency' columns.
+            Upload a CSV file with competitor data. The AI will attempt to map columns automatically.
           </DialogDescription>
         </DialogHeader>
         <div 
-          className="relative flex items-center justify-center w-full h-48 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50 transition-colors"
-          onClick={() => fileInputRef.current?.click()}
+          className="relative flex items-center justify-center w-full h-56 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50 transition-colors p-4"
+          onClick={() => step !== ImportStep.Processing && step !== ImportStep.Uploading && fileInputRef.current?.click()}
         >
           {renderContent()}
           <input
             ref={fileInputRef}
             type="file"
-            accept=".csv"
+            accept=".csv,text/csv"
             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
             onChange={handleFileChange}
-            disabled={step === ImportStep.Uploading}
+            disabled={step === ImportStep.Uploading || step === ImportStep.Processing}
           />
         </div>
         <DialogFooter>
           {step === ImportStep.SelectFile && <Button variant="outline" onClick={() => setIsOpen(false)}>Cancel</Button>}
+           {step === ImportStep.Processing && <Button variant="outline" disabled>Processing...</Button>}
           {step === ImportStep.Confirming && (
             <>
-              <Button variant="outline" onClick={resetState}>Choose another file</Button>
+              <Button variant="outline" onClick={resetState}>Cancel</Button>
               <Button onClick={handleImport}>Import {parsedData.length} Competitors</Button>
             </>
           )}
