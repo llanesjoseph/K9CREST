@@ -27,6 +27,7 @@ import {
   SidebarMenuButton,
   SidebarFooter,
   SidebarGroup,
+  SidebarRail,
 } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -98,11 +99,14 @@ export function AppSidebar() {
   const menuItems = menuConfig[role] || menuConfig.spectator;
 
   return (
-    <Sidebar>
+    <Sidebar collapsible="icon">
+      <SidebarRail />
       <SidebarHeader>
         <div className="flex items-center gap-2">
-          <Dog className="w-6 h-6 text-primary" />
-          <h1 className="text-lg font-semibold">K9 Trial Pro</h1>
+          <Button variant="ghost" size="icon" className="shrink-0 h-8 w-8">
+            <Dog className="w-5 h-5 text-primary" />
+          </Button>
+          <h1 className="text-lg font-semibold group-data-[collapsible=icon]:hidden">K9 Trial Pro</h1>
         </div>
       </SidebarHeader>
       <SidebarContent className="p-0">
@@ -131,7 +135,7 @@ export function AppSidebar() {
                     >
                         <Link href={item.href}>
                         <item.icon className="h-5 w-5" />
-                        <span>{item.label}</span>
+                        <span className="group-data-[collapsible=icon]:hidden">{item.label}</span>
                         </Link>
                     </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -139,7 +143,7 @@ export function AppSidebar() {
           })}
         </SidebarMenu>
         {isTrueAdmin && (
-            <SidebarGroup className="pt-4">
+            <SidebarGroup className="pt-4 group-data-[collapsible=icon]:hidden">
                 <div className="px-2 pt-4">
                     <Label className="flex items-center gap-2 text-xs text-sidebar-foreground/70 mb-2">
                         <Eye className="h-4 w-4" />
@@ -163,17 +167,17 @@ export function AppSidebar() {
       <SidebarFooter className="flex flex-col gap-4 p-2 mt-auto">
         <Separator />
         <Link href="/dashboard/settings" className="flex items-center gap-3 hover:bg-muted/50 rounded-md p-2 transition-colors">
-          <Avatar>
+          <Avatar className="group-data-[collapsible=icon]:h-8 group-data-[collapsible=icon]:w-8">
             <AvatarImage src={user?.photoURL || `https://placehold.co/40x40`} />
             <AvatarFallback>{user?.email?.[0].toUpperCase() || 'U'}</AvatarFallback>
           </Avatar>
-          <div className="flex flex-col flex-grow overflow-hidden">
+          <div className="flex flex-col flex-grow overflow-hidden group-data-[collapsible=icon]:hidden">
             <span className="text-sm font-medium truncate">{user?.displayName || user?.email || "User"}</span>
             <span className="text-xs text-muted-foreground truncate">
               {role.charAt(0).toUpperCase() + role.slice(1)} {viewAsRole && isTrueAdmin ? `(Viewing as ${viewAsRole.charAt(0).toUpperCase() + viewAsRole.slice(1)})` : ''}
             </span>
           </div>
-           <Button variant="ghost" size="icon" onClick={handleSignOut} className="shrink-0">
+           <Button variant="ghost" size="icon" onClick={handleSignOut} className="shrink-0 group-data-[collapsible=icon]:hidden">
              <LogOut className="h-4 w-4" />
            </Button>
         </Link>
@@ -181,3 +185,5 @@ export function AppSidebar() {
     </Sidebar>
   );
 }
+
+    
