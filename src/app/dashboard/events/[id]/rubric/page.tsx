@@ -1,10 +1,11 @@
+
 "use client";
 
 import { useFieldArray, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import Link from "next/link";
-import { PlusCircle, Trash2, ChevronLeft, GripVertical } from "lucide-react";
+import { PlusCircle, Trash2, ChevronLeft, GripVertical, CheckCircle, XCircle } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -251,13 +252,18 @@ function ExerciseItem({ control, phaseIndex, exerciseIndex, remove }: { control:
                     />
                 )}
                 {showPassFail && (
-                    <FormItem className="w-full">
+                     <FormItem className="w-full">
                         <FormLabel>Score Input</FormLabel>
                         <FormControl>
-                             <div className="flex items-center justify-start gap-2 h-10 border border-input bg-background rounded-md px-3">
-                                <Label htmlFor={`switch-preview-${phaseIndex}-${exerciseIndex}`} className="text-muted-foreground">Fail</Label>
-                                <Switch id={`switch-preview-${phaseIndex}-${exerciseIndex}`} disabled />
-                                <Label htmlFor={`switch-preview-${phaseIndex}-${exerciseIndex}`} className="text-muted-foreground">Pass</Label>
+                            <div className="flex items-center justify-start gap-4 h-10 border border-input bg-background rounded-md px-3">
+                               <div className="flex items-center gap-2 text-muted-foreground">
+                                    <XCircle className="h-4 w-4 text-destructive" />
+                                    <span>Fail</span>
+                               </div>
+                               <div className="flex items-center gap-2 text-muted-foreground">
+                                    <CheckCircle className="h-4 w-4 text-green-500" />
+                                    <span>Pass</span>
+                               </div>
                             </div>
                         </FormControl>
                     </FormItem>
