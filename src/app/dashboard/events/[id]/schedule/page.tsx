@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from 'react';
-import { collection, onSnapshot, doc, setDoc, deleteDoc, writeBatch, query, getDocs } from 'firebase/firestore';
+import { collection, onSnapshot, doc, setDoc, deleteDoc, writeBatch, query, getDocs, getDoc, Timestamp } from 'firebase/firestore';
 import { generateTimeSlots } from '@/lib/schedule-helpers';
 import { Trash2, GripVertical, AlertTriangle, PlusCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -13,6 +13,7 @@ import { useAuth } from '@/components/auth-provider';
 import { db } from '@/lib/firebase';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
+import { eachDayOfInterval, format } from 'date-fns';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -30,6 +31,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useParams } from 'next/navigation';
 
 
@@ -61,6 +63,13 @@ interface ScheduledEvent {
     arenaId: string;
     startTime: string;
     endTime: string;
+    date: string; // YYYY-MM-DD format
+}
+
+interface EventDetails {
+    name: string;
+    startDate: Timestamp;
+    endDate?: Timestamp;
 }
 
 // --- CompetitorItem Component ---
@@ -184,7 +193,12 @@ export default function SchedulePage() {
     const [competitors, setCompetitors] = useState<Competitor[]>([]);
     const [arenas, setArenas] = useState<Arena[]>([]);
     const [schedule, setSchedule] = useState<ScheduledEvent[]>([]);
-    const [loading, setLoading] = useState({ arenas: true, schedule: true, competitors: true });
+    const [eventDetails, setEventDetails] = useState<EventDetails | null>(null);
+    const [loading, setLoading] = useState({ event: true, arenas: true, schedule: true, competitors: true });
+    
+    const [eventDays, setEventDays] = useState<Date[]>([]);
+    const [selectedDate, setSelectedDate] = useState<string>('');
+
 
     const [newArenaName, setNewArenaName] = useState('');
     const [newArenaSpecialty, setNewArenaSpecialty] = useState<ArenaSpecialty>('Any');
@@ -194,6 +208,34 @@ export default function SchedulePage() {
     // --- Firestore Data Fetching ---
     useEffect(() => {
         if (!eventId) return;
+
+        const fetchEventDetails = async () => {
+             try {
+                const eventRef = doc(db, 'events', eventId);
+                const eventSnap = await getDoc(eventRef);
+                if (eventSnap.exists()) {
+                    const data = eventSnap.data() as EventDetails;
+                    setEventDetails(data);
+                    
+                    const start = data.startDate.toDate();
+                    const end = data.endDate?.toDate() || start;
+                    const days = eachDayOfInterval({ start, end });
+                    setEventDays(days);
+                    if (days.length > 0) {
+                        setSelectedDate(format(days[0], 'yyyy-MM-dd'));
+                    }
+
+                } else {
+                    toast({ variant: 'destructive', title: 'Error', description: 'Event not found.' });
+                }
+            } catch (error) {
+                 toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch event details.' });
+            } finally {
+                setLoading(prev => ({...prev, event: false}));
+            }
+        };
+        fetchEventDetails();
+
 
         const arenasUnsub = onSnapshot(collection(db, `events/${eventId}/arenas`), (snapshot) => {
             const arenasData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Arena));
@@ -213,7 +255,6 @@ export default function SchedulePage() {
             setLoading(prev => ({...prev, schedule: false}));
         });
         
-        // Mock specialties until they are in the database
         const mockSpecialties: { [key: string]: Specialty[] } = {
           'user1': [{ type: 'Bite Work' }],
           'user2': [{ type: 'Detection', detectionType: 'Narcotics' }],
@@ -243,7 +284,7 @@ export default function SchedulePage() {
             competitorsUnsub();
         };
 
-    }, [eventId]);
+    }, [eventId, toast]);
 
     // --- Functions ---
     const addArena = async () => {
@@ -300,13 +341,13 @@ export default function SchedulePage() {
             return;
         }
         
-        const conflict = schedule.find(event => event.arenaId === arenaId && event.startTime === startTime);
+        const conflict = schedule.find(event => event.arenaId === arenaId && event.startTime === startTime && event.date === selectedDate);
         if (conflict) {
             toast({ variant: 'destructive', title: 'Error', description: 'Time slot already occupied!' });
             return;
         }
         
-        const personalConflict = schedule.find(event => event.competitorId === competitorId && event.startTime === startTime);
+        const personalConflict = schedule.find(event => event.competitorId === competitorId && event.startTime === startTime && event.date === selectedDate);
         if (personalConflict) {
             const conflictingArena = arenas.find(a => a.id === personalConflict.arenaId);
             toast({ variant: 'destructive', title: 'Error', description: `${competitor.dogName} is already scheduled in ${conflictingArena?.name || 'another arena'} at this time.` });
@@ -331,11 +372,11 @@ export default function SchedulePage() {
         const endTime = new Date(new Date(`2000/01/01 ${startTime}`).getTime() + 30 * 60 * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
         
         const scheduleRef = doc(collection(db, `events/${eventId}/schedule`));
-        const newScheduleEntry = { id: scheduleRef.id, competitorId, arenaId, startTime, endTime };
+        const newScheduleEntry = { id: scheduleRef.id, competitorId, arenaId, startTime, endTime, date: selectedDate };
         
         try {
             await setDoc(scheduleRef, newScheduleEntry);
-            toast({ title: 'Scheduled!', description: `${competitor.dogName} scheduled in ${targetArena.name} at ${startTime}.`});
+            toast({ title: 'Scheduled!', description: `${competitor.dogName} scheduled in ${targetArena.name} at ${startTime} on ${format(new Date(selectedDate), 'MMM dd')}.`});
         } catch (error) {
              toast({ variant: 'destructive', title: 'Error', description: 'Could not save schedule entry.' });
         }
@@ -355,9 +396,10 @@ export default function SchedulePage() {
         window.print();
     };
     
-    const unscheduledCompetitors = competitors.filter(c => !schedule.some(s => s.competitorId === c.id))
+    const scheduledToday = schedule.filter(s => s.date === selectedDate).map(s => s.competitorId);
+    const unscheduledCompetitors = competitors.filter(c => !scheduledToday.includes(c.id))
 
-    const isFullyLoading = loading.arenas || loading.schedule || loading.competitors;
+    const isFullyLoading = loading.arenas || loading.schedule || loading.competitors || loading.event;
 
     // --- Render ---
     return (
@@ -379,7 +421,7 @@ export default function SchedulePage() {
                 <Card className="w-full lg:w-1/3 xl:w-1/4 print-hide flex flex-col">
                     <CardHeader>
                         <CardTitle>Unscheduled Competitors</CardTitle>
-                         <CardDescription>{unscheduledCompetitors.length} remaining</CardDescription>
+                         <CardDescription>{unscheduledCompetitors.length} remaining for {format(new Date(selectedDate), 'EEEE, MMM dd')}</CardDescription>
                     </CardHeader>
                     <CardContent className="flex-grow overflow-y-auto">
                         {loading.competitors ? (
@@ -403,7 +445,7 @@ export default function SchedulePage() {
                                     </div>
                                 ) : (
                                     <div className="text-center text-muted-foreground p-8 border border-dashed rounded-md h-full flex items-center justify-center">
-                                        <p>All competitors have been scheduled.</p>
+                                        <p>All competitors have been scheduled for this day.</p>
                                     </div>
                                 )}
                              </>
@@ -447,12 +489,12 @@ export default function SchedulePage() {
                     )}
                     
                     <Card className="flex-grow print-expand">
-                         <CardHeader className="flex flex-row items-center justify-between print-hide">
+                        <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 print-hide">
                             <div>
-                                <CardTitle>Event Schedule</CardTitle>
-                                <CardDescription>Drag and drop competitors to build the schedule.</CardDescription>
+                                <CardTitle>Event Schedule: {eventDetails?.name || <Skeleton className="h-6 w-48 inline-block" />}</CardTitle>
+                                <CardDescription>Drag and drop competitors to build the schedule for each day.</CardDescription>
                             </div>
-                             <Button onClick={handlePrint} variant="outline">
+                            <Button onClick={handlePrint} variant="outline" className="w-full sm:w-auto">
                                 Print Schedule
                             </Button>
                         </CardHeader>
@@ -464,79 +506,99 @@ export default function SchedulePage() {
                                         <Skeleton className="h-24 w-full" />
                                         <Skeleton className="h-24 w-full" />
                                     </div>
-                                ) : arenas.length === 0 ? (
-                                     <div className="text-center text-muted-foreground py-12 border-2 border-dashed rounded-lg h-96 flex flex-col justify-center items-center">
+                                ) : eventDays.length === 0 ? (
+                                    <div className="text-center text-muted-foreground py-12 border-2 border-dashed rounded-lg h-96 flex flex-col justify-center items-center">
                                         <AlertTriangle className="mx-auto h-8 w-8 text-muted-foreground" />
-                                        <p className="mt-4 font-semibold">No Arenas Found</p>
-                                        {isAdmin ? (
-                                            <p>Use the 'Manage Arenas' section above to create one.</p>
-                                        ) : (
-                                            <p>The event administrator has not set up any arenas yet.</p>
-                                        )}
+                                        <p className="mt-4 font-semibold">Event Dates Not Set</p>
+                                        <p>The start and end dates for this event have not been configured.</p>
                                     </div>
                                 ) : (
-                                    <div className="grid gap-2 min-w-max">
-                                        {/* Header Row: Time Slots */}
-                                        <div className="grid grid-flow-col auto-cols-fr gap-2 border-b-2 pb-2 sticky top-0 bg-card z-10 print-no-bg">
-                                            <div className="w-32 font-semibold text-muted-foreground">Arenas / Time</div>
-                                            {timeSlots.map(time => (
-                                                <div key={time} className="w-32 text-center font-semibold text-muted-foreground">{time}</div>
-                                            ))}
-                                        </div>
-
-                                        {/* Arena Rows */}
-                                        {arenas.map(arena => (
-                                            <div key={arena.id} className="grid grid-flow-col auto-cols-fr gap-2 items-center border-b py-2 print-break-inside-avoid">
-                                                <div className="w-32 font-medium text-card-foreground flex items-center pr-2">
-                                                    <div className="flex-grow">
-                                                        <span>{arena.name}</span>
-                                                        <span className="text-xs text-muted-foreground block">({arena.specialtyType})</span>
-                                                    </div>
-                                                    {isAdmin && (
-                                                        <AlertDialog>
-                                                            <Tooltip>
-                                                                <TooltipTrigger asChild>
-                                                                    <AlertDialogTrigger asChild>
-                                                                        <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive text-sm print-hide h-8 w-8">
-                                                                            <Trash2 className="h-4 w-4" />
-                                                                        </Button>
-                                                                    </AlertDialogTrigger>
-                                                                </TooltipTrigger>
-                                                                <TooltipContent>
-                                                                    <p>Remove Arena</p>
-                                                                </TooltipContent>
-                                                            </Tooltip>
-                                                             <AlertDialogContent>
-                                                                <AlertDialogHeader>
-                                                                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                                                                    <AlertDialogDescription>
-                                                                        This will remove the arena "{arena.name}" and all of its scheduled runs. This action cannot be undone.
-                                                                    </AlertDialogDescription>
-                                                                </AlertDialogHeader>
-                                                                <AlertDialogFooter>
-                                                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                                                    <AlertDialogAction onClick={() => removeArena(arena)}>Delete</AlertDialogAction>
-                                                                </AlertDialogFooter>
-                                                            </AlertDialogContent>
-                                                        </AlertDialog>
-                                                    )}
-                                                </div>
-                                                {timeSlots.map(time => (
-                                                    <TimeSlot
-                                                        key={`${arena.id}-${time}`}
-                                                        arenaId={arena.id}
-                                                        startTime={time}
-                                                        onDrop={handleDrop}
-                                                        scheduledEvent={schedule.find(event => event.arenaId === arena.id && event.startTime === time)}
-                                                        competitors={competitors}
-                                                        removeScheduledEvent={removeScheduledEvent}
-                                                        isDraggable={isAdmin}
-                                                        
-                                                    />
-                                                ))}
-                                            </div>
+                                <Tabs value={selectedDate} onValueChange={setSelectedDate}>
+                                    <TabsList>
+                                        {eventDays.map(day => (
+                                            <TabsTrigger key={day.toISOString()} value={format(day, 'yyyy-MM-dd')}>
+                                                {format(day, 'EEE, MMM dd')}
+                                            </TabsTrigger>
                                         ))}
-                                    </div>
+                                    </TabsList>
+                                    {eventDays.map(day => (
+                                         <TabsContent key={day.toISOString()} value={format(day, 'yyyy-MM-dd')}>
+                                              {arenas.length === 0 ? (
+                                                    <div className="text-center text-muted-foreground py-12 border-2 border-dashed rounded-lg h-96 flex flex-col justify-center items-center mt-4">
+                                                        <AlertTriangle className="mx-auto h-8 w-8 text-muted-foreground" />
+                                                        <p className="mt-4 font-semibold">No Arenas Found</p>
+                                                        {isAdmin ? (
+                                                            <p>Use the 'Manage Arenas' section above to create one.</p>
+                                                        ) : (
+                                                            <p>The event administrator has not set up any arenas yet.</p>
+                                                        )}
+                                                    </div>
+                                                ) : (
+                                                    <div className="grid gap-2 min-w-max pt-4">
+                                                        {/* Header Row: Time Slots */}
+                                                        <div className="grid grid-flow-col auto-cols-fr gap-2 border-b-2 pb-2 sticky top-0 bg-card z-10 print-no-bg">
+                                                            <div className="w-32 font-semibold text-muted-foreground">Arenas / Time</div>
+                                                            {timeSlots.map(time => (
+                                                                <div key={time} className="w-32 text-center font-semibold text-muted-foreground">{time}</div>
+                                                            ))}
+                                                        </div>
+
+                                                        {/* Arena Rows */}
+                                                        {arenas.map(arena => (
+                                                            <div key={arena.id} className="grid grid-flow-col auto-cols-fr gap-2 items-center border-b py-2 print-break-inside-avoid">
+                                                                <div className="w-32 font-medium text-card-foreground flex items-center pr-2">
+                                                                    <div className="flex-grow">
+                                                                        <span>{arena.name}</span>
+                                                                        <span className="text-xs text-muted-foreground block">({arena.specialtyType})</span>
+                                                                    </div>
+                                                                    {isAdmin && (
+                                                                        <AlertDialog>
+                                                                            <Tooltip>
+                                                                                <TooltipTrigger asChild>
+                                                                                    <AlertDialogTrigger asChild>
+                                                                                        <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive text-sm print-hide h-8 w-8">
+                                                                                            <Trash2 className="h-4 w-4" />
+                                                                                        </Button>
+                                                                                    </AlertDialogTrigger>
+                                                                                </TooltipTrigger>
+                                                                                <TooltipContent>
+                                                                                    <p>Remove Arena</p>
+                                                                                </TooltipContent>
+                                                                            </Tooltip>
+                                                                            <AlertDialogContent>
+                                                                                <AlertDialogHeader>
+                                                                                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                                                                    <AlertDialogDescription>
+                                                                                        This will remove the arena "{arena.name}" and all of its scheduled runs. This action cannot be undone.
+                                                                                    </AlertDialogDescription>
+                                                                                </AlertDialogHeader>
+                                                                                <AlertDialogFooter>
+                                                                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                                                    <AlertDialogAction onClick={() => removeArena(arena)}>Delete</AlertDialogAction>
+                                                                                </AlertDialogFooter>
+                                                                            </AlertDialogContent>
+                                                                        </AlertDialog>
+                                                                    )}
+                                                                </div>
+                                                                {timeSlots.map(time => (
+                                                                    <TimeSlot
+                                                                        key={`${arena.id}-${time}`}
+                                                                        arenaId={arena.id}
+                                                                        startTime={time}
+                                                                        onDrop={handleDrop}
+                                                                        scheduledEvent={schedule.find(event => event.arenaId === arena.id && event.startTime === time && event.date === format(day, 'yyyy-MM-dd'))}
+                                                                        competitors={competitors}
+                                                                        removeScheduledEvent={removeScheduledEvent}
+                                                                        isDraggable={isAdmin}
+                                                                    />
+                                                                ))}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                        </TabsContent>
+                                    ))}
+                                </Tabs>
                                 )}
                             </div>
                         </CardContent>
