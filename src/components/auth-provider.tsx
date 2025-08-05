@@ -7,20 +7,30 @@ import { auth } from '@/lib/firebase';
 import { useRouter, usePathname } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 
-// Simple list of admin emails for role checking
-const ADMIN_EMAILS = ['admin@example.com', 'super@user.com', 'llanes.joseph.m@gmail.com']; // Add admin emails here
+export type UserRole = 'admin' | 'judge' | 'competitor' | 'spectator';
+
+// Simple list of emails for role checking
+const USER_ROLES: { [email: string]: UserRole } = {
+  'admin@example.com': 'admin',
+  'super@user.com': 'admin',
+  'llanes.joseph.m@gmail.com': 'admin',
+  'judge@example.com': 'judge',
+  'competitor@example.com': 'competitor',
+};
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
+  role: UserRole;
   isAdmin: boolean;
 }
 
-const AuthContext = createContext<AuthContextType>({ user: null, loading: true, isAdmin: false });
+const AuthContext = createContext<AuthContextType>({ user: null, loading: true, role: 'spectator', isAdmin: false });
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [role, setRole] = useState<UserRole>('spectator');
   const [isAdmin, setIsAdmin] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
@@ -28,8 +38,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setUser(user);
-      // Check if the user's email is in the admin list
-      setIsAdmin(user ? ADMIN_EMAILS.includes(user.email || '') : false);
+      const userEmail = user?.email || '';
+      const userRole = USER_ROLES[userEmail] || 'spectator';
+      setRole(userRole);
+      setIsAdmin(userRole === 'admin');
       setLoading(false);
     });
 
@@ -50,7 +62,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     )
   }
 
-  return <AuthContext.Provider value={{ user, loading, isAdmin }}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={{ user, loading, role, isAdmin }}>{children}</AuthContext.Provider>;
 };
 
 export const useAuth = () => {

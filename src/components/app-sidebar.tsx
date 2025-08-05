@@ -36,45 +36,60 @@ import { useAuth } from "@/components/auth-provider";
 import { useRouter, useParams } from "next/navigation";
 import { CompetitorImportDialog } from "./competitor-import-dialog";
 
-const menuItems = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutGrid },
-  { href: "/dashboard/judging/1", label: "Judging", icon: Gavel },
-  { href: "/dashboard/events/1/leaderboard", label: "Leaderboards", icon: Trophy },
-  { href: "/dashboard/users", label: "Users", icon: Users },
-  { href: "/dashboard/settings", label: "Settings", icon: Settings },
-];
-
-
 export function AppSidebar() {
   const pathname = usePathname();
   const params = useParams();
-  const { user, isAdmin } = useAuth();
+  const { user, role, isAdmin } = useAuth();
   const router = useRouter();
   const eventId = params.id as string;
-
-  const adminMenuItems = [
-    { href: "/dashboard/events", label: "Events", icon: Calendar },
-    { href: `/dashboard/events/${eventId}/rubric`, label: "Configure Rubric", icon: ListChecks, eventSpecific: true },
-    { component: CompetitorImportDialog, label: "Import Competitors", icon: FileUp, eventSpecific: true },
-  ]
 
   const handleSignOut = async () => {
     await auth.signOut();
     router.push("/");
   };
 
-
   const isActive = (href: string) => {
     if (!href) return false;
-    if (href === "/dashboard") {
-        return pathname === href;
-    }
-    // For create event, we want to highlight the parent "Events" tab
-    if (pathname.startsWith('/dashboard/events/create') && href === '/dashboard/events') {
-        return true;
-    }
+    if (href === "/dashboard") return pathname === href;
+    if (pathname.startsWith('/dashboard/events/create') && href === '/dashboard/events') return true;
     return pathname.startsWith(href);
   };
+  
+  const menuConfig = {
+    spectator: [
+        { href: "/dashboard", label: "Dashboard", icon: LayoutGrid },
+        { href: "/dashboard/events", label: "Events", icon: Calendar },
+        { href: "/dashboard/events/1/leaderboard", label: "Leaderboards", icon: Trophy },
+        { href: "/dashboard/settings", label: "Settings", icon: Settings },
+    ],
+    competitor: [
+        { href: "/dashboard", label: "Dashboard", icon: LayoutGrid },
+        { href: "/dashboard/events", label: "Events", icon: Calendar },
+        { href: "/dashboard/events/1/leaderboard", label: "Leaderboards", icon: Trophy },
+        { href: "/dashboard/settings", label: "Settings", icon: Settings },
+    ],
+    judge: [
+        { href: "/dashboard", label: "Dashboard", icon: LayoutGrid },
+        { href: "/dashboard/events", label: "Events", icon: Calendar },
+        { href: "/dashboard/judging/1", label: "Judging", icon: Gavel },
+        { href: "/dashboard/settings", label: "Settings", icon: Settings },
+    ],
+    admin: [
+        { href: "/dashboard", label: "Dashboard", icon: LayoutGrid },
+        { href: "/dashboard/judging/1", label: "Judging", icon: Gavel },
+        { href: "/dashboard/events/1/leaderboard", label: "Leaderboards", icon: Trophy },
+        { href: "/dashboard/users", label: "Users", icon: Users },
+        { href: "/dashboard/settings", label: "Settings", icon: Settings },
+    ]
+  }
+
+  const adminMenuItems = [
+    { href: "/dashboard/events", label: "Events", icon: Calendar },
+    { href: `/dashboard/events/${eventId}/rubric`, label: "Configure Rubric", icon: ListChecks, eventSpecific: true },
+    { component: CompetitorImportDialog, label: "Import Competitors", icon: Users, eventSpecific: true },
+  ]
+  
+  const menuItems = menuConfig[role] || menuConfig.spectator;
 
   return (
     <Sidebar>
@@ -117,10 +132,10 @@ export function AppSidebar() {
                     {adminMenuItems.map((item) => {
                         const disabled = item.eventSpecific && !eventId;
                         if (item.component) {
-                             const Comp = item.component
+                            const Comp = item.component
                             return (
                                  <SidebarMenuItem key={item.label}>
-                                    <Comp eventId={eventId} />
+                                     <Comp eventId={eventId} />
                                  </SidebarMenuItem>
                             )
                         }

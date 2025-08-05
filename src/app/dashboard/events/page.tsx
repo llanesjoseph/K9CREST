@@ -26,6 +26,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { db } from "@/lib/firebase";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useAuth } from "@/components/auth-provider";
 
 interface Event {
     id: string;
@@ -39,6 +40,7 @@ interface Event {
 export default function EventsPage() {
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
+  const { isAdmin } = useAuth();
 
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(db, "events"), (snapshot: QuerySnapshot<DocumentData>) => {
@@ -80,12 +82,14 @@ export default function EventsPage() {
             Manage and view all K9 trial events.
           </CardDescription>
         </div>
-        <Button asChild>
-          <Link href="/dashboard/events/create">
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Create Event
-          </Link>
-        </Button>
+        {isAdmin && (
+          <Button asChild>
+            <Link href="/dashboard/events/create">
+              <PlusCircle className="mr-2 h-4 w-4" />
+              Create Event
+            </Link>
+          </Button>
+        )}
       </CardHeader>
       <CardContent>
         <Table>
@@ -108,7 +112,7 @@ export default function EventsPage() {
             ) : events.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={5} className="h-24 text-center">
-                  No events found. <Link href="/dashboard/events/create" className="text-primary underline">Create one</Link> to get started.
+                  No events found. {isAdmin && <Link href="/dashboard/events/create" className="text-primary underline">Create one</Link>}
                 </TableCell>
               </TableRow>
             ) : (
