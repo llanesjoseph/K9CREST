@@ -192,8 +192,8 @@ const TimeSlot = ({
 
     return (
         <div
-            className={`w-32 h-20 border border-dashed rounded-md flex items-center justify-center text-center text-sm transition-all duration-200 ease-in-out relative
-                ${scheduledEvent ? 'bg-green-100 dark:bg-green-900/30 border-green-500/50' : isDraggable ? 'bg-background hover:bg-muted/80' : 'bg-secondary/50'}
+            className={`w-32 h-20 border border-dashed rounded-md flex items-center justify-center text-center text-sm transition-all duration-200 ease-in-out relative print:h-auto print:border-solid print:p-1 print:text-left print:items-start print:rounded-none print:w-auto print:border
+                ${scheduledEvent ? 'bg-green-100 dark:bg-green-900/30 border-green-500/50 print:bg-white' : isDraggable ? 'bg-background hover:bg-muted/80' : 'bg-secondary/50 print:bg-gray-50'}
                 ${isOver ? 'border-primary ring-2 ring-primary' : ''}
                 ${canDragEvent ? 'cursor-grab' : ''}
             `}
@@ -204,15 +204,15 @@ const TimeSlot = ({
             draggable={canDragEvent}
         >
             {scheduledEvent && eventCompetitor ? (
-                <div className="flex flex-col items-center justify-center p-1 group w-full h-full">
-                    <span className="font-bold text-green-800 dark:text-green-300 text-sm">{eventCompetitor.dogName}</span>
-                    <span className="text-xs text-green-700 dark:text-green-400">({eventCompetitor.name})</span>
+                <div className="flex flex-col items-center justify-center p-1 group w-full h-full print:items-start print:p-0">
+                    <span className="font-bold text-green-800 dark:text-green-300 text-sm print:text-black print:text-xs">{eventCompetitor.dogName}</span>
+                    <span className="text-xs text-green-700 dark:text-green-400 print:text-gray-600">({eventCompetitor.name})</span>
                     {isDraggable && (
                          <Button
                             variant="ghost"
                             size="icon"
                             onClick={() => removeScheduledEvent(scheduledEvent.id)}
-                            className="absolute top-0 right-0 h-6 w-6 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity duration-200 print-hide-controls"
+                            className="absolute top-0 right-0 h-6 w-6 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity duration-200 print-hide"
                             title="Remove from schedule"
                         >
                            <X className="h-4 w-4" />
@@ -220,7 +220,7 @@ const TimeSlot = ({
                     )}
                 </div>
             ) : isDraggable ? (
-                <span className="text-muted-foreground text-xs">Drop Here</span>
+                <span className="text-muted-foreground text-xs print-hide">Drop Here</span>
             ) : null}
         </div>
     );
@@ -547,6 +547,9 @@ export default function SchedulePage() {
     };
 
     const handlePrint = () => {
+        if(eventDetails?.name) {
+            document.title = `Event Schedule - ${eventDetails.name}`;
+        }
         window.print();
     };
     
@@ -558,16 +561,33 @@ export default function SchedulePage() {
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 xl:gap-6 h-full min-h-[calc(100vh-theme(spacing.16))]">
                 <style>{`
                     @media print {
-                        body { font-size: 10pt; }
+                        body { font-size: 10pt; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
                         .print-hide { display: none !important; }
+                        .print-show { display: block !important; }
+                        .print-container { position: absolute; left: 0; top: 0; width: 100%; }
                         .print-expand { width: 100% !important; height: auto !important; margin: 0 !important; padding: 0 !important; box-shadow: none !important; border: none !important; }
                         .print-visible { overflow: visible !important; }
                         .print-no-bg { background-color: transparent !important; }
                          h1, h2, h3, h4 { color: #000 !important; }
                         .print-break-inside-avoid { page-break-inside: avoid; }
                         .schedule-grid { margin-bottom: 2rem; }
+                        .print-timeslot-grid { display: grid; grid-template-columns: repeat(${timeSlots.length + 1}, minmax(0, 1fr)); }
+                        .print-arena-row { display: contents; } /* Make this behave like a tr */
+                         .print-cell-header { font-weight: 600; padding: 4px; border: 1px solid #ccc; background-color: #f2f2f2 !important; }
+                        .print-cell-arena { font-weight: 600; padding: 4px; border: 1px solid #ccc; background-color: #f9f9f9 !important; }
                     }
                 `}</style>
+                <div className="hidden print-show mb-8">
+                     {eventDetails && (
+                        <>
+                            <h1 className="text-3xl font-bold">{eventDetails.name}</h1>
+                             <p className="text-lg text-gray-600">
+                                {format(eventDetails.startDate.toDate(), "MMMM d, yyyy")}
+                                {eventDetails.endDate && ` - ${format(eventDetails.endDate.toDate(), "MMMM d, yyyy")}`}
+                            </p>
+                        </>
+                    )}
+                </div>
 
                 {/* Left Panel: Competitor List & Arena Mgmt */}
                  <div className="xl:col-span-1 flex flex-col gap-4 print-hide">
@@ -657,7 +677,7 @@ export default function SchedulePage() {
 
 
                 {/* Right Panel: Scheduler */}
-                <div className="xl:col-span-2 flex flex-col gap-4 print-expand">
+                <div className="xl:col-span-2 flex flex-col gap-4 print-expand print-container">
                     <Card className="flex-grow print-expand">
                         <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 print-hide">
                             <div>
@@ -723,7 +743,7 @@ export default function SchedulePage() {
                                     {eventDays.map(day => {
                                         const formattedDate = format(day, 'yyyy-MM-dd');
                                         return (
-                                            <div key={day.toISOString()} className="schedule-grid">
+                                            <div key={day.toISOString()} className="schedule-grid print-break-inside-avoid">
                                                 <h3 className="text-lg font-semibold mb-3 sticky top-0 bg-card py-2 z-20">{format(day, 'EEEE, MMM dd')}</h3>
                                                 {arenas.length === 0 ? (
                                                     <div className="text-center text-muted-foreground py-12 border-2 border-dashed rounded-lg h-96 flex flex-col justify-center items-center mt-4">
@@ -736,19 +756,19 @@ export default function SchedulePage() {
                                                         )}
                                                     </div>
                                                 ) : (
-                                                    <div className="grid gap-2 min-w-max">
+                                                    <div className="grid gap-2 min-w-max print:block">
                                                         {/* Header Row: Time Slots */}
-                                                        <div className="grid grid-flow-col auto-cols-fr gap-2 border-b-2 pb-2 sticky top-[4.2rem] bg-card z-10 print-no-bg">
-                                                            <div className="w-32 font-semibold text-muted-foreground">Arenas / Time</div>
+                                                        <div className="grid grid-flow-col auto-cols-fr gap-2 border-b-2 pb-2 sticky top-[4.2rem] bg-card z-10 print-no-bg print:print-timeslot-grid">
+                                                            <div className="w-32 font-semibold text-muted-foreground print:print-cell-header">Arenas / Time</div>
                                                             {timeSlots.map(time => (
-                                                                <div key={time} className="w-32 text-center font-semibold text-muted-foreground">{time}</div>
+                                                                <div key={time} className="w-32 text-center font-semibold text-muted-foreground print:print-cell-header">{time}</div>
                                                             ))}
                                                         </div>
 
                                                         {/* Arena Rows */}
                                                         {arenas.map(arena => (
-                                                            <div key={arena.id} className="grid grid-flow-col auto-cols-fr gap-2 items-center border-b py-2 print-break-inside-avoid">
-                                                                <div className="w-32 font-medium text-card-foreground flex items-center pr-2">
+                                                            <div key={arena.id} className="grid grid-flow-col auto-cols-fr gap-2 items-center border-b py-2 print-break-inside-avoid print:print-arena-row">
+                                                                <div className="w-32 font-medium text-card-foreground flex items-center pr-2 print:print-cell-arena">
                                                                     <div className="flex-grow">
                                                                         <span>{arena.name}</span>
                                                                         <span className="text-xs text-muted-foreground block">({arena.specialtyType})</span>
