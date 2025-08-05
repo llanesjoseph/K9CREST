@@ -80,7 +80,7 @@ const prompt = ai.definePrompt({
     -   A "Detection (Narcotics)" specialty requires a run in a "Detection (Narcotics)" arena.
     -   A "Detection (Explosives)" specialty requires a run in a "Detection (Explosives)" arena.
     -   Competitors with multiple specialties must be scheduled for a run in **EACH** corresponding specialty arena. For example, a competitor with "Bite Work" and "Detection (Narcotics)" needs two separate runs.
-    -   Arenas with specialty "Any" are for competitors with **NO** specialties. If a competitor has no specialties, schedule them for one run in an "Any" arena if available.
+    -   Arenas with specialty "Any" can host any competitor, but should be prioritized for competitors with no specialties if any exist.
 3.  **No Double Booking (Critical):**
     -   An arena time slot can only have **ONE** competitor scheduled at a time on a given day.
     -   A competitor **CANNOT** be scheduled in two different arenas at the **SAME** time on the **SAME** day. This is a critical constraint. You must check a competitor's entire schedule for the day before assigning them to a new time slot.
