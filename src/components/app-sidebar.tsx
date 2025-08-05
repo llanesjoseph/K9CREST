@@ -49,7 +49,7 @@ import { Label } from "./ui/label";
 export function AppSidebar() {
   const pathname = usePathname();
   const params = useParams();
-  const { user, role, isAdmin, isTrueAdmin, setViewAsRole, viewAsRole } = useAuth();
+  const { user, role, isTrueAdmin, setViewAsRole, viewAsRole } = useAuth();
   const router = useRouter();
   const eventId = params.id as string;
 
@@ -86,18 +86,15 @@ export function AppSidebar() {
     ],
     admin: [
         { href: "/dashboard", label: "Dashboard", icon: LayoutGrid },
+        { href: "/dashboard/events", label: "Events", icon: Calendar },
         { href: `/dashboard/judging/${eventId || 1}`, label: "Judging", icon: Gavel, eventSpecific: true },
         { href: `/dashboard/events/${eventId || 1}/leaderboard`, label: "Leaderboards", icon: Trophy, eventSpecific: true },
+        { href: `/dashboard/events/${eventId}/rubric`, label: "Configure Rubric", icon: ListChecks, eventSpecific: true },
+        { component: CompetitorImportDialog, label: "Import Competitors", icon: Users, eventSpecific: true },
         { href: "/dashboard/users", label: "Users", icon: Users },
         { href: "/dashboard/settings", label: "Settings", icon: Settings },
     ]
   }
-
-  const adminMenuItems = [
-    { href: "/dashboard/events", label: "Events", icon: Calendar },
-    { href: `/dashboard/events/${eventId}/rubric`, label: "Configure Rubric", icon: ListChecks, eventSpecific: true },
-    { component: CompetitorImportDialog, label: "Import Competitors", icon: Users, eventSpecific: true },
-  ]
   
   const menuItems = menuConfig[role] || menuConfig.spectator;
 
@@ -113,6 +110,14 @@ export function AppSidebar() {
         <SidebarMenu>
           {menuItems.map((item) => {
              const disabled = item.eventSpecific && !eventId;
+             if (item.component) {
+                const Comp = item.component
+                return (
+                     <SidebarMenuItem key={item.label}>
+                        <Comp eventId={eventId} />
+                     </SidebarMenuItem>
+                )
+             }
              return (
                 <SidebarMenuItem key={item.label}>
                     <SidebarMenuButton
@@ -136,43 +141,6 @@ export function AppSidebar() {
         </SidebarMenu>
         {isTrueAdmin && (
             <SidebarGroup className="pt-4">
-                <SidebarGroupLabel className="flex items-center">
-                    <Shield className="mr-2" />
-                    Admin Tools
-                </SidebarGroupLabel>
-                 <SidebarMenu>
-                    {adminMenuItems.map((item) => {
-                        const disabled = item.eventSpecific && !eventId;
-                        if (item.component) {
-                            const Comp = item.component
-                            return (
-                                 <SidebarMenuItem key={item.label}>
-                                     <Comp eventId={eventId} />
-                                 </SidebarMenuItem>
-                            )
-                        }
-                        return (
-                            <SidebarMenuItem key={item.label}>
-                                <SidebarMenuButton
-                                    asChild
-                                    isActive={isActive(item.href)}
-                                    tooltip={{
-                                    children: item.label,
-                                    side: "right",
-                                    }}
-                                    className="justify-start"
-                                    variant="ghost"
-                                    disabled={disabled}
-                                >
-                                    <Link href={item.href}>
-                                    <item.icon className="h-5 w-5" />
-                                    <span>{item.label}</span>
-                                    </Link>
-                                </SidebarMenuButton>
-                            </SidebarMenuItem>
-                        )
-                    })}
-                </SidebarMenu>
                 <div className="px-2 pt-4">
                     <Label className="flex items-center gap-2 text-xs text-sidebar-foreground/70 mb-2">
                         <Eye className="h-4 w-4" />
