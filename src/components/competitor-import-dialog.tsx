@@ -12,7 +12,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -33,7 +32,7 @@ interface ParsedCompetitor {
 }
 
 enum ImportStep {
-  SelectFile,
+  Idle,
   Processing,
   Confirming,
   Uploading,
@@ -43,7 +42,7 @@ enum ImportStep {
 
 export function CompetitorImportDialog({ eventId }: CompetitorImportDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [step, setStep] = useState<ImportStep>(ImportStep.SelectFile);
+  const [step, setStep] = useState<ImportStep>(ImportStep.Idle);
   const [fileName, setFileName] = useState('');
   const [parsedData, setParsedData] = useState<ParsedCompetitor[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -52,7 +51,7 @@ export function CompetitorImportDialog({ eventId }: CompetitorImportDialogProps)
   const { toast } = useToast();
 
   const resetState = () => {
-    setStep(ImportStep.SelectFile);
+    setStep(ImportStep.Idle);
     setFileName('');
     setParsedData([]);
     setError(null);
@@ -61,12 +60,17 @@ export function CompetitorImportDialog({ eventId }: CompetitorImportDialogProps)
         fileInputRef.current.value = "";
     }
   };
+  
+  const handleTriggerClick = () => {
+      resetState();
+      fileInputRef.current?.click();
+  }
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    resetState();
+    setIsOpen(true);
     setFileName(file.name);
 
     if (file.type !== 'text/csv' && !file.name.endsWith('.csv')) {
@@ -125,7 +129,6 @@ export function CompetitorImportDialog({ eventId }: CompetitorImportDialogProps)
             agency: row.agency || '',
             createdAt: new Date(),
         });
-        // This state update can be slow for large lists, but fine for now
         setUploadProgress(((index + 1) / parsedData.length) * 100);
       });
 
@@ -151,24 +154,15 @@ export function CompetitorImportDialog({ eventId }: CompetitorImportDialogProps)
   const handleOpenChange = (open: boolean) => {
       setIsOpen(open);
       if(!open) {
-          // Reset state when closing the dialog
           setTimeout(resetState, 300);
       }
   }
 
   const renderContent = () => {
     switch (step) {
-      case ImportStep.SelectFile:
-        return (
-          <div className="text-center">
-            <Upload className="mx-auto h-12 w-12 text-muted-foreground" />
-            <p className="mt-4 text-sm text-muted-foreground">Drag & drop your CSV file here or click to browse.</p>
-             <p className="mt-1 text-xs text-muted-foreground flex items-center justify-center gap-1.5"><Wand2 className="h-3 w-3 text-primary" /> AI will automatically map columns.</p>
-          </div>
-        );
       case ImportStep.Processing:
         return (
-            <div className="text-center">
+            <div className="flex flex-col items-center justify-center h-full text-center">
                 <Loader2 className="mx-auto h-12 w-12 animate-spin text-primary" />
                 <p className="mt-4 font-medium">AI is processing your file...</p>
                 <p className="text-sm text-muted-foreground">This may take a moment.</p>
@@ -211,7 +205,7 @@ export function CompetitorImportDialog({ eventId }: CompetitorImportDialogProps)
         );
       case ImportStep.Uploading:
         return (
-          <div className="text-center">
+          <div className="flex flex-col items-center justify-center h-full text-center">
             <Loader2 className="mx-auto h-12 w-12 animate-spin text-primary" />
             <p className="mt-4 font-medium">Importing competitors...</p>
             <Progress value={uploadProgress} className="mt-2" />
@@ -220,7 +214,7 @@ export function CompetitorImportDialog({ eventId }: CompetitorImportDialogProps)
         );
       case ImportStep.Complete:
         return (
-           <div className="text-center">
+           <div className="flex flex-col items-center justify-center h-full text-center">
             <FileCheck2 className="mx-auto h-12 w-12 text-green-500" />
             <p className="mt-4 font-medium">Import Complete!</p>
             <p className="text-sm text-muted-foreground">{parsedData.length} competitors were successfully added.</p>
@@ -228,59 +222,63 @@ export function CompetitorImportDialog({ eventId }: CompetitorImportDialogProps)
         );
       case ImportStep.Error:
         return (
-          <div className="text-center">
+          <div className="flex flex-col items-center justify-center h-full text-center">
             <AlertTriangle className="mx-auto h-12 w-12 text-destructive" />
             <p className="mt-4 font-medium">Import Failed</p>
             <p className="text-sm text-destructive mt-1 max-w-full break-words p-2">{error}</p>
           </div>
         );
+      default:
+        return null;
     }
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-      <DialogTrigger asChild>
-        <SidebarMenuButton variant="ghost" className="justify-start w-full" disabled={!eventId} tooltip={{children: "Import Competitors", side: "right"}}>
+    <>
+        <SidebarMenuButton 
+            variant="ghost" 
+            className="justify-start w-full" 
+            disabled={!eventId} 
+            tooltip={{children: "Import Competitors", side: "right"}}
+            onClick={handleTriggerClick}
+        >
             <Users className="h-5 w-5" />
             <span className="group-data-[collapsible=icon]:hidden">Import Competitors</span>
         </SidebarMenuButton>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-lg h-[80vh] flex flex-col">
-        <DialogHeader>
-          <DialogTitle>Bulk Import Competitors</DialogTitle>
-          <DialogDescription>
-            Upload a CSV file with competitor data. The AI will attempt to map columns automatically.
-          </DialogDescription>
-        </DialogHeader>
-        <div 
-          className="relative flex items-center justify-center w-full flex-grow border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50 transition-colors p-4"
-          onClick={() => step !== ImportStep.Processing && step !== ImportStep.Uploading && fileInputRef.current?.click()}
-        >
-          {renderContent()}
-          <input
+        <input
             ref={fileInputRef}
             type="file"
             accept=".csv,text/csv"
-            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+            className="hidden"
             onChange={handleFileChange}
-            disabled={step === ImportStep.Uploading || step === ImportStep.Processing}
           />
-        </div>
-        <DialogFooter>
-          {step === ImportStep.SelectFile && <Button variant="outline" onClick={() => setIsOpen(false)}>Cancel</Button>}
-           {step === ImportStep.Processing && <Button variant="outline" disabled>Processing...</Button>}
-          {step === ImportStep.Confirming && (
-            <>
-              <Button variant="outline" onClick={resetState}>Cancel</Button>
-              <Button onClick={handleImport}>Import {parsedData.length} Competitors</Button>
-            </>
-          )}
-          {step === ImportStep.Error && <Button variant="outline" onClick={resetState}>Try Again</Button>}
-          {step === ImportStep.Complete && <Button onClick={() => setIsOpen(false)}>Done</Button>}
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        <Dialog open={isOpen} onOpenChange={handleOpenChange}>
+          <DialogContent className="sm:max-w-lg h-[80vh] flex flex-col">
+            <DialogHeader>
+              <DialogTitle>Bulk Import Competitors</DialogTitle>
+              <DialogDescription>
+                {step === ImportStep.Confirming 
+                    ? "Review the data parsed by the AI. If it looks correct, proceed with the import."
+                    : "Upload a CSV file with competitor data. The AI will attempt to map columns automatically."
+                }
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex-grow py-4 overflow-hidden">
+                {renderContent()}
+            </div>
+            <DialogFooter>
+              {step === ImportStep.Processing && <Button variant="outline" disabled>Processing...</Button>}
+              {step === ImportStep.Confirming && (
+                <>
+                  <Button variant="outline" onClick={() => setIsOpen(false)}>Cancel</Button>
+                  <Button onClick={handleImport}>Import {parsedData.length} Competitors</Button>
+                </>
+              )}
+              {step === ImportStep.Error && <Button variant="outline" onClick={() => setIsOpen(false)}>Close</Button>}
+              {step === ImportStep.Complete && <Button onClick={() => setIsOpen(false)}>Done</Button>}
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+    </>
   );
 }
-
-    
