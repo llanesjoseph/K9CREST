@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { PlusCircle, Trash2 } from "lucide-react";
+import { PlusCircle, Trash2, MoreVertical } from "lucide-react";
 import { collection, onSnapshot, QuerySnapshot, DocumentData, deleteDoc, doc } from "firebase/firestore";
 import { format } from "date-fns";
 
@@ -39,6 +39,15 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
 
 interface Event {
     id: string;
@@ -158,35 +167,49 @@ export default function EventsPage() {
                   <TableCell>
                     <Badge variant={event.status === 'Completed' ? 'outline' : 'default'}>{event.status}</Badge>
                   </TableCell>
-                  <TableCell className="text-right flex items-center justify-end gap-2">
-                    <Button variant="ghost" size="sm" asChild>
-                      <Link href={`/dashboard/events/${event.id}/schedule`}>View</Link>
-                    </Button>
-                    {isAdmin && (
-                       <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                           <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
-                              <Trash2 className="h-4 w-4" />
-                           </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                            <AlertDialogHeader>
-                                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                    This action cannot be undone. This will permanently delete the event
-                                    <span className="font-bold"> {event.name} </span>
-                                    and all of its associated data, including schedules, rubrics, and scores.
-                                </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => handleDelete(event.id, event.name)}>
-                                    Continue
-                                </AlertDialogAction>
-                            </AlertDialogFooter>
-                        </AlertDialogContent>
+                  <TableCell className="text-right">
+                    <AlertDialog>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon">
+                            <MoreVertical className="h-4 w-4" />
+                            <span className="sr-only">Event Actions</span>
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem asChild>
+                            <Link href={`/dashboard/events/${event.id}/schedule`}>View Details</Link>
+                          </DropdownMenuItem>
+                          {isAdmin && (
+                            <>
+                              <DropdownMenuSeparator />
+                                <AlertDialogTrigger asChild>
+                                  <DropdownMenuItem className="text-destructive focus:text-destructive focus:bg-destructive/10">
+                                      <Trash2 className="mr-2 h-4 w-4" />
+                                      <span>Delete Event</span>
+                                  </DropdownMenuItem>
+                                </AlertDialogTrigger>
+                            </>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                      <AlertDialogContent>
+                          <AlertDialogHeader>
+                              <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                  This action cannot be undone. This will permanently delete the event
+                                  <span className="font-bold"> {event.name} </span>
+                                  and all of its associated data.
+                              </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => handleDelete(event.id, event.name)} className="bg-destructive hover:bg-destructive/90">
+                                  Yes, delete event
+                              </AlertDialogAction>
+                          </AlertDialogFooter>
+                      </AlertDialogContent>
                     </AlertDialog>
-                    )}
                   </TableCell>
                 </TableRow>
               ))
