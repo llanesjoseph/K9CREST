@@ -147,9 +147,7 @@ export function AppSidebar() {
                             const Comp = item.component
                             return (
                                  <SidebarMenuItem key={item.label}>
-                                     <SidebarMenuButton variant="ghost" className="justify-start w-full" disabled={!eventId}>
-                                        <Comp eventId={eventId} />
-                                     </SidebarMenuButton>
+                                     <Comp eventId={eventId} />
                                  </SidebarMenuItem>
                             )
                         }
