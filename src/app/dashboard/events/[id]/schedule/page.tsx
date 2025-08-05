@@ -316,14 +316,16 @@ export default function SchedulePage() {
             const requiredSpecialties = new Set(comp.specialties.map(s => s.type === 'Detection' ? `Detection (${s.detectionType})` : s.type));
             const scheduledSpecialties = scheduledSpecialtiesForCompetitor[comp.id] || new Set();
 
-            if (scheduledSpecialties.size === 0) {
+            if (scheduledSpecialties.size === 0 && requiredSpecialties.size > 0) {
                  statusMap[comp.id] = 'unscheduled';
             } else if (requiredSpecialties.size > 0 && scheduledSpecialties.size >= requiredSpecialties.size) {
                  // Check if all required are met
                 const allMet = Array.from(requiredSpecialties).every(req => scheduledSpecialties.has(req));
                 statusMap[comp.id] = allMet ? 'fullyScheduled' : 'partiallyScheduled';
-            } else {
+            } else if (scheduledSpecialties.size > 0) {
                  statusMap[comp.id] = 'partiallyScheduled';
+            } else {
+                 statusMap[comp.id] = 'unscheduled';
             }
         });
 
