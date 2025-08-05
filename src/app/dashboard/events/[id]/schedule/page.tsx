@@ -555,7 +555,7 @@ export default function SchedulePage() {
                             </div>
                         </CardHeader>
                         <CardContent>
-                             <div className="overflow-x-auto overflow-y-auto print-visible relative pb-2 max-h-[calc(100vh-20rem)]">
+                             <div className="overflow-x-auto print-visible relative pb-2">
                                 {isFullyLoading ? (
                                     <div className="space-y-4">
                                         <Skeleton className="h-10 w-full" />
