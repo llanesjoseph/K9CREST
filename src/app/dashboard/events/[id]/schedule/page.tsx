@@ -3,7 +3,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { collection, onSnapshot, doc, setDoc, deleteDoc, writeBatch, query, getDocs, getDoc, Timestamp } from 'firebase/firestore';
+import { collection, onSnapshot, doc, setDoc, deleteDoc, writeBatch, query, getDocs, getDoc, Timestamp, updateDoc } from 'firebase/firestore';
 import { generateTimeSlots } from '@/lib/schedule-helpers';
 import { Trash2, GripVertical, AlertTriangle, PlusCircle, Users, X, Eraser, Wand2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -162,18 +162,32 @@ const TimeSlot = ({
         onDrop(e, arenaId, startTime);
         setIsOver(false);
     };
+    
+    const handleDragStart = (e: React.DragEvent<HTMLDivElement>) => {
+        if (!isDraggable || !scheduledEvent) {
+            e.preventDefault();
+            return;
+        }
+        e.dataTransfer.setData('scheduleId', scheduledEvent.id);
+        e.dataTransfer.setData('competitorId', scheduledEvent.competitorId);
+        e.dataTransfer.effectAllowed = 'move';
+    };
 
     const eventCompetitor = scheduledEvent ? competitors.find(c => c.id === scheduledEvent.competitorId) : null;
+    const canDragEvent = isDraggable && !!scheduledEvent;
 
     return (
         <div
             className={`w-32 h-20 border border-dashed rounded-md flex items-center justify-center text-center text-sm transition-all duration-200 ease-in-out relative
                 ${scheduledEvent ? 'bg-green-100 dark:bg-green-900/30 border-green-500/50' : isDraggable ? 'bg-background hover:bg-muted/80' : 'bg-secondary/50'}
                 ${isOver ? 'border-primary ring-2 ring-primary' : ''}
+                ${canDragEvent ? 'cursor-grab' : ''}
             `}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
+            onDragStart={handleDragStart}
+            draggable={canDragEvent}
         >
             {scheduledEvent && eventCompetitor ? (
                 <div className="flex flex-col items-center justify-center p-1 group w-full h-full">
@@ -294,40 +308,28 @@ export default function SchedulePage() {
     
     // --- Logic for competitor status and sorting ---
     const displayCompetitors = useMemo<DisplayCompetitor[]>(() => {
-        const statusMap: { [key: string]: SchedulingStatus } = {};
-
-        const getArenaSpecialtyForRun = (arenaId: string): ArenaSpecialty => {
-            const arena = arenas.find(a => a.id === arenaId);
-            return arena ? arena.specialtyType : 'Any';
-        };
-
-        const scheduledSpecialtiesForCompetitor = schedule.reduce((acc, run) => {
+        const scheduledRunsByCompetitor = schedule.reduce((acc, run) => {
             if (!acc[run.competitorId]) {
-                acc[run.competitorId] = new Set();
+                acc[run.competitorId] = 0;
             }
-            const arenaSpecialty = getArenaSpecialtyForRun(run.arenaId);
-            if (arenaSpecialty !== 'Any') {
-                acc[run.competitorId].add(arenaSpecialty);
-            }
+            acc[run.competitorId]++;
             return acc;
-        }, {} as Record<string, Set<string>>);
-        
-        competitors.forEach(comp => {
-            const requiredSpecialties = new Set(comp.specialties.map(s => s.type === 'Detection' ? `Detection (${s.detectionType})` : s.type));
-            const scheduledSpecialties = scheduledSpecialtiesForCompetitor[comp.id] || new Set();
+        }, {} as Record<string, number>);
 
-            if (scheduledSpecialties.size === 0 && requiredSpecialties.size > 0) {
-                 statusMap[comp.id] = 'unscheduled';
-            } else if (requiredSpecialties.size > 0 && scheduledSpecialties.size >= requiredSpecialties.size) {
-                 // Check if all required are met
-                const allMet = Array.from(requiredSpecialties).every(req => scheduledSpecialties.has(req));
-                statusMap[comp.id] = allMet ? 'fullyScheduled' : 'partiallyScheduled';
-            } else if (scheduledSpecialties.size > 0) {
-                 statusMap[comp.id] = 'partiallyScheduled';
+        const statusMap: { [key: string]: SchedulingStatus } = {};
+        competitors.forEach(comp => {
+            const scheduledCount = scheduledRunsByCompetitor[comp.id] || 0;
+            const requiredCount = comp.specialties.length > 0 ? comp.specialties.length : 1;
+
+            if (scheduledCount === 0) {
+                statusMap[comp.id] = 'unscheduled';
+            } else if (scheduledCount >= requiredCount) {
+                statusMap[comp.id] = 'fullyScheduled';
             } else {
-                 statusMap[comp.id] = 'unscheduled';
+                statusMap[comp.id] = 'partiallyScheduled';
             }
         });
+
 
         const statusOrder: Record<SchedulingStatus, number> = {
             'partiallyScheduled': 1,
@@ -345,7 +347,7 @@ export default function SchedulePage() {
                 if (statusDiff !== 0) return statusDiff;
                 return a.name.localeCompare(b.name);
             });
-    }, [competitors, schedule, arenas]);
+    }, [competitors, schedule]);
 
     const groupedCompetitors = useMemo(() => {
         const groups: { [key: string]: DisplayCompetitor[] } = {
@@ -427,6 +429,8 @@ export default function SchedulePage() {
     const handleDrop = async (e: React.DragEvent<HTMLDivElement>, arenaId: string, startTime: string, date: string) => {
         e.preventDefault();
         const competitorId = e.dataTransfer.getData('competitorId');
+        const draggedScheduleId = e.dataTransfer.getData('scheduleId');
+        
         const competitor = competitors.find(comp => comp.id === competitorId);
         const targetArena = arenas.find(arena => arena.id === arenaId);
 
@@ -435,13 +439,19 @@ export default function SchedulePage() {
             return;
         }
         
-        const conflict = schedule.find(event => event.arenaId === arenaId && event.startTime === startTime && event.date === date);
+        // Prevent dropping onto the original slot if it's a move
+        const originalEvent = draggedScheduleId ? schedule.find(s => s.id === draggedScheduleId) : null;
+        if (originalEvent && originalEvent.arenaId === arenaId && originalEvent.startTime === startTime && originalEvent.date === date) {
+            return;
+        }
+
+        const conflict = schedule.find(event => event.id !== draggedScheduleId && event.arenaId === arenaId && event.startTime === startTime && event.date === date);
         if (conflict) {
             toast({ variant: 'destructive', title: 'Error', description: 'Time slot already occupied!' });
             return;
         }
         
-        const personalConflict = schedule.find(event => event.competitorId === competitorId && event.startTime === startTime && event.date === date);
+        const personalConflict = schedule.find(event => event.id !== draggedScheduleId && event.competitorId === competitorId && event.startTime === startTime && event.date === date);
         if (personalConflict) {
             const conflictingArena = arenas.find(a => a.id === personalConflict.arenaId);
             toast({ variant: 'destructive', title: 'Error', description: `${competitor.dogName} is already scheduled in ${conflictingArena?.name || 'another arena'} at this time.` });
@@ -465,12 +475,21 @@ export default function SchedulePage() {
 
         const endTime = new Date(new Date(`2000/01/01 ${startTime}`).getTime() + 30 * 60 * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
         
-        const scheduleRef = doc(collection(db, `events/${eventId}/schedule`));
-        const newScheduleEntry = { id: scheduleRef.id, competitorId, arenaId, startTime, endTime, date };
+        const newScheduleData = { competitorId, arenaId, startTime, endTime, date };
         
         try {
-            await setDoc(scheduleRef, newScheduleEntry);
-            toast({ title: 'Scheduled!', description: `${competitor.dogName} scheduled in ${targetArena.name} at ${startTime} on ${format(new Date(date.replace(/-/g, '/')), 'MMM dd')}.`});
+            if (draggedScheduleId) {
+                // This is a move
+                const scheduleRef = doc(db, `events/${eventId}/schedule`, draggedScheduleId);
+                await updateDoc(scheduleRef, newScheduleData);
+                toast({ title: 'Moved!', description: `${competitor.dogName} moved to ${targetArena.name} at ${startTime} on ${format(new Date(date.replace(/-/g, '/')), 'MMM dd')}.`});
+
+            } else {
+                // This is a new placement
+                const scheduleRef = doc(collection(db, `events/${eventId}/schedule`));
+                await setDoc(scheduleRef, { ...newScheduleData, id: scheduleRef.id });
+                toast({ title: 'Scheduled!', description: `${competitor.dogName} scheduled in ${targetArena.name} at ${startTime} on ${format(new Date(date.replace(/-/g, '/')), 'MMM dd')}.`});
+            }
         } catch (error) {
              toast({ variant: 'destructive', title: 'Error', description: 'Could not save schedule entry.' });
         }
