@@ -36,6 +36,7 @@ import {
 } from "@/components/ui/tooltip";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useParams } from 'next/navigation';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 
 // --- State Structures ---
@@ -447,7 +448,8 @@ export default function SchedulePage() {
                             <CardTitle>Unscheduled Competitors</CardTitle>
                              <CardDescription>{unscheduledCompetitors.length} remaining for the event.</CardDescription>
                         </CardHeader>
-                        <CardContent className="flex-grow overflow-y-auto">
+                        <CardContent className="flex-grow p-0">
+                           <ScrollArea className="h-full w-full p-6">
                             {loading.competitors ? (
                                 <div className="space-y-2">
                                     <Skeleton className="h-20 w-full" />
@@ -474,6 +476,7 @@ export default function SchedulePage() {
                                     )}
                                 </>
                             )}
+                             </ScrollArea>
                         </CardContent>
                         {isAdmin && competitors.length > 0 && (
                             <CardFooter className="border-t pt-4 flex-wrap gap-2">
@@ -665,4 +668,3 @@ export default function SchedulePage() {
         </TooltipProvider>
     );
 }
-
