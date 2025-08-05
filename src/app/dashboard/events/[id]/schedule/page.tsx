@@ -5,7 +5,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { collection, onSnapshot, doc, setDoc, deleteDoc, writeBatch, query, getDocs, getDoc, Timestamp, updateDoc } from 'firebase/firestore';
 import { generateTimeSlots } from '@/lib/schedule-helpers';
-import { Trash2, GripVertical, AlertTriangle, PlusCircle, Users, X, Eraser, Wand2 } from 'lucide-react';
+import { Trash2, GripVertical, AlertTriangle, PlusCircle, Users, X, Eraser, Wand2, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -14,7 +14,7 @@ import { useAuth } from '@/components/auth-provider';
 import { db } from '@/lib/firebase';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
-import { eachDayOfInterval, format } from 'date-fns';
+import { eachDayOfInterval, format, parse } from 'date-fns';
 import { CompetitorImportDialog } from '@/components/competitor-import-dialog';
 import { AddCompetitorDialog } from '@/components/add-competitor-dialog';
 import {
@@ -81,6 +81,7 @@ type SchedulingStatus = 'unscheduled' | 'partiallyScheduled' | 'fullyScheduled';
 
 interface DisplayCompetitor extends Competitor {
     status: SchedulingStatus;
+    runs: ScheduledEvent[];
 }
 
 // --- CompetitorItem Component ---
@@ -114,16 +115,29 @@ const CompetitorItem = ({ competitor, isDraggable }: { competitor: DisplayCompet
 
     return (
         <div
-            className={`border rounded-md p-3 mb-2 flex items-center gap-3 shadow-sm ${isDraggable ? 'cursor-grab hover:shadow-md transition-all duration-200 ease-in-out transform hover:-translate-y-px' : 'cursor-not-allowed opacity-70'} ${statusClasses[competitor.status]}`}
+            className={`border rounded-md p-3 mb-2 flex flex-col items-start gap-2 shadow-sm ${isDraggable ? 'cursor-grab hover:shadow-md transition-all duration-200 ease-in-out transform hover:-translate-y-px' : 'cursor-not-allowed opacity-70'} ${statusClasses[competitor.status]}`}
             draggable={isDraggable}
             onDragStart={handleDragStart}
         >
-            <div className="flex-grow">
+            <div className="w-full">
                 <span className="font-semibold text-primary">{competitor.dogName}</span>
                 <span className="text-sm text-muted-foreground"> ({competitor.name})</span>
                  <div className="text-xs text-muted-foreground/80">{competitor.agency}</div>
                  <div className="text-xs text-muted-foreground/80 mt-1">{getSpecialtyDisplay(competitor.specialties)}</div>
             </div>
+
+            {competitor.runs.length > 0 && (
+                <div className="w-full border-t border-dashed pt-2 mt-1 space-y-1">
+                    {competitor.runs.map(run => (
+                        <div key={run.id} className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <Clock className="h-3 w-3" />
+                             <span>
+                                {format(parse(run.date, 'yyyy-MM-dd', new Date()), 'E, MMM dd')} @ {run.startTime}
+                            </span>
+                        </div>
+                    ))}
+                </div>
+            )}
         </div>
     );
 };
@@ -310,15 +324,15 @@ export default function SchedulePage() {
     const displayCompetitors = useMemo<DisplayCompetitor[]>(() => {
         const scheduledRunsByCompetitor = schedule.reduce((acc, run) => {
             if (!acc[run.competitorId]) {
-                acc[run.competitorId] = 0;
+                acc[run.competitorId] = [];
             }
-            acc[run.competitorId]++;
+            acc[run.competitorId].push(run);
             return acc;
-        }, {} as Record<string, number>);
+        }, {} as Record<string, ScheduledEvent[]>);
 
         const statusMap: { [key: string]: SchedulingStatus } = {};
         competitors.forEach(comp => {
-            const scheduledCount = scheduledRunsByCompetitor[comp.id] || 0;
+            const scheduledCount = (scheduledRunsByCompetitor[comp.id] || []).length;
             const requiredCount = comp.specialties.length > 0 ? comp.specialties.length : 1;
 
             if (scheduledCount === 0) {
@@ -341,6 +355,9 @@ export default function SchedulePage() {
             .map(comp => ({
                 ...comp,
                 status: statusMap[comp.id] || 'unscheduled',
+                runs: (scheduledRunsByCompetitor[comp.id] || []).sort((a,b) => 
+                    new Date(a.date.replace(/-/g, '/')).getTime() - new Date(b.date.replace(/-/g, '/')).getTime() || a.startTime.localeCompare(b.startTime)
+                ),
             }))
             .sort((a, b) => {
                 const statusDiff = statusOrder[a.status] - statusOrder[b.status];
