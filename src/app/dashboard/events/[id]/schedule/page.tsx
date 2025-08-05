@@ -34,7 +34,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useParams } from 'next/navigation';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
@@ -201,9 +200,7 @@ export default function SchedulePage() {
     const [loading, setLoading] = useState({ event: true, arenas: true, schedule: true, competitors: true });
     
     const [eventDays, setEventDays] = useState<Date[]>([]);
-    const [selectedDate, setSelectedDate] = useState<string>('');
-
-
+    
     const [newArenaName, setNewArenaName] = useState('');
     const [newArenaSpecialty, setNewArenaSpecialty] = useState<ArenaSpecialty>('Any');
 
@@ -225,10 +222,6 @@ export default function SchedulePage() {
                     const end = data.endDate?.toDate() || start;
                     const days = eachDayOfInterval({ start, end });
                     setEventDays(days);
-                    if (days.length > 0) {
-                        setSelectedDate(format(days[0], 'yyyy-MM-dd'));
-                    }
-
                 } else {
                     toast({ variant: 'destructive', title: 'Error', description: 'Event not found.' });
                 }
@@ -330,7 +323,7 @@ export default function SchedulePage() {
         }
     };
 
-    const handleDrop = async (e: React.DragEvent<HTMLDivElement>, arenaId: string, startTime: string) => {
+    const handleDrop = async (e: React.DragEvent<HTMLDivElement>, arenaId: string, startTime: string, date: string) => {
         e.preventDefault();
         const competitorId = e.dataTransfer.getData('competitorId');
         const competitor = competitors.find(comp => comp.id === competitorId);
@@ -341,13 +334,13 @@ export default function SchedulePage() {
             return;
         }
         
-        const conflict = schedule.find(event => event.arenaId === arenaId && event.startTime === startTime && event.date === selectedDate);
+        const conflict = schedule.find(event => event.arenaId === arenaId && event.startTime === startTime && event.date === date);
         if (conflict) {
             toast({ variant: 'destructive', title: 'Error', description: 'Time slot already occupied!' });
             return;
         }
         
-        const personalConflict = schedule.find(event => event.competitorId === competitorId && event.startTime === startTime && event.date === selectedDate);
+        const personalConflict = schedule.find(event => event.competitorId === competitorId && event.startTime === startTime && event.date === date);
         if (personalConflict) {
             const conflictingArena = arenas.find(a => a.id === personalConflict.arenaId);
             toast({ variant: 'destructive', title: 'Error', description: `${competitor.dogName} is already scheduled in ${conflictingArena?.name || 'another arena'} at this time.` });
@@ -372,11 +365,11 @@ export default function SchedulePage() {
         const endTime = new Date(new Date(`2000/01/01 ${startTime}`).getTime() + 30 * 60 * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
         
         const scheduleRef = doc(collection(db, `events/${eventId}/schedule`));
-        const newScheduleEntry = { id: scheduleRef.id, competitorId, arenaId, startTime, endTime, date: selectedDate };
+        const newScheduleEntry = { id: scheduleRef.id, competitorId, arenaId, startTime, endTime, date };
         
         try {
             await setDoc(scheduleRef, newScheduleEntry);
-            toast({ title: 'Scheduled!', description: `${competitor.dogName} scheduled in ${targetArena.name} at ${startTime} on ${format(new Date(selectedDate.replace(/-/g, '/')), 'MMM dd')}.`});
+            toast({ title: 'Scheduled!', description: `${competitor.dogName} scheduled in ${targetArena.name} at ${startTime} on ${format(new Date(date.replace(/-/g, '/')), 'MMM dd')}.`});
         } catch (error) {
              toast({ variant: 'destructive', title: 'Error', description: 'Could not save schedule entry.' });
         }
@@ -438,6 +431,7 @@ export default function SchedulePage() {
                         .print-no-bg { background-color: transparent !important; }
                          h1, h2, h3, h4 { color: #000 !important; }
                         .print-break-inside-avoid { page-break-inside: avoid; }
+                        .schedule-grid { margin-bottom: 2rem; }
                     }
                 `}</style>
 
@@ -472,7 +466,7 @@ export default function SchedulePage() {
                                           </div>
                                       ) : (
                                           <div className="text-center text-muted-foreground p-8 border border-dashed rounded-md h-full flex items-center justify-center">
-                                              <p>All competitors have been scheduled for this event.</p>
+                                              <p>All competitors have been scheduled.</p>
                                           </div>
                                       )}
                                   </>
@@ -561,7 +555,7 @@ export default function SchedulePage() {
                             </div>
                         </CardHeader>
                         <CardContent>
-                             <div className="overflow-x-auto overflow-y-hidden print-visible relative pb-2">
+                             <div className="overflow-x-auto overflow-y-auto print-visible relative pb-2 max-h-[calc(100vh-20rem)]">
                                 {isFullyLoading ? (
                                     <div className="space-y-4">
                                         <Skeleton className="h-10 w-full" />
@@ -575,30 +569,26 @@ export default function SchedulePage() {
                                         <p>The start and end dates for this event have not been configured.</p>
                                     </div>
                                 ) : (
-                                <Tabs value={selectedDate} onValueChange={setSelectedDate}>
-                                    <TabsList>
-                                        {eventDays.map(day => (
-                                            <TabsTrigger key={day.toISOString()} value={format(day, 'yyyy-MM-dd')}>
-                                                {format(day, 'EEE, MMM dd')}
-                                            </TabsTrigger>
-                                        ))}
-                                    </TabsList>
-                                    {eventDays.map(day => (
-                                         <TabsContent key={day.toISOString()} value={format(day, 'yyyy-MM-dd')}>
-                                              {arenas.length === 0 ? (
+                                <div className="space-y-8">
+                                    {eventDays.map(day => {
+                                        const formattedDate = format(day, 'yyyy-MM-dd');
+                                        return (
+                                            <div key={day.toISOString()} className="schedule-grid">
+                                                <h3 className="text-lg font-semibold mb-3 sticky top-0 bg-card py-2 z-20">{format(day, 'EEEE, MMM dd')}</h3>
+                                                {arenas.length === 0 ? (
                                                     <div className="text-center text-muted-foreground py-12 border-2 border-dashed rounded-lg h-96 flex flex-col justify-center items-center mt-4">
                                                         <AlertTriangle className="mx-auto h-8 w-8 text-muted-foreground" />
                                                         <p className="mt-4 font-semibold">No Arenas Found</p>
                                                         {isAdmin ? (
-                                                            <p>Use the 'Manage Arenas' section above to create one.</p>
+                                                            <p>Use the 'Manage Arenas' section to create one.</p>
                                                         ) : (
                                                             <p>The event administrator has not set up any arenas yet.</p>
                                                         )}
                                                     </div>
                                                 ) : (
-                                                    <div className="grid gap-2 min-w-max pt-4">
+                                                    <div className="grid gap-2 min-w-max">
                                                         {/* Header Row: Time Slots */}
-                                                        <div className="grid grid-flow-col auto-cols-fr gap-2 border-b-2 pb-2 sticky top-0 bg-card z-10 print-no-bg">
+                                                        <div className="grid grid-flow-col auto-cols-fr gap-2 border-b-2 pb-2 sticky top-[4.2rem] bg-card z-10 print-no-bg">
                                                             <div className="w-32 font-semibold text-muted-foreground">Arenas / Time</div>
                                                             {timeSlots.map(time => (
                                                                 <div key={time} className="w-32 text-center font-semibold text-muted-foreground">{time}</div>
@@ -647,8 +637,8 @@ export default function SchedulePage() {
                                                                         key={`${arena.id}-${time}`}
                                                                         arenaId={arena.id}
                                                                         startTime={time}
-                                                                        onDrop={handleDrop}
-                                                                        scheduledEvent={schedule.find(event => event.arenaId === arena.id && event.startTime === time && event.date === format(day, 'yyyy-MM-dd'))}
+                                                                        onDrop={(e, arenaId, startTime) => handleDrop(e, arenaId, startTime, formattedDate)}
+                                                                        scheduledEvent={schedule.find(event => event.arenaId === arena.id && event.startTime === time && event.date === formattedDate)}
                                                                         competitors={competitors}
                                                                         removeScheduledEvent={removeScheduledEvent}
                                                                         isDraggable={isAdmin}
@@ -658,9 +648,10 @@ export default function SchedulePage() {
                                                         ))}
                                                     </div>
                                                 )}
-                                        </TabsContent>
-                                    ))}
-                                </Tabs>
+                                            </div>
+                                        )
+                                    })}
+                                </div>
                                 )}
                             </div>
                         </CardContent>
