@@ -38,6 +38,8 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useParams } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 const exerciseSchema = z.object({
   name: z.string().min(1, "Exercise name is required."),
@@ -195,6 +197,7 @@ function ExerciseItem({ control, phaseIndex, exerciseIndex, remove }: { control:
     });
 
     const showMaxPoints = exerciseType === 'points' || exerciseType === 'time';
+    const showPassFail = exerciseType === 'pass/fail';
 
     return (
         <div className="flex items-start gap-4 p-4 rounded-md border bg-secondary/50">
@@ -232,19 +235,33 @@ function ExerciseItem({ control, phaseIndex, exerciseIndex, remove }: { control:
                 </FormItem>
               )}
             />
-            <div className={cn("transition-opacity duration-300", showMaxPoints ? "opacity-100" : "opacity-0 pointer-events-none")}>
-                <FormField
-                  control={control}
-                  name={`phases.${phaseIndex}.exercises.${exerciseIndex}.maxPoints`}
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Max Points</FormLabel>
-                      <FormControl>
-                        <Input {...field} type="number" placeholder="e.g., 10" disabled={!showMaxPoints} />
-                      </FormControl>
+            <div className="h-full flex items-end">
+                {showMaxPoints && (
+                    <FormField
+                      control={control}
+                      name={`phases.${phaseIndex}.exercises.${exerciseIndex}.maxPoints`}
+                      render={({ field }) => (
+                        <FormItem className="w-full">
+                          <FormLabel>Max Points</FormLabel>
+                          <FormControl>
+                            <Input {...field} type="number" placeholder="e.g., 10" />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                )}
+                {showPassFail && (
+                    <FormItem className="w-full">
+                        <FormLabel>Score Input</FormLabel>
+                        <FormControl>
+                             <div className="flex items-center justify-start gap-2 h-10 border border-input bg-background rounded-md px-3">
+                                <Label htmlFor={`switch-preview-${phaseIndex}-${exerciseIndex}`} className="text-muted-foreground">Fail</Label>
+                                <Switch id={`switch-preview-${phaseIndex}-${exerciseIndex}`} disabled />
+                                <Label htmlFor={`switch-preview-${phaseIndex}-${exerciseIndex}`} className="text-muted-foreground">Pass</Label>
+                            </div>
+                        </FormControl>
                     </FormItem>
-                  )}
-                />
+                )}
             </div>
           </div>
           <Button
