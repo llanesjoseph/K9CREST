@@ -20,26 +20,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 
 const rubric = {
-  phases: [
-    {
-      name: "Obedience Phase",
-      exercises: [
-        { name: "Heeling on Leash", type: "points", maxPoints: 10 },
-        { name: "Sit in Motion", type: "points", maxPoints: 10 },
-        { name: "Recall", type: "points", maxPoints: 15 },
-        { name: "Long Down", type: "points", maxPoints: 5 },
-      ],
-    },
-    {
-      name: "Protection Phase",
-      exercises: [
-        { name: "Search for Decoy", type: "pass/fail" },
-        { name: "Hold and Bark", type: "points", maxPoints: 20 },
-        { name: "Escape Bite", type: "points", maxPoints: 20 },
-        { name: "Courage Test", type: "points", maxPoints: 20 },
-      ],
-    },
-  ],
+  phases: [],
 };
 
 export default function JudgingPage({ params }: { params: { runId: string } }) {
@@ -50,7 +31,7 @@ export default function JudgingPage({ params }: { params: { runId: string } }) {
     console.log(data);
     toast({
       title: "Scores Submitted!",
-      description: "Scores for John Doe & Rex have been successfully saved.",
+      description: "Scores have been successfully saved.",
     });
   }
 
@@ -72,53 +53,63 @@ export default function JudgingPage({ params }: { params: { runId: string } }) {
         <CardHeader>
           <CardTitle>Run Details</CardTitle>
           <CardDescription>
-            Scoring for <span className="font-bold">John Doe</span> with{" "}
-            <span className="font-bold">Rex</span> in Arena 1.
+            Scoring for <span className="font-bold">Competitor</span> with{" "}
+            <span className="font-bold">Dog</span>.
           </CardDescription>
         </CardHeader>
       </Card>
 
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        {rubric.phases.map((phase, phaseIndex) => (
-          <Card key={phase.name}>
-            <CardHeader>
-              <CardTitle>{phase.name}</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {phase.exercises.map((exercise, exerciseIndex) => (
-                <div key={exercise.name}>
-                  <div className="grid grid-cols-3 items-center gap-4">
-                    <Label htmlFor={`${phase.name}-${exercise.name}`} className="col-span-2">
-                      {exercise.name}
-                    </Label>
-                    {exercise.type === "points" && (
-                      <div className="flex items-center gap-2">
-                        <Input
-                          id={`${phase.name}-${exercise.name}`}
-                          type="number"
-                          placeholder="0"
-                          className="text-right"
-                          {...form.register(`scores.${phaseIndex}.${exerciseIndex}.points`)}
-                        />
-                        <span className="text-sm text-muted-foreground">
-                          / {exercise.maxPoints} pts
-                        </span>
-                      </div>
-                    )}
-                    {exercise.type === "pass/fail" && (
-                       <div className="flex items-center justify-end gap-2">
-                         <Label htmlFor={`switch-${phase.name}-${exercise.name}`}>Fail</Label>
-                         <Switch id={`switch-${phase.name}-${exercise.name}`} {...form.register(`scores.${phaseIndex}.${exerciseIndex}.passed`)} />
-                         <Label htmlFor={`switch-${phase.name}-${exercise.name}`}>Pass</Label>
-                       </div>
-                    )}
-                  </div>
-                  {exerciseIndex < phase.exercises.length - 1 && <Separator className="mt-4" />}
-                </div>
-              ))}
+        {rubric.phases.length === 0 ? (
+          <Card>
+            <CardContent className="pt-6">
+              <p className="text-center text-muted-foreground">
+                The scoring rubric for this event has not been configured yet.
+              </p>
             </CardContent>
           </Card>
-        ))}
+        ) : (
+          rubric.phases.map((phase: any, phaseIndex) => (
+            <Card key={phase.name}>
+              <CardHeader>
+                <CardTitle>{phase.name}</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {phase.exercises.map((exercise: any, exerciseIndex: number) => (
+                  <div key={exercise.name}>
+                    <div className="grid grid-cols-3 items-center gap-4">
+                      <Label htmlFor={`${phase.name}-${exercise.name}`} className="col-span-2">
+                        {exercise.name}
+                      </Label>
+                      {exercise.type === "points" && (
+                        <div className="flex items-center gap-2">
+                          <Input
+                            id={`${phase.name}-${exercise.name}`}
+                            type="number"
+                            placeholder="0"
+                            className="text-right"
+                            {...form.register(`scores.${phaseIndex}.${exerciseIndex}.points`)}
+                          />
+                          <span className="text-sm text-muted-foreground">
+                            / {exercise.maxPoints} pts
+                          </span>
+                        </div>
+                      )}
+                      {exercise.type === "pass/fail" && (
+                        <div className="flex items-center justify-end gap-2">
+                          <Label htmlFor={`switch-${phase.name}-${exercise.name}`}>Fail</Label>
+                          <Switch id={`switch-${phase.name}-${exercise.name}`} {...form.register(`scores.${phaseIndex}.${exerciseIndex}.passed`)} />
+                          <Label htmlFor={`switch-${phase.name}-${exercise.name}`}>Pass</Label>
+                        </div>
+                      )}
+                    </div>
+                    {exerciseIndex < phase.exercises.length - 1 && <Separator className="mt-4" />}
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          ))
+        )}
          <Card>
             <CardHeader>
                 <CardTitle>General Notes</CardTitle>

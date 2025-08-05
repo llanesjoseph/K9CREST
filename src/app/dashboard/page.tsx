@@ -21,13 +21,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
-const activities = [
-  { user: "Judge Smith", action: "submitted scores for", target: "Fido in Obedience", time: "5m ago", status: "Completed" },
-  { user: "Admin", action: "created new event:", target: "Spring National Trial", time: "1h ago", status: "Upcoming" },
-  { user: "Scheduler", action: "updated schedule for", target: "Arena 2", time: "2h ago", status: "In Progress" },
-  { user: "Competitor Jane", action: "registered for", target: "Spring National Trial", time: "3h ago", status: "Registered" },
-  { user: "Judge Miller", action: "was assigned to", target: "Rex in Protection", time: "5h ago", status: "Assigned" },
-]
+const activities: any[] = []
 
 export default function Dashboard() {
   return (
@@ -39,8 +33,8 @@ export default function Dashboard() {
             <CalendarDays className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">12</div>
-            <p className="text-xs text-muted-foreground">+3 from last month</p>
+            <div className="text-2xl font-bold">0</div>
+            <p className="text-xs text-muted-foreground">No events created yet</p>
           </CardContent>
         </Card>
         <Card>
@@ -49,8 +43,8 @@ export default function Dashboard() {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">245</div>
-            <p className="text-xs text-muted-foreground">+52 this month</p>
+            <div className="text-2xl font-bold">0</div>
+            <p className="text-xs text-muted-foreground">No competitors registered</p>
           </CardContent>
         </Card>
         <Card>
@@ -59,8 +53,8 @@ export default function Dashboard() {
             <Timer className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">32</div>
-            <p className="text-xs text-muted-foreground">Scheduled for today</p>
+            <div className="text-2xl font-bold">0</div>
+            <p className="text-xs text-muted-foreground">No runs scheduled</p>
           </CardContent>
         </Card>
         <Card>
@@ -69,8 +63,8 @@ export default function Dashboard() {
             <Activity className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">+9</div>
-            <p className="text-xs text-muted-foreground">Scores submitted in last hour</p>
+            <div className="text-2xl font-bold">0</div>
+            <p className="text-xs text-muted-foreground">No recent activity</p>
           </CardContent>
         </Card>
       </div>
@@ -94,17 +88,25 @@ export default function Dashboard() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {activities.map((activity, index) => (
-                <TableRow key={index}>
-                  <TableCell className="font-medium">{activity.user}</TableCell>
-                  <TableCell>{activity.action}</TableCell>
-                  <TableCell>{activity.target}</TableCell>
-                  <TableCell>{activity.time}</TableCell>
-                  <TableCell>
-                    <Badge variant={activity.status === 'Completed' ? 'default' : 'secondary'}>{activity.status}</Badge>
+              {activities.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="h-24 text-center">
+                    No recent activity.
                   </TableCell>
                 </TableRow>
-              ))}
+              ) : (
+                activities.map((activity, index) => (
+                  <TableRow key={index}>
+                    <TableCell className="font-medium">{activity.user}</TableCell>
+                    <TableCell>{activity.action}</TableCell>
+                    <TableCell>{activity.target}</TableCell>
+                    <TableCell>{activity.time}</TableCell>
+                    <TableCell>
+                      <Badge variant={activity.status === 'Completed' ? 'default' : 'secondary'}>{activity.status}</Badge>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </CardContent>

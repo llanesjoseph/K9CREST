@@ -45,10 +45,10 @@ export function AIScheduler() {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      competitorDetails: "10 competitors: 5 in obedience, 5 in protection. Some competitors are in both.",
-      taskDurations: "Obedience: 10 mins per competitor. Protection: 15 mins per competitor.",
-      timezone: "America/New_York",
-      arenaAvailability: "Arena 1 (Obedience): 9 AM - 5 PM. Arena 2 (Protection): 10 AM - 4 PM. Lunch break from 12 PM to 1 PM for all.",
+      competitorDetails: "",
+      taskDurations: "",
+      timezone: "",
+      arenaAvailability: "",
     },
   });
 
@@ -99,7 +99,7 @@ export function AIScheduler() {
                   <FormItem>
                     <FormLabel>Competitor Details</FormLabel>
                     <FormControl>
-                      <Textarea placeholder="e.g., names and specialties" {...field} rows={4} />
+                      <Textarea placeholder="e.g., 10 competitors: 5 in obedience, 5 in protection." {...field} rows={4} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -112,7 +112,7 @@ export function AIScheduler() {
                   <FormItem>
                     <FormLabel>Task Durations</FormLabel>
                     <FormControl>
-                      <Textarea placeholder="e.g., Obedience: 10 mins" {...field} rows={4} />
+                      <Textarea placeholder="e.g., Obedience: 10 mins per competitor." {...field} rows={4} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -125,7 +125,7 @@ export function AIScheduler() {
                   <FormItem>
                     <FormLabel>Arena Availability</FormLabel>
                     <FormControl>
-                      <Textarea placeholder="e.g., Arena 1: 9am-5pm" {...field} rows={4} />
+                      <Textarea placeholder="e.g., Arena 1: 9am-5pm. Lunch break from 12pm to 1pm." {...field} rows={4} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

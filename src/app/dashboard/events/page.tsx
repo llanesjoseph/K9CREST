@@ -18,13 +18,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
-const events = [
-    { name: "2024 Spring National", date: "2024-05-10", location: "Springfield, IL", status: "Completed" },
-    { name: "Summer Regional Championship", date: "2024-08-15", location: "Miami, FL", status: "Upcoming" },
-    { name: "West Coast Invitational", date: "2024-09-20", location: "San Diego, CA", status: "Upcoming" },
-    { name: "Iron Dog Competition", date: "2024-10-05", location: "Denver, CO", status: "Planning" },
-    { name: "K9 Heroes Charity Trial", date: "2024-11-12", location: "Washington, D.C.", status: "Planning" },
-];
+const events: any[] = [];
 
 export default function EventsPage() {
   return (
@@ -55,25 +49,33 @@ export default function EventsPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {events.map((event) => (
-              <TableRow key={event.name}>
-                <TableCell className="font-medium">
-                  <Link href="/dashboard/events/1/schedule" className="hover:underline">
-                    {event.name}
-                  </Link>
-                </TableCell>
-                <TableCell>{event.date}</TableCell>
-                <TableCell>{event.location}</TableCell>
-                <TableCell>
-                  <Badge variant={event.status === 'Completed' ? 'outline' : 'default'}>{event.status}</Badge>
-                </TableCell>
-                <TableCell className="text-right">
-                   <Button variant="ghost" size="sm" asChild>
-                    <Link href="/dashboard/events/1/schedule">View</Link>
-                   </Button>
+            {events.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={5} className="h-24 text-center">
+                  No events found.
                 </TableCell>
               </TableRow>
-            ))}
+            ) : (
+              events.map((event) => (
+                <TableRow key={event.name}>
+                  <TableCell className="font-medium">
+                    <Link href="/dashboard/events/1/schedule" className="hover:underline">
+                      {event.name}
+                    </Link>
+                  </TableCell>
+                  <TableCell>{event.date}</TableCell>
+                  <TableCell>{event.location}</TableCell>
+                  <TableCell>
+                    <Badge variant={event.status === 'Completed' ? 'outline' : 'default'}>{event.status}</Badge>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button variant="ghost" size="sm" asChild>
+                      <Link href="/dashboard/events/1/schedule">View</Link>
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
           </TableBody>
         </Table>
       </CardContent>

@@ -28,25 +28,14 @@ import {
 import { AIScheduler } from "@/components/ai-scheduler";
 
 const schedule = {
-  arena1: [
-    { time: "09:00 AM", competitor: "John Doe", dog: "Rex", judge: "Judge Smith", timer: "Timer 1", status: "Upcoming" },
-    { time: "09:15 AM", competitor: "Jane Smith", dog: "Bella", judge: "Judge Smith", timer: "Timer 1", status: "Upcoming" },
-    { time: "09:30 AM", competitor: "", dog: "", judge: "", timer: "", status: "Open" },
-    { time: "09:45 AM", competitor: "Peter Jones", dog: "Max", judge: "Judge Miller", timer: "Timer 2", status: "Upcoming" },
-    { time: "10:00 AM", competitor: "", dog: "", judge: "", timer: "", status: "Open" },
-  ],
-  arena2: [
-    { time: "09:00 AM", competitor: "Mary Johnson", dog: "Lucy", judge: "Judge Davis", timer: "Timer 3", status: "Upcoming" },
-    { time: "09:20 AM", competitor: "David Wilson", dog: "Charlie", judge: "Judge Davis", timer: "Timer 3", status: "Upcoming" },
-    { time: "09:40 AM", competitor: "", dog: "", judge: "", timer: "", status: "Open" },
-    { time: "10:00 AM", competitor: "", dog: "", judge: "", timer: "", status: "Open" },
-  ],
+  arena1: [],
+  arena2: [],
 };
 
-const competitors = ["John Doe", "Jane Smith", "Peter Jones", "Mary Johnson", "David Wilson"];
-const judges = ["Judge Smith", "Judge Miller", "Judge Davis"];
+const competitors: any[] = [];
+const judges: any[] = [];
 
-function ScheduleTable({ runs }: { runs: typeof schedule.arena1 }) {
+function ScheduleTable({ runs }: { runs: any[] }) {
   return (
     <Table>
       <TableHeader>
@@ -59,35 +48,43 @@ function ScheduleTable({ runs }: { runs: typeof schedule.arena1 }) {
         </TableRow>
       </TableHeader>
       <TableBody>
-        {runs.map((run) => (
-          <TableRow key={run.time}>
-            <TableCell className="font-medium">{run.time}</TableCell>
-            <TableCell>
-              {run.competitor ? `${run.competitor} & ${run.dog}` : 
-                <Select>
-                  <SelectTrigger><SelectValue placeholder="Assign Competitor" /></SelectTrigger>
-                  <SelectContent>
-                    {competitors.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              }
-            </TableCell>
-            <TableCell>
-              {run.judge ? run.judge : 
-                <Select>
-                  <SelectTrigger><SelectValue placeholder="Assign Judge" /></SelectTrigger>
-                  <SelectContent>
-                    {judges.map(j => <SelectItem key={j} value={j}>{j}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              }
-            </TableCell>
-            <TableCell>{run.timer || "Auto-assigned"}</TableCell>
-            <TableCell>
-              <Badge variant={run.status === 'Open' ? "secondary" : "default"}>{run.status}</Badge>
+        {runs.length === 0 ? (
+          <TableRow>
+            <TableCell colSpan={5} className="h-24 text-center">
+              No runs scheduled for this arena.
             </TableCell>
           </TableRow>
-        ))}
+        ) : (
+          runs.map((run) => (
+            <TableRow key={run.time}>
+              <TableCell className="font-medium">{run.time}</TableCell>
+              <TableCell>
+                {run.competitor ? `${run.competitor} & ${run.dog}` : 
+                  <Select>
+                    <SelectTrigger><SelectValue placeholder="Assign Competitor" /></SelectTrigger>
+                    <SelectContent>
+                      {competitors.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                }
+              </TableCell>
+              <TableCell>
+                {run.judge ? run.judge : 
+                  <Select>
+                    <SelectTrigger><SelectValue placeholder="Assign Judge" /></SelectTrigger>
+                    <SelectContent>
+                      {judges.map(j => <SelectItem key={j} value={j}>{j}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                }
+              </TableCell>
+              <TableCell>{run.timer || "Auto-assigned"}</TableCell>
+              <TableCell>
+                <Badge variant={run.status === 'Open' ? "secondary" : "default"}>{run.status}</Badge>
+              </TableCell>
+            </TableRow>
+          ))
+        )}
       </TableBody>
     </Table>
   );
@@ -100,7 +97,7 @@ export default function SchedulePage() {
         <Button variant="outline" size="icon" asChild>
             <Link href="/dashboard/events"><ChevronLeft className="h-4 w-4" /></Link>
         </Button>
-        <h1 className="text-2xl font-semibold">Summer Regional Championship Schedule</h1>
+        <h1 className="text-2xl font-semibold">Event Schedule</h1>
       </div>
       <div className="flex justify-end gap-2">
          <Button variant="outline" asChild><Link href="/dashboard/events/1/rubric">Configure Rubric</Link></Button>
@@ -112,14 +109,14 @@ export default function SchedulePage() {
         <CardHeader>
           <CardTitle>Schedule Editor</CardTitle>
           <CardDescription>
-            Drag-and-drop to schedule competitors. Click to assign judges.
+            Use the AI Scheduler to generate a schedule, or add runs manually.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="arena1">
             <TabsList>
-              <TabsTrigger value="arena1">Arena 1 (Obedience)</TabsTrigger>
-              <TabsTrigger value="arena2">Arena 2 (Protection)</TabsTrigger>
+              <TabsTrigger value="arena1">Arena 1</TabsTrigger>
+              <TabsTrigger value="arena2">Arena 2</TabsTrigger>
             </TabsList>
             <TabsContent value="arena1">
                 <ScheduleTable runs={schedule.arena1} />

@@ -57,22 +57,7 @@ export default function RubricPage() {
   const form = useForm<z.infer<typeof rubricSchema>>({
     resolver: zodResolver(rubricSchema),
     defaultValues: {
-      phases: [
-        {
-          name: "Obedience Phase",
-          exercises: [
-            { name: "Heeling on Leash", type: "points", maxPoints: 10 },
-            { name: "Sit in Motion", type: "points", maxPoints: 10 },
-          ],
-        },
-        {
-          name: "Protection Phase",
-          exercises: [
-            { name: "Search for Decoy", type: "pass/fail" },
-            { name: "Hold and Bark", type: "points", maxPoints: 20 },
-          ],
-        },
-      ],
+      phases: [],
     },
   });
 
@@ -107,7 +92,7 @@ export default function RubricPage() {
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              <Accordion type="multiple" defaultValue={["item-0"]} className="w-full space-y-4">
+              <Accordion type="multiple" className="w-full space-y-4">
                 {fields.map((phase, phaseIndex) => (
                   <AccordionItem key={phase.id} value={`item-${phaseIndex}`} className="border rounded-lg bg-background">
                     <AccordionTrigger className="p-4 hover:no-underline">
@@ -138,7 +123,12 @@ export default function RubricPage() {
                   </AccordionItem>
                 ))}
               </Accordion>
-
+                {fields.length === 0 && (
+                    <div className="text-center text-muted-foreground py-12">
+                        <p>No phases defined.</p>
+                        <p>Click "Add Phase" to get started.</p>
+                    </div>
+                )}
               <div className="flex justify-between items-center">
                 <Button
                   type="button"
@@ -228,6 +218,9 @@ function PhaseExercises({ control, phaseIndex }: { control: any, phaseIndex: num
           </Button>
         </div>
       ))}
+       {fields.length === 0 && (
+          <p className="text-sm text-muted-foreground pt-4">No exercises in this phase.</p>
+      )}
       <Button
         type="button"
         variant="outline"
