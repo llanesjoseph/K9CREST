@@ -10,6 +10,7 @@ import {
   Trophy,
   Settings,
   Users,
+  LogOut,
 } from "lucide-react";
 
 import {
@@ -24,6 +25,10 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { auth } from "@/lib/firebase";
+import { useAuth } from "@/components/auth-provider";
+import { useRouter } from "next/navigation";
 
 const menuItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutGrid },
@@ -36,6 +41,14 @@ const menuItems = [
 
 export function AppSidebar() {
   const pathname = usePathname();
+  const { user } = useAuth();
+  const router = useRouter();
+
+  const handleSignOut = async () => {
+    await auth.signOut();
+    router.push("/");
+  };
+
 
   const isActive = (href: string) => {
     if (href === "/dashboard") {
@@ -84,15 +97,18 @@ export function AppSidebar() {
         <Separator />
         <div className="flex items-center gap-3">
           <Avatar>
-            <AvatarImage src="https://placehold.co/40x40" />
-            <AvatarFallback>AD</AvatarFallback>
+            <AvatarImage src={user?.photoURL || `https://placehold.co/40x40`} />
+            <AvatarFallback>{user?.email?.[0].toUpperCase() || 'U'}</AvatarFallback>
           </Avatar>
-          <div className="flex flex-col">
-            <span className="text-sm font-medium">Admin User</span>
-            <span className="text-xs text-muted-foreground">
-              admin@k9pro.com
+          <div className="flex flex-col flex-grow">
+            <span className="text-sm font-medium truncate">{user?.displayName || user?.email || "User"}</span>
+            <span className="text-xs text-muted-foreground truncate">
+              {user?.email}
             </span>
           </div>
+           <Button variant="ghost" size="icon" onClick={handleSignOut} className="shrink-0">
+             <LogOut className="h-4 w-4" />
+           </Button>
         </div>
       </SidebarFooter>
     </Sidebar>
