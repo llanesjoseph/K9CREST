@@ -69,25 +69,25 @@ export function AppSidebar() {
     spectator: [
         { href: "/dashboard", label: "Dashboard", icon: LayoutGrid },
         { href: "/dashboard/events", label: "Events", icon: Calendar },
-        { href: "/dashboard/events/1/leaderboard", label: "Leaderboards", icon: Trophy },
+        { href: `/dashboard/events/${eventId || 1}/leaderboard`, label: "Leaderboards", icon: Trophy, eventSpecific: true },
         { href: "/dashboard/settings", label: "Settings", icon: Settings },
     ],
     competitor: [
         { href: "/dashboard", label: "Dashboard", icon: LayoutGrid },
         { href: "/dashboard/events", label: "Events", icon: Calendar },
-        { href: "/dashboard/events/1/leaderboard", label: "Leaderboards", icon: Trophy },
+        { href: `/dashboard/events/${eventId || 1}/leaderboard`, label: "Leaderboards", icon: Trophy, eventSpecific: true },
         { href: "/dashboard/settings", label: "Settings", icon: Settings },
     ],
     judge: [
         { href: "/dashboard", label: "Dashboard", icon: LayoutGrid },
         { href: "/dashboard/events", label: "Events", icon: Calendar },
-        { href: "/dashboard/judging/1", label: "Judging", icon: Gavel },
+        { href: `/dashboard/judging/${eventId || 1}`, label: "Judging", icon: Gavel, eventSpecific: true },
         { href: "/dashboard/settings", label: "Settings", icon: Settings },
     ],
     admin: [
         { href: "/dashboard", label: "Dashboard", icon: LayoutGrid },
-        { href: "/dashboard/judging/1", label: "Judging", icon: Gavel },
-        { href: "/dashboard/events/1/leaderboard", label: "Leaderboards", icon: Trophy },
+        { href: `/dashboard/judging/${eventId || 1}`, label: "Judging", icon: Gavel, eventSpecific: true },
+        { href: `/dashboard/events/${eventId || 1}/leaderboard`, label: "Leaderboards", icon: Trophy, eventSpecific: true },
         { href: "/dashboard/users", label: "Users", icon: Users },
         { href: "/dashboard/settings", label: "Settings", icon: Settings },
     ]
@@ -111,8 +111,9 @@ export function AppSidebar() {
       </SidebarHeader>
       <SidebarContent className="p-0">
         <SidebarMenu>
-          {menuItems.map((item) => (
-             !item.href.includes('[id]') && (
+          {menuItems.map((item) => {
+             const disabled = item.eventSpecific && !eventId;
+             return (
                 <SidebarMenuItem key={item.label}>
                     <SidebarMenuButton
                         asChild
@@ -122,6 +123,7 @@ export function AppSidebar() {
                         side: "right",
                         }}
                         className="justify-start"
+                        disabled={disabled}
                     >
                         <Link href={item.href}>
                         <item.icon className="h-5 w-5" />
@@ -130,7 +132,7 @@ export function AppSidebar() {
                     </SidebarMenuButton>
                 </SidebarMenuItem>
                 )
-          ))}
+          })}
         </SidebarMenu>
         {isTrueAdmin && (
             <SidebarGroup className="pt-4">
@@ -145,7 +147,9 @@ export function AppSidebar() {
                             const Comp = item.component
                             return (
                                  <SidebarMenuItem key={item.label}>
-                                     <Comp eventId={eventId} />
+                                     <SidebarMenuButton variant="ghost" className="justify-start w-full" disabled={!eventId}>
+                                        <Comp eventId={eventId} />
+                                     </SidebarMenuButton>
                                  </SidebarMenuItem>
                             )
                         }
@@ -172,12 +176,12 @@ export function AppSidebar() {
                     })}
                 </SidebarMenu>
                 <div className="px-2 pt-4">
-                    <Label className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
+                    <Label className="flex items-center gap-2 text-xs text-sidebar-foreground/70 mb-2">
                         <Eye className="h-4 w-4" />
                         View As
                     </Label>
                     <Select onValueChange={(value) => setViewAsRole(value as UserRole)} value={viewAsRole || 'admin'}>
-                        <SelectTrigger className="h-9">
+                        <SelectTrigger className="h-9 bg-sidebar-accent/20 border-sidebar-border hover:bg-sidebar-accent/30 text-sidebar-foreground">
                             <SelectValue placeholder="Select a role" />
                         </SelectTrigger>
                         <SelectContent>
@@ -201,7 +205,7 @@ export function AppSidebar() {
           <div className="flex flex-col flex-grow overflow-hidden">
             <span className="text-sm font-medium truncate">{user?.displayName || user?.email || "User"}</span>
             <span className="text-xs text-muted-foreground truncate">
-              {role.charAt(0).toUpperCase() + role.slice(1)} {viewAsRole && isTrueAdmin ? '(Viewing)' : ''}
+              {role.charAt(0).toUpperCase() + role.slice(1)} {viewAsRole && isTrueAdmin ? `(Viewing as ${viewAsRole.charAt(0).toUpperCase() + viewAsRole.slice(1)})` : ''}
             </span>
           </div>
            <Button variant="ghost" size="icon" onClick={handleSignOut} className="shrink-0">
