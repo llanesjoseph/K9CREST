@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview An AI agent that generates a random but valid event schedule.
@@ -69,38 +70,67 @@ const prompt = ai.definePrompt({
   name: 'generateSchedulePrompt',
   input: { schema: GenerateScheduleInputSchema },
   output: { schema: GenerateScheduleOutputSchema },
-  prompt: `You are an expert event scheduler for K9 trials. Your task is to generate a complete and valid schedule based on the provided competitors, arenas, and event timeline.
+  prompt: `You are an expert event scheduler for K9 trials. Your task is to generate a COMPLETE schedule for ALL competitors.
 
-**Rules and Constraints (Non-negotiable):**
-1.  **Complete Scheduling:** You **MUST** schedule every competitor for **ALL** of their required runs. A partial schedule is an invalid output. Each specialty a competitor has requires one run in a matching arena.
-2.  **Specialty Matching:** A competitor **MUST** be scheduled in an arena that matches their specialty.
-    -   A "Bite Work" specialty requires a run in a "Bite Work" arena.
-    -   A "Detection (Narcotics)" specialty requires a run in a "Detection (Narcotics)" arena.
-    -   A "Detection (Explosives)" specialty requires a run in a "Detection (Explosives)" arena.
-    -   Arenas with specialty "Any" can host any competitor, but should be prioritized for competitors with no specialties if any exist.
-3.  **No Double Booking (Critical):**
-    -   An arena time slot can only have **ONE** competitor scheduled at a time on a given day.
-    -   A competitor **CANNOT** be scheduled in two different arenas at the **SAME** time on the **SAME** day. This is a critical constraint. You must check a competitor's entire schedule for the day before assigning them to a new time slot.
-4.  **Even Distribution:** You **MUST** distribute the runs as evenly as possible across all available event days and arenas to avoid overloading any single day or arena. The entire event duration, as specified in the \`eventDays\` input, must be utilized.
-5.  **Randomness:** The assignment of competitors to specific time slots should be random, as long as it adheres to all other rules.
-6.  **Run Duration:** Each run (schedule entry) lasts for exactly 30 minutes. The \`endTime\` must be 30 minutes after the \`startTime\`.
+**CRITICAL REQUIREMENT: You MUST schedule EVERY competitor for ALL their specialties. An incomplete schedule is INVALID.**
 
-**Chain of Thought / Process (Follow these steps exactly):**
-1.  **Identify All Required Runs:** Go through each competitor. For each specialty they have, create a "required run" item. For example, if a competitor has two specialties, they need two runs. Create a master list of every single run that needs to be scheduled.
-2.  **Map Runs to Arenas:** For each required run, identify all compatible arenas based on the specialty.
-3.  **Assign to Time Slots:** Iterate through your master list of required runs. For each run, find a vacant time slot on one of the event days in a compatible arena. A time slot is vacant if:
-    a. No other competitor is scheduled in that arena at that time on that day.
-    b. The competitor being scheduled is not already scheduled in any other arena at that exact time on that same day.
-    c. When assigning, you should make a conscious effort to use all available days from the \`eventDays\` input, not just the first day.
-4.  **Create Schedule Entries:** Once a valid slot is found, create the schedule entry object. Ensure the \`endTime\` is 30 minutes after the \`startTime\`.
-5.  **Verify Completeness:** Before outputting the final JSON, you **MUST** double-check that every single required run you identified in step 1 has been successfully scheduled. If not, repeat the process to find slots for the remaining runs. **Do not finish until all competitors are fully scheduled according to their specialties.**
+**Pre-Processing Steps (MANDATORY):**
+1. **Count Total Competitors:** Count the exact number of competitors provided.
+2. **Count Total Required Runs:** Go through each competitor and count their specialties. Sum up the total number of runs needed. A competitor with 0 specialties still needs 1 run.
+   - Example: If 20 competitors have 1 specialty each and 10 competitors have 2 specialties each, total runs = 20 + (10 × 2) = 40 runs.
+3. **Calculate Available Slots:** Multiply (number of arenas) × (number of time slots per day) × (number of event days).
+4. **Verify Feasibility:** Ensure total available slots ≥ total required runs. If not, you must still schedule all runs by utilizing every available slot.
+
+**Scheduling Rules:**
+1. **Complete Coverage:** Every competitor MUST be scheduled for EACH of their specialties. A competitor with no specialties must be scheduled for one run. No exceptions.
+2. **Specialty Matching:** 
+   - "Bite Work" specialty → "Bite Work" or "Any" arena
+   - "Detection" with "Narcotics" → "Detection (Narcotics)" or "Any" arena  
+   - "Detection" with "Explosives" → "Detection (Explosives)" or "Any" arena
+   - Competitors with no specialties → "Any" arena only
+3. **No Double Booking:**
+   - Each arena slot can only have ONE competitor
+   - A competitor CANNOT be in two places at the same time on the same day
+4. **Even Distribution:** Spread runs across all available days and arenas
+5. **Run Duration:** Each run is exactly 30 minutes (endTime = startTime + 30 minutes)
+
+**Step-by-Step Process:**
+1. **Create Required Runs List:**
+   - For each competitor, create an entry for EACH specialty they have. If a competitor has no specialties, create one 'General' run for them.
+   - Track: competitorId, competitorName, specialtyType, runNumber (1st, 2nd, etc.)
+   - Keep a running count to ensure you have the correct total
+
+2. **Initialize Tracking:**
+   - Create a schedule grid: [day][arena][timeSlot] to track occupancy
+   - Create a competitor availability grid: [day][timeSlot] to prevent double-booking
+
+3. **Schedule Each Run:**
+   - For each required run in your list:
+     a. Find compatible arenas based on specialty
+     b. Try each day, starting with the least utilized day
+     c. For each compatible arena, find an available time slot where:
+        - The arena slot is empty
+        - The competitor is not already scheduled elsewhere at that time
+     d. Book the slot and update both tracking grids
+
+4. **Final Verification:**
+   - Count the total scheduled runs in your output
+   - Verify it equals the total required runs from step 1
+   - For each competitor, verify they have been scheduled for ALL their specialties (or one run if they have none)
+   - If any competitor is missing runs, identify them and find slots for them
+
+**Output Requirements:**
+- The schedule array MUST contain exactly as many entries as the total number of required runs
+- Every competitor MUST appear in the schedule once for each of their specialties
+- Include all scheduled runs, even if it means using every available slot
 
 **Inputs:**
--   **Event Days:** {{{json eventDays}}}
--   **Time Slots:** {{{json timeSlots}}}
--   **Arenas:** {{{json arenas}}}
--   **Competitors:** {{{json competitors}}}
-`,
+- **Event Days:** {{{json eventDays}}}
+- **Time Slots:** {{{json timeSlots}}}
+- **Arenas:** {{{json arenas}}}
+- **Competitors:** {{{json competitors}}}
+
+Remember: An incomplete schedule is a FAILURE. Schedule ALL competitors for ALL their specialties.`,
 });
 
 const generateScheduleFlow = ai.defineFlow(
@@ -111,6 +141,21 @@ const generateScheduleFlow = ai.defineFlow(
   },
   async (input) => {
     const { output } = await prompt(input);
+    
+    // Add validation to ensure all competitors are scheduled
+    if (output && output.schedule) {
+       const requiredRuns = input.competitors.reduce((total, competitor) => {
+        const specialtiesCount = competitor.specialties.length > 0 ? competitor.specialties.length : 1;
+        return total + specialtiesCount;
+      }, 0);
+      
+      if (output.schedule.length < requiredRuns) {
+        console.warn(`AI Scheduling Warning: Only ${output.schedule.length} runs scheduled out of ${requiredRuns} required runs. The AI may have failed to schedule everyone. Consider adjusting inputs or re-running.`);
+        // Potentially throw an error here to notify the user more directly
+        // throw new Error(`AI failed to generate a complete schedule. Only found ${output.schedule.length} of ${requiredRuns} required runs.`);
+      }
+    }
+    
     return output!;
   }
 );
