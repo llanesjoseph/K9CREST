@@ -27,7 +27,6 @@ import {
   SidebarMenuButton,
   SidebarFooter,
   SidebarGroup,
-  SidebarGroupLabel,
 } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -87,10 +86,10 @@ export function AppSidebar() {
     admin: [
         { href: "/dashboard", label: "Dashboard", icon: LayoutGrid },
         { href: "/dashboard/events", label: "Events", icon: Calendar },
+        { component: CompetitorImportDialog, label: "Import Competitors", icon: Users, eventSpecific: true },
+        { href: `/dashboard/events/${eventId}/rubric`, label: "Configure Rubric", icon: ListChecks, eventSpecific: true },
         { href: `/dashboard/judging/${eventId || 1}`, label: "Judging", icon: Gavel, eventSpecific: true },
         { href: `/dashboard/events/${eventId || 1}/leaderboard`, label: "Leaderboards", icon: Trophy, eventSpecific: true },
-        { href: `/dashboard/events/${eventId}/rubric`, label: "Configure Rubric", icon: ListChecks, eventSpecific: true },
-        { component: CompetitorImportDialog, label: "Import Competitors", icon: Users, eventSpecific: true },
         { href: "/dashboard/users", label: "Users", icon: Users },
         { href: "/dashboard/settings", label: "Settings", icon: Settings },
     ]
