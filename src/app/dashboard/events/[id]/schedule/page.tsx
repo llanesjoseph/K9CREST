@@ -376,7 +376,7 @@ export default function SchedulePage() {
         
         try {
             await setDoc(scheduleRef, newScheduleEntry);
-            toast({ title: 'Scheduled!', description: `${competitor.dogName} scheduled in ${targetArena.name} at ${startTime} on ${format(new Date(selectedDate), 'MMM dd')}.`});
+            toast({ title: 'Scheduled!', description: `${competitor.dogName} scheduled in ${targetArena.name} at ${startTime} on ${format(new Date(selectedDate.replace(/-/g, '/')), 'MMM dd')}.`});
         } catch (error) {
              toast({ variant: 'destructive', title: 'Error', description: 'Could not save schedule entry.' });
         }
@@ -421,7 +421,7 @@ export default function SchedulePage() {
                 <Card className="w-full lg:w-1/3 xl:w-1/4 print-hide flex flex-col">
                     <CardHeader>
                         <CardTitle>Unscheduled Competitors</CardTitle>
-                         <CardDescription>{unscheduledCompetitors.length} remaining for {selectedDate ? format(new Date(selectedDate), 'EEEE, MMM dd') : '...'}</CardDescription>
+                         <CardDescription>{unscheduledCompetitors.length} remaining for {selectedDate ? format(new Date(selectedDate.replace(/-/g, '/')), 'EEEE, MMM dd') : '...'}</CardDescription>
                     </CardHeader>
                     <CardContent className="flex-grow overflow-y-auto">
                         {loading.competitors ? (
