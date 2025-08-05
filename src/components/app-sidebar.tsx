@@ -134,13 +134,6 @@ export function AppSidebar() {
         )}
       </SidebarContent>
       <SidebarFooter className="flex flex-col gap-4 p-2 mt-auto">
-        <Card className="bg-secondary">
-          <CardContent className="p-3">
-             <h3 className="font-semibold mb-2">Need Help?</h3>
-             <p className="text-xs text-muted-foreground mb-3">Check our documentation or contact support.</p>
-             <Link href="#"><Button size="sm" className="w-full">Get Help</Button></Link>
-          </CardContent>
-        </Card>
         <Separator />
         <Link href="/dashboard/settings" className="flex items-center gap-3 hover:bg-muted/50 rounded-md p-2 transition-colors">
           <Avatar>
