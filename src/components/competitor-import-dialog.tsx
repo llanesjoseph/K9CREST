@@ -19,6 +19,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { Progress } from './ui/progress';
+import { SidebarMenuButton } from './ui/sidebar';
 
 interface CompetitorImportDialogProps {
   eventId: string;
@@ -198,9 +199,10 @@ export function CompetitorImportDialog({ eventId }: CompetitorImportDialogProps)
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button variant="outline">
-          <Users className="mr-2 h-4 w-4" /> Import Competitors
-        </Button>
+        <SidebarMenuButton variant="ghost" className="justify-start w-full" disabled={!eventId}>
+            <Users className="h-5 w-5" />
+            <span>Import Competitors</span>
+        </SidebarMenuButton>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>

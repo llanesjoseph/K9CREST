@@ -55,7 +55,7 @@ export function AppSidebar() {
   const adminMenuItems = [
     { href: "/dashboard/events", label: "Events", icon: Calendar },
     { href: `/dashboard/events/${eventId}/rubric`, label: "Configure Rubric", icon: ListChecks, eventSpecific: true },
-    { component: <CompetitorImportDialog eventId={eventId} />, label: "Import Competitors", icon: FileUp, eventSpecific: true },
+    { component: CompetitorImportDialog, label: "Import Competitors", icon: FileUp, eventSpecific: true },
   ]
 
   const handleSignOut = async () => {
@@ -117,12 +117,10 @@ export function AppSidebar() {
                     {adminMenuItems.map((item) => {
                         const disabled = item.eventSpecific && !eventId;
                         if (item.component) {
+                             const Comp = item.component
                             return (
                                  <SidebarMenuItem key={item.label}>
-                                     <div className={`flex w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm [&>svg]:size-4 [&>svg]:shrink-0 ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                                        <item.icon className="h-5 w-5" />
-                                        {disabled ? <span>Import Competitors</span> : item.component}
-                                     </div>
+                                    <Comp eventId={eventId} />
                                  </SidebarMenuItem>
                             )
                         }
