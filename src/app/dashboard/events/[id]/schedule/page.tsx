@@ -2,8 +2,35 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from 'react';
+import { collection, onSnapshot, doc, setDoc, deleteDoc, writeBatch, query, getDocs } from 'firebase/firestore';
 import { generateTimeSlots } from '@/lib/schedule-helpers';
-import { Trash2 } from 'lucide-react';
+import { Trash2, GripVertical, AlertTriangle, PlusCircle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useAuth } from '@/components/auth-provider';
+import { db } from '@/lib/firebase';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useToast } from '@/hooks/use-toast';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+
 
 // --- State Structures ---
 interface Specialty {
@@ -25,6 +52,7 @@ interface Arena {
 }
 
 interface ScheduledEvent {
+    id: string;
     competitorId: string;
     arenaId: string;
     startTime: string;
@@ -32,8 +60,12 @@ interface ScheduledEvent {
 }
 
 // --- CompetitorItem Component ---
-const CompetitorItem = ({ competitor }: { competitor: Competitor }) => {
+const CompetitorItem = ({ competitor, isDraggable }: { competitor: Competitor, isDraggable: boolean }) => {
     const handleDragStart = (e: React.DragEvent<HTMLDivElement>) => {
+        if (!isDraggable) {
+            e.preventDefault();
+            return;
+        }
         e.dataTransfer.setData('competitorId', competitor.id);
         e.dataTransfer.effectAllowed = 'move';
     };
@@ -49,13 +81,16 @@ const CompetitorItem = ({ competitor }: { competitor: Competitor }) => {
 
     return (
         <div
-            className="bg-secondary border border-border rounded-md p-3 mb-2 cursor-grab flex flex-col items-center shadow-sm hover:shadow-md transition duration-200 ease-in-out transform hover:-translate-y-1"
-            draggable="true"
+            className={`bg-secondary border border-border rounded-md p-3 mb-2 flex items-center gap-3 shadow-sm ${isDraggable ? 'cursor-grab hover:shadow-md transition-all duration-200 ease-in-out transform hover:-translate-y-px' : 'cursor-not-allowed opacity-70'}`}
+            draggable={isDraggable}
             onDragStart={handleDragStart}
         >
-            <span className="font-semibold text-primary">{competitor.k9Name}</span>
-            <span className="text-sm text-muted-foreground">({competitor.handlerName})</span>
-            <span className="text-xs text-muted-foreground/80">{getSpecialtyDisplay(competitor.specialties)}</span>
+            <GripVertical className="h-5 w-5 text-muted-foreground" />
+            <div className="flex-grow">
+                <span className="font-semibold text-primary">{competitor.k9Name}</span>
+                <span className="text-sm text-muted-foreground"> ({competitor.handlerName})</span>
+                <div className="text-xs text-muted-foreground/80">{getSpecialtyDisplay(competitor.specialties)}</div>
+            </div>
         </div>
     );
 };
@@ -68,53 +103,74 @@ const TimeSlot = ({
     scheduledEvent,
     competitors,
     removeScheduledEvent,
+    isDraggable
 }: {
     arenaId: string;
     startTime: string;
     onDrop: (e: React.DragEvent<HTMLDivElement>, arenaId: string, startTime: string) => void;
     scheduledEvent?: ScheduledEvent;
     competitors: Competitor[];
-    removeScheduledEvent: (competitorId: string, arenaId: string, startTime: string) => void;
+    removeScheduledEvent: (eventId: string) => void;
+    isDraggable: boolean;
 }) => {
+    const [isOver, setIsOver] = useState(false);
+
     const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
         e.preventDefault();
+        if (isDraggable) setIsOver(true);
     };
 
+    const handleDragLeave = () => {
+        setIsOver(false);
+    }
+
     const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+        if (!isDraggable) return;
         onDrop(e, arenaId, startTime);
+        setIsOver(false);
     };
 
     const eventCompetitor = scheduledEvent ? competitors.find(c => c.id === scheduledEvent.competitorId) : null;
 
     return (
         <div
-            className={`w-32 h-20 border border-dashed rounded-md flex items-center justify-center text-center text-sm transition duration-200 ease-in-out
-        ${scheduledEvent ? 'bg-green-100 dark:bg-green-900/30 border-green-400' : 'bg-background hover:bg-muted/80'}
-      `}
+            className={`w-32 h-20 border border-dashed rounded-md flex items-center justify-center text-center text-sm transition-all duration-200 ease-in-out relative
+                ${scheduledEvent ? 'bg-green-100 dark:bg-green-900/30 border-green-500/50' : isDraggable ? 'bg-background hover:bg-muted/80' : 'bg-secondary/50'}
+                ${isOver ? 'border-primary ring-2 ring-primary' : ''}
+            `}
             onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
             onDrop={handleDrop}
         >
             {scheduledEvent && eventCompetitor ? (
-                <div className="flex flex-col items-center justify-center p-1 relative group w-full h-full">
-                    <span className="font-bold text-green-800 dark:text-green-300">{eventCompetitor.k9Name}</span>
+                <div className="flex flex-col items-center justify-center p-1 group w-full h-full">
+                    <span className="font-bold text-green-800 dark:text-green-300 text-sm">{eventCompetitor.k9Name}</span>
                     <span className="text-xs text-green-700 dark:text-green-400">({eventCompetitor.handlerName})</span>
-                    <button
-                        onClick={() => removeScheduledEvent(scheduledEvent.competitorId, scheduledEvent.arenaId, scheduledEvent.startTime)}
-                        className="absolute top-0 right-0 -mt-1 -mr-1 bg-red-500 text-white rounded-full h-5 w-5 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity duration-200 print-hide-controls"
-                        title="Remove from schedule"
-                    >
-                        &times;
-                    </button>
+                    {isDraggable && (
+                         <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => removeScheduledEvent(scheduledEvent.id)}
+                            className="absolute top-0 right-0 h-6 w-6 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity duration-200 print-hide-controls"
+                            title="Remove from schedule"
+                        >
+                           <Trash2 className="h-4 w-4" />
+                        </Button>
+                    )}
                 </div>
-            ) : (
-                <span className="text-muted-foreground">Drop Here</span>
-            )}
+            ) : isDraggable ? (
+                <span className="text-muted-foreground text-xs">Drop Here</span>
+            ) : null}
         </div>
     );
 };
 
 
-export default function SchedulePage() {
+export default function SchedulePage({ params }: { params: { id: string } }) {
+    const { isAdmin } = useAuth();
+    const { toast } = useToast();
+    const eventId = params.id;
+
     // --- State Management ---
     const [competitors, setCompetitors] = useState<Competitor[]>([
         { id: 'comp-1', handlerName: 'Alice Johnson', k9Name: 'Max', specialties: [{ type: 'Bite Work' }] },
@@ -125,254 +181,323 @@ export default function SchedulePage() {
         { id: 'comp-6', handlerName: 'Frank Green', k9Name: 'Ace', specialties: [{ type: 'Bite Work' }, { type: 'Detection', detectionType: 'Explosives' }] },
     ]);
 
-    const [arenas, setArenas] = useState<Arena[]>([
-        { id: 'arena-1', name: 'Arena 1', specialtyType: 'Any' },
-        { id: 'arena-2', name: 'Arena 2', specialtyType: 'Bite Work' },
-        { id: 'arena-3', name: 'Arena 3', specialtyType: 'Detection' },
-    ]);
-
+    const [arenas, setArenas] = useState<Arena[]>([]);
     const [schedule, setSchedule] = useState<ScheduledEvent[]>([]);
+    const [loading, setLoading] = useState({ arenas: true, schedule: true, competitors: true });
+
     const [newArenaName, setNewArenaName] = useState('');
     const [newArenaSpecialty, setNewArenaSpecialty] = useState<'Any' | 'Bite Work' | 'Detection'>('Any');
-    const [message, setMessage] = useState('');
-    const messageTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     const timeSlots = generateTimeSlots();
 
-    // --- Functions ---
-    const showMessage = (msg: string, duration = 3000) => {
-        setMessage(msg);
-        if (messageTimeoutRef.current) {
-            clearTimeout(messageTimeoutRef.current);
-        }
-        messageTimeoutRef.current = setTimeout(() => {
-            setMessage('');
-        }, duration);
-    };
+    // --- Firestore Data Fetching ---
+    useEffect(() => {
+        if (!eventId) return;
 
-    const addArena = () => {
+        // Fetch Arenas
+        const arenasUnsub = onSnapshot(collection(db, `events/${eventId}/arenas`), (snapshot) => {
+            const arenasData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Arena));
+            setArenas(arenasData);
+            setLoading(prev => ({...prev, arenas: false}));
+        });
+        
+        // Fetch Schedule
+        const scheduleUnsub = onSnapshot(collection(db, `events/${eventId}/schedule`), (snapshot) => {
+            const scheduleData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ScheduledEvent));
+            setSchedule(scheduleData);
+            setLoading(prev => ({...prev, schedule: false}));
+        });
+        
+        // Fetch Competitors (replace with your actual implementation)
+        // For now, using static data and setting loading to false.
+        setLoading(prev => ({...prev, competitors: false}));
+
+
+        return () => {
+            arenasUnsub();
+            scheduleUnsub();
+        };
+
+    }, [eventId]);
+
+    // --- Functions ---
+    const addArena = async () => {
         if (newArenaName.trim() === '') {
-            showMessage('Arena name cannot be empty!');
+            toast({ variant: 'destructive', title: 'Error', description: 'Arena name cannot be empty!' });
             return;
         }
-        const newId = `arena-${Date.now()}`;
-        setArenas([...arenas, { id: newId, name: newArenaName.trim(), specialtyType: newArenaSpecialty }]);
-        setNewArenaName('');
-        setNewArenaSpecialty('Any');
-        showMessage(`Arena "${newArenaName.trim()}" (${newArenaSpecialty}) added!`);
+        if (!eventId) return;
+
+        const newArenaRef = doc(collection(db, `events/${eventId}/arenas`));
+        try {
+            await setDoc(newArenaRef, { name: newArenaName.trim(), specialtyType: newArenaSpecialty });
+            setNewArenaName('');
+            setNewArenaSpecialty('Any');
+            toast({ title: 'Success', description: `Arena "${newArenaName.trim()}" added!` });
+        } catch (error) {
+             toast({ variant: 'destructive', title: 'Error', description: 'Could not add arena.' });
+        }
     };
 
-    const removeArena = (arenaId: string) => {
-        setArenas(arenas.filter(arena => arena.id !== arenaId));
-        setSchedule(schedule.filter(event => event.arenaId !== arenaId));
-        showMessage('Arena removed!');
+    const removeArena = async (arena: Arena) => {
+        if (!eventId) return;
+        try {
+            // Batch delete associated schedule items
+            const scheduleQuery = query(collection(db, `events/${eventId}/schedule`));
+            const scheduleSnapshot = await getDocs(scheduleQuery);
+            const batch = writeBatch(db);
+
+            scheduleSnapshot.forEach(doc => {
+                if (doc.data().arenaId === arena.id) {
+                    batch.delete(doc.ref);
+                }
+            });
+
+            // Delete the arena itself
+            const arenaRef = doc(db, `events/${eventId}/arenas`, arena.id);
+            batch.delete(arenaRef);
+
+            await batch.commit();
+
+            toast({ title: 'Success', description: `Arena "${arena.name}" and its schedule have been removed.` });
+        } catch (error) {
+            console.error(error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not remove arena.' });
+        }
     };
 
-    const handleDrop = (e: React.DragEvent<HTMLDivElement>, arenaId: string, startTime: string) => {
+    const handleDrop = async (e: React.DragEvent<HTMLDivElement>, arenaId: string, startTime: string) => {
         e.preventDefault();
         const competitorId = e.dataTransfer.getData('competitorId');
         const competitor = competitors.find(comp => comp.id === competitorId);
         const targetArena = arenas.find(arena => arena.id === arenaId);
 
-        if (!competitor || !targetArena) {
-            showMessage('Error: Competitor or Arena not found.');
+        if (!competitor || !targetArena || !eventId) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Competitor or Arena not found.' });
             return;
         }
-
+        
         const conflict = schedule.find(event => event.arenaId === arenaId && event.startTime === startTime);
         if (conflict) {
-            showMessage('Time slot already occupied!');
+            toast({ variant: 'destructive', title: 'Error', description: 'Time slot already occupied!' });
             return;
         }
         
         const personalConflict = schedule.find(event => event.competitorId === competitorId && event.startTime === startTime);
         if (personalConflict) {
             const conflictingArena = arenas.find(a => a.id === personalConflict.arenaId);
-            showMessage(`${competitor.k9Name} is already scheduled in ${conflictingArena?.name || 'another arena'} at this time.`);
+            toast({ variant: 'destructive', title: 'Error', description: `${competitor.k9Name} is already scheduled in ${conflictingArena?.name || 'another arena'} at this time.` });
             return;
         }
 
-
         const arenaSpecialty = targetArena.specialtyType;
-        let isSpecialtyMatch = true;
-        if (arenaSpecialty !== 'Any') {
-            isSpecialtyMatch = competitor.specialties.some(s => s.type === arenaSpecialty);
-        }
-
-        if (!isSpecialtyMatch) {
-            showMessage(`Cannot schedule ${competitor.k9Name}. ${targetArena.name} is for ${arenaSpecialty} only.`);
+        if (arenaSpecialty !== 'Any' && !competitor.specialties.some(s => s.type === arenaSpecialty)) {
+            toast({ variant: 'destructive', title: 'Specialty Mismatch', description: `Cannot schedule ${competitor.k9Name}. ${targetArena.name} is for ${arenaSpecialty} only.` });
             return;
         }
 
         const endTime = new Date(new Date(`2000/01/01 ${startTime}`).getTime() + 30 * 60 * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
-        const newScheduleEntry = { competitorId, arenaId, startTime, endTime };
-
-        setSchedule(prevSchedule => {
-            const updatedSchedule = [...prevSchedule, newScheduleEntry];
-            showMessage(`${competitor.k9Name} scheduled in ${targetArena.name} at ${startTime}.`);
-            
-            // Dual-Specialty Suggestion Logic
-            if (competitor.specialties.length > 1) {
-                const scheduledSpecialtyType = targetArena.specialtyType === 'Any' ? competitor.specialties[0].type : targetArena.specialtyType;
-                const otherSpecialty = competitor.specialties.find(s => s.type !== scheduledSpecialtyType);
-
-                if (otherSpecialty) {
-                     const isOtherSpecialtyScheduled = updatedSchedule.some(event => {
-                        const eventArena = arenas.find(a => a.id === event.arenaId);
-                        return event.competitorId === competitorId && eventArena?.specialtyType === otherSpecialty.type;
-                    });
-                    if (!isOtherSpecialtyScheduled) {
-                        showMessage(`Note: ${competitor.k9Name} also has a ${otherSpecialty.type} specialty. Consider scheduling them for that too!`, 6000);
-                    }
-                }
-            }
-
-            return updatedSchedule;
-        });
+        
+        const scheduleRef = doc(collection(db, `events/${eventId}/schedule`));
+        const newScheduleEntry = { id: scheduleRef.id, competitorId, arenaId, startTime, endTime };
+        
+        try {
+            await setDoc(scheduleRef, newScheduleEntry);
+            toast({ title: 'Scheduled!', description: `${competitor.k9Name} scheduled in ${targetArena.name} at ${startTime}.`});
+        } catch (error) {
+             toast({ variant: 'destructive', title: 'Error', description: 'Could not save schedule entry.' });
+        }
     };
 
-    const removeScheduledEvent = (competitorId: string, arenaId: string, startTime: string) => {
-        setSchedule(prevSchedule =>
-            prevSchedule.filter(
-                event => !(event.competitorId === competitorId && event.arenaId === arenaId && event.startTime === startTime)
-            )
-        );
-        showMessage('Scheduled event removed.');
+    const removeScheduledEvent = async (scheduleId: string) => {
+        if (!eventId) return;
+        try {
+            await deleteDoc(doc(db, `events/${eventId}/schedule`, scheduleId));
+            toast({ title: 'Success', description: 'Scheduled event removed.' });
+        } catch (error) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not remove scheduled event.' });
+        }
     };
 
     const handlePrint = () => {
         window.print();
     };
+    
+    const unscheduledCompetitors = competitors.filter(c => !schedule.some(s => s.competitorId === c.id))
 
     // --- Render ---
     return (
-        <div className="min-h-screen p-4 flex flex-col md:flex-row gap-6">
-            <style>{`
-                @media print {
-                    .print-hide { display: none; }
-                    .print-expand { width: 100% !important; margin: 0 !important; padding: 0 !important; box-shadow: none !important; }
-                    .print-visible { overflow: visible !important; }
-                    body { font-size: 10pt; }
-                    h2, h3, h4 { color: #000 !important; }
-                    .grid > div { border-color: #ccc !important; }
-                }
-                @keyframes fade-in-down {
-                    0% { opacity: 0; transform: translateY(-20px) translateX(-50%); }
-                    100% { opacity: 1; transform: translateY(0) translateX(-50%); }
-                }
-                .animate-fade-in-down {
-                    animation: fade-in-down 0.5s ease-out forwards;
-                }
-            `}</style>
+        <TooltipProvider>
+            <div className="flex flex-col lg:flex-row gap-4 xl:gap-6 p-4 sm:p-6 min-h-screen">
+                <style>{`
+                    @media print {
+                        body { font-size: 10pt; }
+                        .print-hide { display: none !important; }
+                        .print-expand { width: 100% !important; height: auto !important; margin: 0 !important; padding: 0 !important; box-shadow: none !important; border: none !important; }
+                        .print-visible { overflow: visible !important; }
+                        .print-no-bg { background-color: transparent !important; }
+                         h1, h2, h3, h4 { color: #000 !important; }
+                        .print-break-inside-avoid { page-break-inside: avoid; }
+                        .timeslot-print { border-color: #ccc !important; }
+                    }
+                `}</style>
 
-            {message && (
-                <div className="fixed top-20 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground px-6 py-3 rounded-lg shadow-lg z-50 animate-fade-in-down">
-                    {message}
-                </div>
-            )}
-
-            {/* Left Panel: Competitor List */}
-            <div className="w-full md:w-1/3 bg-card rounded-lg shadow-md p-6 print-hide">
-                <h2 className="text-2xl font-bold mb-4 text-center text-card-foreground">K9 Competitors</h2>
-                <div className="space-y-4">
-                    {['Bite Work', 'Detection'].map(specialty => (
-                        <div key={specialty} className="border border-border rounded-lg p-3 bg-card">
-                            <h3 className="text-xl font-semibold mb-3 text-primary">{specialty}</h3>
-                            {specialty === 'Detection' ? (
-                                <div className="space-y-3">
-                                    {['Narcotics', 'Explosives'].map(detectionType => (
-                                        <div key={detectionType} className="border border-border rounded-md p-2 bg-muted/50">
-                                            <h4 className="text-lg font-medium mb-2 text-secondary-foreground">{detectionType}</h4>
-                                            {competitors
-                                                .filter(comp => comp.specialties.some(s => s.type === specialty && s.detectionType === detectionType))
-                                                .map(comp => <CompetitorItem key={comp.id} competitor={comp} />)
-                                            }
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : (
-                                <div className="space-y-3">
-                                    {competitors
-                                        .filter(comp => comp.specialties.some(s => s.type === specialty))
-                                        .map(comp => <CompetitorItem key={comp.id} competitor={comp} />)
-                                    }
-                                </div>
-                            )}
-                        </div>
-                    ))}
-                </div>
-            </div>
-
-            {/* Right Panel: Scheduler */}
-            <div className="w-full md:w-2/3 bg-card rounded-lg shadow-md p-6 print-expand">
-                <h2 className="text-2xl font-bold mb-4 text-center text-card-foreground">Event Schedule</h2>
-
-                <div className="mb-6 p-4 border border-border rounded-lg bg-muted/30 flex flex-col sm:flex-row items-center justify-between gap-3 print-hide">
-                    <input
-                        type="text"
-                        placeholder="New Arena Name"
-                        value={newArenaName}
-                        onChange={e => setNewArenaName(e.target.value)}
-                        className="flex-grow p-2 border border-input bg-background rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
-                    />
-                    <select
-                        value={newArenaSpecialty}
-                        onChange={e => setNewArenaSpecialty(e.target.value as Arena['specialtyType'])}
-                        className="p-2 border border-input bg-background rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
-                    >
-                        <option value="Any">Any Specialty</option>
-                        <option value="Bite Work">Bite Work</option>
-                        <option value="Detection">Detection</option>
-                    </select>
-                    <button onClick={addArena} className="bg-primary text-primary-foreground font-bold py-2 px-4 rounded-md shadow-md">
-                        Add Arena
-                    </button>
-                    <button onClick={handlePrint} className="bg-secondary text-secondary-foreground font-bold py-2 px-4 rounded-md shadow-md">
-                        Print Schedule
-                    </button>
-                </div>
-
-                <div className="overflow-x-auto print-visible">
-                    <div className="grid gap-2 min-w-max">
-                        <div className="grid grid-flow-col auto-cols-fr gap-2 border-b-2 border-border pb-2">
-                            <div className="w-32 font-semibold text-muted-foreground">Arenas / Time</div>
-                            {timeSlots.map(time => (
-                                <div key={time} className="w-32 text-center font-semibold text-muted-foreground">{time}</div>
-                            ))}
-                        </div>
-
-                        {arenas.map(arena => (
-                            <div key={arena.id} className="grid grid-flow-col auto-cols-fr gap-2 items-center border-b border-border py-2">
-                                <div className="w-32 font-medium text-card-foreground flex items-center pr-2">
-                                     <div className="flex flex-col">
-                                        <span>{arena.name}</span>
-                                        <span className="text-xs text-muted-foreground">({arena.specialtyType})</span>
-                                    </div>
-                                    <button
-                                        onClick={() => removeArena(arena.id)}
-                                        className="text-muted-foreground hover:text-destructive text-sm print-hide ml-auto"
-                                        title="Remove Arena"
-                                    >
-                                       <Trash2 className="h-4 w-4" />
-                                    </button>
-                                </div>
-                                {timeSlots.map(time => (
-                                    <TimeSlot
-                                        key={`${arena.id}-${time}`}
-                                        arenaId={arena.id}
-                                        startTime={time}
-                                        onDrop={handleDrop}
-                                        scheduledEvent={schedule.find(event => event.arenaId === arena.id && event.startTime === time)}
-                                        competitors={competitors}
-                                        removeScheduledEvent={removeScheduledEvent}
-                                    />
-                                ))}
+                {/* Left Panel: Competitor List */}
+                <Card className="w-full lg:w-1/3 xl:w-1/4 print-hide flex flex-col">
+                    <CardHeader>
+                        <CardTitle>Unscheduled Competitors</CardTitle>
+                    </CardHeader>
+                    <CardContent className="flex-grow overflow-y-auto">
+                        {loading.competitors ? (
+                            <div className="space-y-2">
+                                <Skeleton className="h-16 w-full" />
+                                <Skeleton className="h-16 w-full" />
+                                <Skeleton className="h-16 w-full" />
                             </div>
-                        ))}
-                    </div>
+                        ) : (
+                            <>
+                                {unscheduledCompetitors.length > 0 ? (
+                                    <div className="space-y-3">
+                                        {unscheduledCompetitors
+                                            .map(comp => <CompetitorItem key={comp.id} competitor={comp} isDraggable={isAdmin} />)
+                                        }
+                                    </div>
+                                ) : (
+                                    <div className="text-center text-muted-foreground p-8 border border-dashed rounded-md">
+                                        All competitors have been scheduled.
+                                    </div>
+                                )}
+                             </>
+                        )}
+                    </CardContent>
+                </Card>
+
+                {/* Right Panel: Scheduler */}
+                <div className="w-full lg:w-2/3 xl:w-3/4 flex flex-col gap-4 print-expand">
+                    
+                    {isAdmin && (
+                        <Card className="print-hide">
+                            <CardHeader>
+                                <CardTitle>Manage Arenas</CardTitle>
+                            </CardHeader>
+                            <CardContent className="flex flex-col sm:flex-row items-center gap-2">
+                                <Input
+                                    type="text"
+                                    placeholder="New Arena Name"
+                                    value={newArenaName}
+                                    onChange={e => setNewArenaName(e.target.value)}
+                                    className="flex-grow"
+                                />
+                                <Select value={newArenaSpecialty} onValueChange={(val: Arena['specialtyType']) => setNewArenaSpecialty(val)}>
+                                     <SelectTrigger className="w-full sm:w-[180px]">
+                                        <SelectValue placeholder="Select specialty" />
+                                     </SelectTrigger>
+                                     <SelectContent>
+                                        <SelectItem value="Any">Any Specialty</SelectItem>
+                                        <SelectItem value="Bite Work">Bite Work</SelectItem>
+                                        <SelectItem value="Detection">Detection</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <Button onClick={addArena} className="w-full sm:w-auto">
+                                    <PlusCircle className="mr-2 h-4 w-4"/>
+                                    Add Arena
+                                </Button>
+                            </CardContent>
+                        </Card>
+                    )}
+                    
+                    <Card className="flex-grow print-expand">
+                         <CardHeader className="flex flex-row items-center justify-between">
+                            <CardTitle>Event Schedule</CardTitle>
+                             <Button onClick={handlePrint} variant="outline" className="print-hide">
+                                Print Schedule
+                            </Button>
+                        </CardHeader>
+                        <CardContent>
+                             <div className="overflow-x-auto overflow-y-hidden print-visible relative pb-2">
+                                {loading.arenas || loading.schedule ? (
+                                    <div className="space-y-4">
+                                        <Skeleton className="h-10 w-full" />
+                                        <Skeleton className="h-20 w-full" />
+                                        <Skeleton className="h-20 w-full" />
+                                    </div>
+                                ) : arenas.length === 0 ? (
+                                     <div className="text-center text-muted-foreground py-12 border-2 border-dashed rounded-lg">
+                                        <AlertTriangle className="mx-auto h-8 w-8 text-muted-foreground" />
+                                        <p className="mt-4">No arenas have been created for this event.</p>
+                                        {isAdmin && <p>Use the 'Manage Arenas' section to add one.</p>}
+                                    </div>
+                                ) : (
+                                    <div className="grid gap-2 min-w-max">
+                                        {/* Header Row: Time Slots */}
+                                        <div className="grid grid-flow-col auto-cols-fr gap-2 border-b-2 pb-2 sticky top-0 bg-card z-10 print-no-bg">
+                                            <div className="w-32 font-semibold text-muted-foreground">Arenas / Time</div>
+                                            {timeSlots.map(time => (
+                                                <div key={time} className="w-32 text-center font-semibold text-muted-foreground">{time}</div>
+                                            ))}
+                                        </div>
+
+                                        {/* Arena Rows */}
+                                        {arenas.map(arena => (
+                                            <div key={arena.id} className="grid grid-flow-col auto-cols-fr gap-2 items-center border-b py-2 print-break-inside-avoid">
+                                                <div className="w-32 font-medium text-card-foreground flex items-center pr-2">
+                                                    <div className="flex-grow">
+                                                        <span>{arena.name}</span>
+                                                        <span className="text-xs text-muted-foreground block">({arena.specialtyType})</span>
+                                                    </div>
+                                                    {isAdmin && (
+                                                        <AlertDialog>
+                                                            <Tooltip>
+                                                                <TooltipTrigger asChild>
+                                                                    <AlertDialogTrigger asChild>
+                                                                        <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive text-sm print-hide h-8 w-8">
+                                                                            <Trash2 className="h-4 w-4" />
+                                                                        </Button>
+                                                                    </AlertDialogTrigger>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent>
+                                                                    <p>Remove Arena</p>
+                                                                </TooltipContent>
+                                                            </Tooltip>
+                                                             <AlertDialogContent>
+                                                                <AlertDialogHeader>
+                                                                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                                                    <AlertDialogDescription>
+                                                                        This will remove the arena "{arena.name}" and all of its scheduled runs. This action cannot be undone.
+                                                                    </AlertDialogDescription>
+                                                                </AlertDialogHeader>
+                                                                <AlertDialogFooter>
+                                                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                                    <AlertDialogAction onClick={() => removeArena(arena)}>Delete</AlertDialogAction>
+                                                                </AlertDialogFooter>
+                                                            </AlertDialogContent>
+                                                        </AlertDialog>
+                                                    )}
+                                                </div>
+                                                {timeSlots.map(time => (
+                                                    <TimeSlot
+                                                        key={`${arena.id}-${time}`}
+                                                        arenaId={arena.id}
+                                                        startTime={time}
+                                                        onDrop={handleDrop}
+                                                        scheduledEvent={schedule.find(event => event.arenaId === arena.id && event.startTime === time)}
+                                                        competitors={competitors}
+                                                        removeScheduledEvent={removeScheduledEvent}
+                                                        isDraggable={isAdmin}
+                                                        
+                                                    />
+                                                ))}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </CardContent>
+                    </Card>
                 </div>
             </div>
-        </div>
+        </TooltipProvider>
     );
 }
 
+    
