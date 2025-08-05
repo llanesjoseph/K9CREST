@@ -5,7 +5,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { collection, onSnapshot, doc, setDoc, deleteDoc, writeBatch, query, getDocs, getDoc, Timestamp, updateDoc } from 'firebase/firestore';
 import { generateTimeSlots } from '@/lib/schedule-helpers';
-import { Trash2, GripVertical, AlertTriangle, PlusCircle, Users, X, Eraser, Wand2, Clock } from 'lucide-react';
+import { Trash2, GripVertical, AlertTriangle, PlusCircle, Users, X, Eraser, Wand2, Clock, Loader2, FileDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -17,6 +17,9 @@ import { useToast } from '@/hooks/use-toast';
 import { eachDayOfInterval, format, parse } from 'date-fns';
 import { CompetitorImportDialog } from '@/components/competitor-import-dialog';
 import { AddCompetitorDialog } from '@/components/add-competitor-dialog';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
+
 import {
   AlertDialog,
   AlertDialogAction,
@@ -194,8 +197,8 @@ const TimeSlot = ({
 
     return (
         <div
-            className={`w-32 h-20 border border-dashed rounded-md flex items-center justify-center text-center text-sm transition-all duration-200 ease-in-out relative print:h-auto print:border-solid print:p-1 print:text-left print:items-start print:rounded-none print:w-auto print:border
-                ${scheduledEvent ? 'bg-green-100 dark:bg-green-900/30 border-green-500/50 print:bg-white' : isDraggable ? 'bg-background hover:bg-muted/80' : 'bg-secondary/50 print:bg-gray-50'}
+            className={`w-32 h-20 border border-dashed rounded-md flex items-center justify-center text-center text-sm transition-all duration-200 ease-in-out relative
+                ${scheduledEvent ? 'bg-green-100 dark:bg-green-900/30 border-green-500/50' : isDraggable ? 'bg-background hover:bg-muted/80' : 'bg-secondary/50'}
                 ${isOver ? 'border-primary ring-2 ring-primary' : ''}
                 ${canDragEvent ? 'cursor-grab' : ''}
             `}
@@ -206,15 +209,15 @@ const TimeSlot = ({
             draggable={canDragEvent}
         >
             {scheduledEvent && eventCompetitor ? (
-                <div className="flex flex-col items-center justify-center p-1 group w-full h-full print:items-start print:p-0">
-                    <span className="font-bold text-green-800 dark:text-green-300 text-sm print:text-black print:text-xs">{eventCompetitor.dogName}</span>
-                    <span className="text-xs text-green-700 dark:text-green-400 print:text-gray-600">({eventCompetitor.name})</span>
+                <div className="flex flex-col items-center justify-center p-1 group w-full h-full">
+                    <span className="font-bold text-green-800 dark:text-green-300 text-sm">{eventCompetitor.dogName}</span>
+                    <span className="text-xs text-green-700 dark:text-green-400">({eventCompetitor.name})</span>
                     {isDraggable && (
                          <Button
                             variant="ghost"
                             size="icon"
                             onClick={() => removeScheduledEvent(scheduledEvent.id)}
-                            className="absolute top-0 right-0 h-6 w-6 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity duration-200 print-hide"
+                            className="absolute top-0 right-0 h-6 w-6 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity duration-200"
                             title="Remove from schedule"
                         >
                            <X className="h-4 w-4" />
@@ -222,7 +225,7 @@ const TimeSlot = ({
                     )}
                 </div>
             ) : isDraggable ? (
-                <span className="text-muted-foreground text-xs print-hide">Drop Here</span>
+                <span className="text-muted-foreground text-xs">Drop Here</span>
             ) : null}
         </div>
     );
@@ -246,6 +249,8 @@ export default function SchedulePage() {
     
     const [newArenaName, setNewArenaName] = useState('');
     const [newArenaSpecialty, setNewArenaSpecialty] = useState<ArenaSpecialty>('Any');
+    const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+    const scheduleContainerRef = useRef<HTMLDivElement>(null);
 
     const timeSlots = generateTimeSlots();
 
@@ -450,32 +455,40 @@ export default function SchedulePage() {
         const competitorId = e.dataTransfer.getData('competitorId');
         const draggedScheduleId = e.dataTransfer.getData('scheduleId');
         
+        if (!competitorId || !eventId) return;
+
         const competitor = competitors.find(comp => comp.id === competitorId);
         const targetArena = arenas.find(arena => arena.id === arenaId);
 
-        if (!competitor || !targetArena || !eventId) {
+        if (!competitor || !targetArena) {
             toast({ variant: 'destructive', title: 'Error', description: 'Competitor or Arena not found.' });
             return;
         }
         
-        const originalEvent = draggedScheduleId ? schedule.find(s => s.id === draggedScheduleId) : null;
-        if (originalEvent && originalEvent.arenaId === arenaId && originalEvent.startTime === startTime && originalEvent.date === date) {
-            return; // Dropped on the same slot, do nothing
+        // Prevent dropping in the same slot if moving
+        if (draggedScheduleId) {
+            const originalEvent = schedule.find(s => s.id === draggedScheduleId);
+            if (originalEvent && originalEvent.arenaId === arenaId && originalEvent.startTime === startTime && originalEvent.date === date) {
+                return; // Dropped on the same slot, do nothing
+            }
         }
 
+        // Check for conflicts in the target slot
         const conflict = schedule.find(event => event.id !== draggedScheduleId && event.arenaId === arenaId && event.startTime === startTime && event.date === date);
         if (conflict) {
             toast({ variant: 'destructive', title: 'Error', description: 'Time slot already occupied!' });
             return;
         }
         
+        // Check for personal conflicts for the competitor
         const personalConflict = schedule.find(event => event.id !== draggedScheduleId && event.competitorId === competitorId && event.startTime === startTime && event.date === date);
         if (personalConflict) {
             const conflictingArena = arenas.find(a => a.id === personalConflict.arenaId);
             toast({ variant: 'destructive', title: 'Error', description: `${competitor.dogName} is already scheduled in ${conflictingArena?.name || 'another arena'} at this time.` });
             return;
         }
-
+        
+        // Check specialty matching
         const arenaSpecialty = targetArena.specialtyType;
         if (arenaSpecialty !== 'Any') {
             const hasSpecialty = competitor.specialties.some(s => {
@@ -491,24 +504,18 @@ export default function SchedulePage() {
             }
         }
 
+        // Create new schedule data
         const endTime = new Date(new Date(`2000/01/01 ${startTime}`).getTime() + 30 * 60 * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
-        
         const newScheduleData = { competitorId, arenaId, startTime, endTime, date };
-        
+
         try {
             if (draggedScheduleId) {
-                // This is a move
+                // This is a MOVE operation
                 const scheduleRef = doc(db, `events/${eventId}/schedule`, draggedScheduleId);
-                await updateDoc(scheduleRef, {
-                    arenaId,
-                    startTime,
-                    endTime,
-                    date
-                });
+                await updateDoc(scheduleRef, { arenaId, startTime, endTime, date });
                 toast({ title: 'Moved!', description: `${competitor.dogName} moved to ${targetArena.name} at ${startTime} on ${format(parse(date, 'yyyy-MM-dd', new Date()), 'MMM dd')}.`});
-
             } else {
-                // This is a new placement
+                // This is a NEW PLACEMENT
                 const scheduleRef = doc(collection(db, `events/${eventId}/schedule`));
                 await setDoc(scheduleRef, { ...newScheduleData, id: scheduleRef.id });
                 toast({ title: 'Scheduled!', description: `${competitor.dogName} scheduled in ${targetArena.name} at ${startTime} on ${format(parse(date, 'yyyy-MM-dd', new Date()), 'MMM dd')}.`});
@@ -553,11 +560,57 @@ export default function SchedulePage() {
         }
     };
 
-    const handlePrint = () => {
-        if(eventDetails?.name) {
-            document.title = `Event Schedule - ${eventDetails.name}`;
+    const handleGeneratePdf = async () => {
+        if (!scheduleContainerRef.current) {
+            toast({ variant: "destructive", title: "Error", description: "Could not find schedule content to export." });
+            return;
         }
-        window.print();
+
+        setIsGeneratingPdf(true);
+        
+        try {
+            const canvas = await html2canvas(scheduleContainerRef.current, {
+                scale: 2, // Higher scale for better quality
+                useCORS: true,
+                backgroundColor: '#ffffff' // Set a background color for transparent elements
+            });
+            const imgData = canvas.toDataURL('image/png');
+            
+            const pdf = new jsPDF({
+                orientation: 'landscape',
+                unit: 'pt',
+                format: 'letter'
+            });
+
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = pdf.internal.pageSize.getHeight();
+            const imgWidth = canvas.width;
+            const imgHeight = canvas.height;
+            const ratio = imgWidth / imgHeight;
+            let finalImgWidth = pdfWidth - 40; // with margins
+            let finalImgHeight = finalImgWidth / ratio;
+            
+            if (finalImgHeight > pdfHeight - 40) {
+                finalImgHeight = pdfHeight - 40;
+                finalImgWidth = finalImgHeight * ratio;
+            }
+            
+            const x = (pdfWidth - finalImgWidth) / 2;
+
+            pdf.setFontSize(20);
+            pdf.text(eventDetails?.name || 'Event Schedule', pdfWidth / 2, 30, { align: 'center' });
+
+            pdf.addImage(imgData, 'PNG', x, 50, finalImgWidth, finalImgHeight);
+            
+            const fileName = `schedule_${eventDetails?.name.replace(/\s+/g, '_') || eventId}.pdf`;
+            pdf.save(fileName);
+            
+        } catch (error) {
+            console.error("Error generating PDF:", error);
+            toast({ variant: "destructive", title: "PDF Generation Failed", description: "An unexpected error occurred." });
+        } finally {
+            setIsGeneratingPdf(false);
+        }
     };
     
     const isFullyLoading = loading.arenas || loading.schedule || loading.competitors || loading.event;
@@ -566,38 +619,8 @@ export default function SchedulePage() {
     return (
         <TooltipProvider>
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 xl:gap-6 h-full min-h-[calc(100vh-theme(spacing.16))]">
-                <style>{`
-                    @media print {
-                        body { font-size: 10pt; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-                        .print-hide { display: none !important; }
-                        .print-show { display: block !important; }
-                        .print-container { position: absolute; left: 0; top: 0; width: 100%; }
-                        .print-expand { width: 100% !important; height: auto !important; margin: 0 !important; padding: 0 !important; box-shadow: none !important; border: none !important; }
-                        .print-visible { overflow: visible !important; }
-                        .print-no-bg { background-color: transparent !important; }
-                         h1, h2, h3, h4 { color: #000 !important; }
-                        .print-break-inside-avoid { page-break-inside: avoid; }
-                        .schedule-grid { margin-bottom: 2rem; }
-                        .print-timeslot-grid { display: grid; grid-template-columns: repeat(${timeSlots.length + 1}, minmax(0, 1fr)); }
-                        .print-arena-row { display: contents; } /* Make this behave like a tr */
-                         .print-cell-header { font-weight: 600; padding: 4px; border: 1px solid #ccc; background-color: #f2f2f2 !important; }
-                        .print-cell-arena { font-weight: 600; padding: 4px; border: 1px solid #ccc; background-color: #f9f9f9 !important; }
-                    }
-                `}</style>
-                <div className="hidden print-show mb-8">
-                     {eventDetails && (
-                        <>
-                            <h1 className="text-3xl font-bold">{eventDetails.name}</h1>
-                             <p className="text-lg text-gray-600">
-                                {format(eventDetails.startDate.toDate(), "MMMM d, yyyy")}
-                                {eventDetails.endDate && ` - ${format(eventDetails.endDate.toDate(), "MMMM d, yyyy")}`}
-                            </p>
-                        </>
-                    )}
-                </div>
-
                 {/* Left Panel: Competitor List & Arena Mgmt */}
-                 <div className="xl:col-span-1 flex flex-col gap-4 print-hide">
+                 <div className="xl:col-span-1 flex flex-col gap-4">
                     <Card className="flex-grow flex flex-col h-full min-h-0">
                         <CardHeader>
                             <CardTitle>Competitors</CardTitle>
@@ -650,7 +673,7 @@ export default function SchedulePage() {
                     </Card>
 
                     {isAdmin && (
-                        <Card className="print-hide">
+                        <Card>
                             <CardHeader>
                                 <CardTitle>Manage Arenas</CardTitle>
                             </CardHeader>
@@ -684,9 +707,9 @@ export default function SchedulePage() {
 
 
                 {/* Right Panel: Scheduler */}
-                <div className="xl:col-span-2 flex flex-col gap-4 print-expand print-container">
-                    <Card className="flex-grow print-expand">
-                        <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 print-hide">
+                <div className="xl:col-span-2 flex flex-col gap-4">
+                    <Card className="flex-grow">
+                        <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                             <div>
                                 <CardTitle>Event Schedule: {eventDetails?.name || <Skeleton className="h-6 w-48 inline-block" />}</CardTitle>
                                 <CardDescription>Drag and drop competitors to build the schedule for each day.</CardDescription>
@@ -702,8 +725,9 @@ export default function SchedulePage() {
                                         currentSchedule={schedule}
                                      />
                                 )}
-                                <Button onClick={handlePrint} variant="outline" className="w-full">
-                                    Print Schedule
+                                <Button onClick={handleGeneratePdf} variant="outline" className="w-full" disabled={isGeneratingPdf}>
+                                    {isGeneratingPdf ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <FileDown className="mr-2 h-4 w-4"/>}
+                                    Download as PDF
                                 </Button>
                                 {isAdmin && (
                                      <AlertDialog>
@@ -732,7 +756,7 @@ export default function SchedulePage() {
                             </div>
                         </CardHeader>
                         <CardContent>
-                             <div className="overflow-x-auto print-visible relative pb-2">
+                             <div ref={scheduleContainerRef} className="overflow-x-auto relative pb-2 bg-card p-4">
                                 {isFullyLoading ? (
                                     <div className="space-y-4">
                                         <Skeleton className="h-10 w-full" />
@@ -750,7 +774,7 @@ export default function SchedulePage() {
                                     {eventDays.map(day => {
                                         const formattedDate = format(day, 'yyyy-MM-dd');
                                         return (
-                                            <div key={day.toISOString()} className="schedule-grid print-break-inside-avoid">
+                                            <div key={day.toISOString()}>
                                                 <h3 className="text-lg font-semibold mb-3 sticky top-0 bg-card py-2 z-20">{format(day, 'EEEE, MMM dd')}</h3>
                                                 {arenas.length === 0 ? (
                                                     <div className="text-center text-muted-foreground py-12 border-2 border-dashed rounded-lg h-96 flex flex-col justify-center items-center mt-4">
@@ -763,19 +787,19 @@ export default function SchedulePage() {
                                                         )}
                                                     </div>
                                                 ) : (
-                                                    <div className="grid gap-2 min-w-max print:block">
+                                                    <div className="grid gap-2 min-w-max">
                                                         {/* Header Row: Time Slots */}
-                                                        <div className="grid grid-flow-col auto-cols-fr gap-2 border-b-2 pb-2 sticky top-[4.2rem] bg-card z-10 print-no-bg print:print-timeslot-grid">
-                                                            <div className="w-32 font-semibold text-muted-foreground print:print-cell-header">Arenas / Time</div>
+                                                        <div className="grid grid-flow-col auto-cols-fr gap-2 border-b-2 pb-2 sticky top-[4.2rem] bg-card z-10">
+                                                            <div className="w-32 font-semibold text-muted-foreground">Arenas / Time</div>
                                                             {timeSlots.map(time => (
-                                                                <div key={time} className="w-32 text-center font-semibold text-muted-foreground print:print-cell-header">{time}</div>
+                                                                <div key={time} className="w-32 text-center font-semibold text-muted-foreground">{time}</div>
                                                             ))}
                                                         </div>
 
                                                         {/* Arena Rows */}
                                                         {arenas.map(arena => (
-                                                            <div key={arena.id} className="grid grid-flow-col auto-cols-fr gap-2 items-center border-b py-2 print-break-inside-avoid print:print-arena-row">
-                                                                <div className="w-32 font-medium text-card-foreground flex items-center pr-2 print:print-cell-arena">
+                                                            <div key={arena.id} className="grid grid-flow-col auto-cols-fr gap-2 items-center border-b py-2">
+                                                                <div className="w-32 font-medium text-card-foreground flex items-center pr-2">
                                                                     <div className="flex-grow">
                                                                         <span>{arena.name}</span>
                                                                         <span className="text-xs text-muted-foreground block">({arena.specialtyType})</span>
@@ -785,7 +809,7 @@ export default function SchedulePage() {
                                                                             <Tooltip>
                                                                                 <TooltipTrigger asChild>
                                                                                     <AlertDialogTrigger asChild>
-                                                                                        <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive text-sm print-hide h-8 w-8">
+                                                                                        <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive text-sm h-8 w-8">
                                                                                             <Trash2 className="h-4 w-4" />
                                                                                         </Button>
                                                                                     </AlertDialogTrigger>
