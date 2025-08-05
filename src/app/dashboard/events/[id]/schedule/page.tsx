@@ -16,6 +16,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { eachDayOfInterval, format } from 'date-fns';
 import { CompetitorImportDialog } from '@/components/competitor-import-dialog';
+import { AddCompetitorDialog } from '@/components/add-competitor-dialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -43,7 +44,7 @@ interface Specialty {
     detectionType?: 'Narcotics' | 'Explosives';
 }
 
-interface Competitor {
+export interface Competitor {
     id: string;
     name: string;
     dogName: string;
@@ -402,7 +403,7 @@ export default function SchedulePage() {
     // --- Render ---
     return (
         <TooltipProvider>
-            <div className="grid lg:grid-cols-3 gap-4 xl:gap-6 min-h-[calc(100vh-theme(spacing.16))]">
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 xl:gap-6 min-h-[calc(100vh-theme(spacing.16))]">
                 <style>{`
                     @media print {
                         body { font-size: 10pt; }
@@ -416,7 +417,7 @@ export default function SchedulePage() {
                 `}</style>
 
                 {/* Left Panel: Competitor List & Arena Mgmt */}
-                 <div className="lg:col-span-1 flex flex-col gap-4 print-hide">
+                 <div className="col-span-1 flex flex-col gap-4 print-hide">
                     <Card className="flex-grow flex flex-col">
                         <CardHeader>
                             <CardTitle>Unscheduled Competitors</CardTitle>
@@ -450,8 +451,9 @@ export default function SchedulePage() {
                                 </>
                             )}
                         </CardContent>
-                        {isAdmin && competitors.length > 0 && (
-                            <CardFooter className="border-t pt-4">
+                        {isAdmin && (
+                            <CardFooter className="border-t pt-4 flex-wrap gap-2">
+                                <AddCompetitorDialog eventId={eventId}/>
                                 <CompetitorImportDialog eventId={eventId} />
                             </CardFooter>
                         )}
@@ -492,7 +494,7 @@ export default function SchedulePage() {
 
 
                 {/* Right Panel: Scheduler */}
-                <div className="lg:col-span-2 flex flex-col gap-4 print-expand">
+                <div className="col-span-1 xl:col-span-2 flex flex-col gap-4 print-expand">
                     <Card className="flex-grow print-expand">
                         <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 print-hide">
                             <div>
