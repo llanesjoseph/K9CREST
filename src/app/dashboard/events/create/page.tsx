@@ -4,8 +4,12 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { CalendarIcon, Upload } from "lucide-react";
+import { CalendarIcon, Upload, Loader2 } from "lucide-react";
 import { format } from "date-fns";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { addDoc, collection } from "firebase/firestore";
+
 
 import { Button } from "@/components/ui/button";
 import {
@@ -35,6 +39,7 @@ import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { useToast } from "@/hooks/use-toast";
 import { AddressAutocomplete } from "@/components/address-autocomplete";
+import { db } from "@/lib/firebase";
 
 const formSchema = z.object({
   eventName: z.string().min(2, "Event name must be at least 2 characters."),
@@ -51,6 +56,8 @@ const formSchema = z.object({
 
 export default function CreateEventPage() {
   const { toast } = useToast();
+  const router = useRouter();
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -60,12 +67,38 @@ export default function CreateEventPage() {
     },
   });
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    console.log(values);
-    toast({
-      title: "Event Created!",
-      description: `${values.eventName} has been successfully created.`,
-    });
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    setIsSubmitting(true);
+    try {
+      // TODO: Handle banner image upload to Firebase Storage
+      const eventData = {
+        name: values.eventName,
+        startDate: values.date.from,
+        endDate: values.date.to,
+        location: values.location,
+        description: values.description,
+        status: "Upcoming", // Default status
+        createdAt: new Date(),
+      };
+      
+      const docRef = await addDoc(collection(db, "events"), eventData);
+      console.log("Document written with ID: ", docRef.id);
+
+      toast({
+        title: "Event Created!",
+        description: `${values.eventName} has been successfully created.`,
+      });
+      router.push("/dashboard/events");
+    } catch (e) {
+      console.error("Error adding document: ", e);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "There was an error creating the event. Please try again.",
+      });
+    } finally {
+        setIsSubmitting(false);
+    }
   }
 
   return (
@@ -197,7 +230,10 @@ export default function CreateEventPage() {
             </div>
             <div className="flex justify-end gap-2">
                 <Button variant="outline" asChild><Link href="/dashboard/events">Cancel</Link></Button>
-                <Button type="submit">Create Event</Button>
+                <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Create Event
+                </Button>
             </div>
           </form>
         </Form>
