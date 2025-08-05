@@ -97,12 +97,12 @@ export function AppSidebar() {
           </CardContent>
         </Card>
         <Separator />
-        <div className="flex items-center gap-3">
+        <Link href="/dashboard/settings" className="flex items-center gap-3 hover:bg-muted/50 rounded-md p-2 transition-colors">
           <Avatar>
             <AvatarImage src={user?.photoURL || `https://placehold.co/40x40`} />
             <AvatarFallback>{user?.email?.[0].toUpperCase() || 'U'}</AvatarFallback>
           </Avatar>
-          <div className="flex flex-col flex-grow">
+          <div className="flex flex-col flex-grow overflow-hidden">
             <span className="text-sm font-medium truncate">{user?.displayName || user?.email || "User"}</span>
             <span className="text-xs text-muted-foreground truncate">
               {user?.email}
@@ -111,7 +111,7 @@ export function AppSidebar() {
            <Button variant="ghost" size="icon" onClick={handleSignOut} className="shrink-0">
              <LogOut className="h-4 w-4" />
            </Button>
-        </div>
+        </Link>
       </SidebarFooter>
     </Sidebar>
   );
