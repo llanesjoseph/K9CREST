@@ -146,6 +146,7 @@ const CompetitorItem = ({ competitor, isDraggable }: { competitor: DisplayCompet
 const TimeSlot = ({
     arenaId,
     startTime,
+    date,
     onDrop,
     scheduledEvent,
     competitors,
@@ -154,7 +155,8 @@ const TimeSlot = ({
 }: {
     arenaId: string;
     startTime: string;
-    onDrop: (e: React.DragEvent<HTMLDivElement>, arenaId: string, startTime: string) => void;
+    date: string;
+    onDrop: (e: React.DragEvent<HTMLDivElement>, arenaId: string, startTime: string, date: string) => void;
     scheduledEvent?: ScheduledEvent;
     competitors: Competitor[];
     removeScheduledEvent: (eventId: string) => void;
@@ -173,7 +175,7 @@ const TimeSlot = ({
 
     const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
         if (!isDraggable) return;
-        onDrop(e, arenaId, startTime);
+        onDrop(e, arenaId, startTime, date);
         setIsOver(false);
     };
     
@@ -807,7 +809,8 @@ export default function SchedulePage() {
                                                                         key={`${arena.id}-${time}`}
                                                                         arenaId={arena.id}
                                                                         startTime={time}
-                                                                        onDrop={(e, arenaId, startTime) => handleDrop(e, arenaId, startTime, formattedDate)}
+                                                                        date={formattedDate}
+                                                                        onDrop={(e, arenaId, startTime, date) => handleDrop(e, arenaId, startTime, date)}
                                                                         scheduledEvent={schedule.find(event => event.arenaId === arena.id && event.startTime === time && event.date === formattedDate)}
                                                                         competitors={competitors}
                                                                         removeScheduledEvent={removeScheduledEvent}
