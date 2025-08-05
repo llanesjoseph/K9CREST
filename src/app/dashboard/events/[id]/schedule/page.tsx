@@ -1,3 +1,6 @@
+
+"use client";
+
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import {
@@ -26,16 +29,29 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { AIScheduler } from "@/components/ai-scheduler";
+import { CompetitorImportDialog } from "@/components/competitor-import-dialog";
+import { useEffect, useState } from "react";
+import { collection, onSnapshot, QuerySnapshot, DocumentData } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { useParams } from "next/navigation";
+
 
 const schedule = {
   arena1: [],
   arena2: [],
 };
 
-const competitors: any[] = [];
+
 const judges: any[] = [];
 
-function ScheduleTable({ runs }: { runs: any[] }) {
+interface Competitor {
+    id: string;
+    name: string;
+    dogName: string;
+    agency: string;
+}
+
+function ScheduleTable({ runs, competitors, judges }: { runs: any[], competitors: Competitor[], judges: any[] }) {
   return (
     <Table>
       <TableHeader>
@@ -63,7 +79,7 @@ function ScheduleTable({ runs }: { runs: any[] }) {
                   <Select>
                     <SelectTrigger><SelectValue placeholder="Assign Competitor" /></SelectTrigger>
                     <SelectContent>
-                      {competitors.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                      {competitors.map(c => <SelectItem key={c.id} value={c.id}>{c.name} & {c.dogName}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 }
@@ -91,6 +107,33 @@ function ScheduleTable({ runs }: { runs: any[] }) {
 }
 
 export default function SchedulePage() {
+    const params = useParams();
+    const eventId = params.id as string;
+    const [competitors, setCompetitors] = useState<Competitor[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        if (!eventId) return;
+
+        const competitorsRef = collection(db, "events", eventId, "competitors");
+        const unsubscribe = onSnapshot(competitorsRef, (snapshot: QuerySnapshot<DocumentData>) => {
+            const competitorsData = snapshot.docs.map(doc => {
+                const data = doc.data();
+                return {
+                    id: doc.id,
+                    name: data.name,
+                    dogName: data.dogName,
+                    agency: data.agency,
+                };
+            });
+            setCompetitors(competitorsData);
+            setLoading(false);
+        });
+
+        return () => unsubscribe();
+    }, [eventId]);
+
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center gap-4">
@@ -99,10 +142,16 @@ export default function SchedulePage() {
         </Button>
         <h1 className="text-2xl font-semibold">Event Schedule</h1>
       </div>
-      <div className="flex justify-end gap-2">
-         <Button variant="outline" asChild><Link href="/dashboard/events/1/rubric">Configure Rubric</Link></Button>
-         <Button variant="outline" asChild><Link href="/dashboard/events/1/leaderboard">View Leaderboard</Link></Button>
-         <AIScheduler />
+      <div className="flex justify-between items-center">
+        <div>
+            {/* Can add filters or other controls here */}
+        </div>
+        <div className="flex gap-2">
+            <CompetitorImportDialog eventId={eventId} />
+            <Button variant="outline" asChild><Link href={`/dashboard/events/${eventId}/rubric`}>Configure Rubric</Link></Button>
+            <Button variant="outline" asChild><Link href={`/dashboard/events/${eventId}/leaderboard`}>View Leaderboard</Link></Button>
+            <AIScheduler />
+        </div>
       </div>
 
       <Card>
@@ -119,12 +168,51 @@ export default function SchedulePage() {
               <TabsTrigger value="arena2">Arena 2</TabsTrigger>
             </TabsList>
             <TabsContent value="arena1">
-                <ScheduleTable runs={schedule.arena1} />
+                <ScheduleTable runs={schedule.arena1} competitors={competitors} judges={judges} />
             </TabsContent>
             <TabsContent value="arena2">
-                <ScheduleTable runs={schedule.arena2} />
+                <ScheduleTable runs={schedule.arena2} competitors={competitors} judges={judges} />
             </TabsContent>
           </Tabs>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Competitors ({competitors.length})</CardTitle>
+          <CardDescription>
+            List of all competitors registered for this event.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+            <Table>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead>Competitor Name</TableHead>
+                        <TableHead>K9 Name</TableHead>
+                        <TableHead>Agency</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {loading ? (
+                        <TableRow>
+                            <TableCell colSpan={3} className="h-24 text-center">Loading competitors...</TableCell>
+                        </TableRow>
+                    ) : competitors.length === 0 ? (
+                        <TableRow>
+                            <TableCell colSpan={3} className="h-24 text-center">No competitors imported yet.</TableCell>
+                        </TableRow>
+                    ) : (
+                        competitors.map((c) => (
+                            <TableRow key={c.id}>
+                                <TableCell>{c.name}</TableCell>
+                                <TableCell>{c.dogName}</TableCell>
+                                <TableCell>{c.agency}</TableCell>
+                            </TableRow>
+                        ))
+                    )}
+                </TableBody>
+            </Table>
         </CardContent>
       </Card>
     </div>
