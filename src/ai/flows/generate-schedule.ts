@@ -1,9 +1,7 @@
 
 'use server';
 /**
- * @fileOverview An AI agent that generates a random but valid event schedule.
- *
- * - generateSchedule - A function that handles the schedule generation.
+ * @fileOverview Enhanced AI agent that generates a complete event schedule.
  */
 
 import { ai } from '@/ai/genkit';
@@ -60,125 +58,141 @@ export type GenerateScheduleOutput = z.infer<
   typeof GenerateScheduleOutputSchema
 >;
 
+// Helper function to create required runs list
+function createRequiredRunsList(competitors: any[]) {
+  const runs: any[] = [];
+  
+  competitors.forEach(competitor => {
+    if (competitor.specialties.length === 0) {
+        runs.push({
+            competitorId: competitor.id,
+            competitorName: competitor.name,
+            specialtyType: 'Any',
+            detectionType: undefined,
+            runIndex: 0,
+            totalRuns: 1,
+        });
+    } else {
+        competitor.specialties.forEach((specialty: any, index: number) => {
+          runs.push({
+            competitorId: competitor.id,
+            competitorName: competitor.name,
+            specialtyType: specialty.type,
+            detectionType: specialty.detectionType,
+            runIndex: index,
+            totalRuns: competitor.specialties.length
+          });
+        });
+    }
+  });
+  
+  return runs;
+}
+
+
 export async function generateSchedule(
   input: GenerateScheduleInput
 ): Promise<GenerateScheduleOutput> {
-  return generateScheduleFlow(input);
+  // Pre-process the data
+  const requiredRuns = createRequiredRunsList(input.competitors);
+  const totalRunsNeeded = requiredRuns.length;
+  
+  console.log(`Total runs needed: ${totalRunsNeeded}`);
+  console.log(`Total competitors: ${input.competitors.length}`);
+  console.log(`Total slots available: ${input.eventDays.length * input.timeSlots.length * input.arenas.length}`);
+  
+  // Create enhanced input with preprocessed data
+  const enhancedInput = {
+    ...input,
+    requiredRuns,
+    totalRunsNeeded,
+  };
+  
+  return generateScheduleFlow(enhancedInput);
 }
 
 const prompt = ai.definePrompt({
   name: 'generateSchedulePrompt',
-  input: { schema: GenerateScheduleInputSchema },
+  input: { 
+    schema: z.object({
+      competitors: z.array(CompetitorSchema),
+      arenas: z.array(ArenaSchema),
+      eventDays: z.array(z.string()),
+      timeSlots: z.array(z.string()),
+      requiredRuns: z.array(z.any()),
+      totalRunsNeeded: z.number(),
+    })
+  },
   output: { schema: GenerateScheduleOutputSchema },
-  prompt: `You are a K9 trial scheduler. Generate a complete schedule following this EXACT algorithm:
+  prompt: `You are a K9 trial scheduler. You MUST schedule ALL {{{totalRunsNeeded}}} runs.
 
-**STEP 1: Build Required Runs List**
-Create a list of ALL runs needed. For EACH competitor:
-- If they have 0 specialties, they need 1 run (in an 'Any' arena).
-- If they have 1 specialty, they need 1 run.
-- If they have 2 specialties, they need 2 separate runs.
-- Format: {competitorId, specialtyType, detectionType (if applicable)}
-
-Example:
-- Competitor "A" with ["Bite Work"] → 1 run for Bite Work
-- Competitor "B" with ["Bite Work", "Detection-Narcotics"] → 2 runs (1 Bite Work, 1 Detection-Narcotics)
-
-**STEP 2: Create Time Slot Matrix**
-Build a matrix of all available slots:
-- Rows: Each combination of date + time slot
-- Columns: Each arena
-- Total slots = (number of days) × (time slots per day) × (number of arenas)
-
-**STEP 3: Match Specialties to Arenas**
-For each specialty type, list compatible arenas:
-- "Bite Work" → arenas with "Bite Work" OR "Any"
-- "Detection (Narcotics)" → arenas with "Detection (Narcotics)" OR "Any"
-- "Detection (Explosives)" → arenas with "Detection (Explosives)" OR "Any"
-- No specialty → arenas with "Any"
-
-**STEP 4: Schedule Algorithm**
-Process EVERY run from Step 1:
-
-\`\`\`
-For each required run:
-  1. Get compatible arenas for this specialty
-  2. For each event day:
-     For each time slot:
-       For each compatible arena:
-         If slot is empty AND competitor not busy:
-           - Assign run to this slot
-           - Mark slot as occupied
-           - Mark competitor as busy for this time
-           - Create schedule entry with 30-minute duration
-           - Move to next run
-\`\`\`
-
-**STEP 5: Generate Output**
-For each assigned run, create a schedule entry:
-{
-  competitorId: [from the run],
-  arenaId: [assigned arena],
-  startTime: [assigned time slot],
-  endTime: [startTime + 30 minutes],
-  date: [assigned date]
-}
-
-**CRITICAL CHECKS:**
-- Count competitors in input: ___
-- Count total runs needed (if no specialties, count as 1): ___
-- Your output MUST have exactly that many schedule entries
-- Every competitor MUST appear in the schedule for EACH of their specialties (or once if they have none)
-
-**Calculate End Times:**
-- 09:00 → 09:30
-- 09:30 → 10:00
-- ...and so on for all time slots.
-
-**Input Data:**
-- Event Days: {{{json eventDays}}}
-- Time Slots: {{{json timeSlots}}}
+**PROVIDED DATA:**
+- Total runs that MUST be scheduled: {{{totalRunsNeeded}}}
+- Required runs list with details: {{{json requiredRuns}}}
 - Arenas: {{{json arenas}}}
-- Competitors: {{{json competitors}}}
+- Event days: {{{json eventDays}}}
+- Time slots: {{{json timeSlots}}}
 
-IMPORTANT: Your schedule array MUST contain one entry for EVERY specialty of EVERY competitor. If a competitor has 2 specialties, they need 2 entries in the schedule. If they have 0, they need 1.`,
+**YOUR TASK:**
+Create exactly {{{totalRunsNeeded}}} schedule entries, one for each run in the requiredRuns list.
+
+**ALGORITHM TO FOLLOW:**
+1. Create a schedule grid to track occupancy: [day][arena][timeSlot] = is_occupied (boolean)
+2. Create a competitor availability grid: [day][timeSlot] = occupied_by_competitor_id (string)
+3. For each run in the requiredRuns list:
+    a. Find compatible arenas for the run's specialty.
+    b. Iterate through each eventDay.
+    c. Iterate through each timeSlot.
+    d. Iterate through each compatible arena.
+    e. If the arena slot is NOT occupied in the schedule grid AND the competitor is NOT busy in the competitor availability grid:
+        i. Assign the run. Mark the arena slot as occupied. Mark the competitor as busy.
+        ii. Create the schedule entry and add it to your output list.
+        iii. Break the inner loops and move to the NEXT run in requiredRuns.
+4. Continue until ALL {{{totalRunsNeeded}}} runs are scheduled.
+
+**RULES:**
+- A competitor cannot be in two places at the same time.
+- End time = start time + 30 minutes.
+- Compatible arenas:
+  - "Bite Work" specialty → "Bite Work" or "Any" arenas
+  - "Detection" + "Narcotics" → "Detection (Narcotics)" or "Any" arenas
+  - "Detection" + "Explosives" → "Detection (Explosives)" or "Any" arenas
+  - "Any" specialty (for competitors with no specialty) -> "Any" arenas
+
+**OUTPUT REQUIREMENT:**
+Your final 'schedule' array MUST contain EXACTLY {{{totalRunsNeeded}}} entries. No more, no less. This is the most important rule.`,
 });
 
 const generateScheduleFlow = ai.defineFlow(
   {
     name: 'generateScheduleFlow',
-    inputSchema: GenerateScheduleInputSchema,
+    inputSchema: z.any(), // Using any to accept enhanced input
     outputSchema: GenerateScheduleOutputSchema,
   },
   async (input) => {
-    // Calculate expected number of runs
-    const expectedRuns = input.competitors.reduce((total, competitor) => {
-      const specialtiesCount = competitor.specialties.length > 0 ? competitor.specialties.length : 1;
-      return total + specialtiesCount;
-    }, 0);
-    
-    console.log(`Expecting ${expectedRuns} total runs for ${input.competitors.length} competitors`);
-    
     const { output } = await prompt(input);
     
     if (output && output.schedule) {
-      console.log(`Generated ${output.schedule.length} runs`);
+      const percentage = (output.schedule.length / input.totalRunsNeeded) * 100;
+      console.log(`Scheduled ${output.schedule.length}/${input.totalRunsNeeded} runs (${percentage.toFixed(1)}%)`);
       
-      if (output.schedule.length < expectedRuns) {
-        console.warn(`AI Scheduling Warning: Only ${output.schedule.length} runs scheduled out of ${expectedRuns} required runs. The AI may have failed to schedule everyone. Consider adjusting inputs or re-running.`);
+      if (output.schedule.length < input.totalRunsNeeded) {
+        console.warn('WARNING: Not all runs were scheduled!');
         
         // Log which competitors are missing runs
-        const scheduledCompetitorRuns = new Map<string, number>();
+        const scheduledRunsMap = new Map<string, number>();
         output.schedule.forEach(run => {
-          const count = scheduledCompetitorRuns.get(run.competitorId) || 0;
-          scheduledCompetitorRuns.set(run.competitorId, count + 1);
+            const count = scheduledRunsMap.get(run.competitorId) || 0;
+            scheduledRunsMap.set(run.competitorId, count + 1);
         });
-        
-        input.competitors.forEach(competitor => {
-          const needed = competitor.specialties.length > 0 ? competitor.specialties.length : 1;
-          const scheduled = scheduledCompetitorRuns.get(competitor.id) || 0;
-          if (scheduled < needed) {
-            console.error(`Competitor ${competitor.name} (${competitor.id}) is underscheduled: ${scheduled} of ${needed} runs scheduled.`);
-          }
+
+        console.error("Missing or underscheduled competitors:");
+        input.competitors.forEach((c: any) => {
+            const needed = c.specialties.length > 0 ? c.specialties.length : 1;
+            const scheduled = scheduledRunsMap.get(c.id) || 0;
+            if (scheduled < needed) {
+                console.error(`- ${c.name} (${c.id}): Scheduled for ${scheduled} of ${needed} runs.`);
+            }
         });
       }
     } else {
