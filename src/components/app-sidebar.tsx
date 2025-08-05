@@ -15,7 +15,6 @@ import {
   Shield,
   FileUp,
   ListChecks,
-  FilePlus,
 } from "lucide-react";
 
 import {
@@ -39,7 +38,6 @@ import { CompetitorImportDialog } from "./competitor-import-dialog";
 
 const menuItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutGrid },
-  { href: "/dashboard/events", label: "Events", icon: Calendar },
   { href: "/dashboard/judging/1", label: "Judging", icon: Gavel },
   { href: "/dashboard/events/1/leaderboard", label: "Leaderboards", icon: Trophy },
   { href: "/dashboard/users", label: "Users", icon: Users },
@@ -55,7 +53,7 @@ export function AppSidebar() {
   const eventId = params.id as string;
 
   const adminMenuItems = [
-    { href: "/dashboard/events/create", label: "Create Event", icon: FilePlus },
+    { href: "/dashboard/events", label: "Events", icon: Calendar },
     { href: `/dashboard/events/${eventId}/rubric`, label: "Configure Rubric", icon: ListChecks, eventSpecific: true },
     { component: <CompetitorImportDialog eventId={eventId} />, label: "Import Competitors", icon: FileUp, eventSpecific: true },
   ]
