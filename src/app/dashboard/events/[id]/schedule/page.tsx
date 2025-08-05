@@ -2,7 +2,7 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, Users } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -146,73 +146,86 @@ export default function SchedulePage() {
             {/* Can add filters or other controls here */}
         </div>
         <div className="flex gap-2">
-            <CompetitorImportDialog eventId={eventId} />
             <Button variant="outline" asChild><Link href={`/dashboard/events/${eventId}/rubric`}>Configure Rubric</Link></Button>
             <Button variant="outline" asChild><Link href={`/dashboard/events/${eventId}/leaderboard`}>View Leaderboard</Link></Button>
         </div>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Schedule Editor</CardTitle>
-          <CardDescription>
-            Use the AI Scheduler to generate a schedule, or add runs manually.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Tabs defaultValue="arena1">
+       <Tabs defaultValue="schedule" className="w-full">
+        <div className="flex items-center">
             <TabsList>
-              <TabsTrigger value="arena1">Arena 1</TabsTrigger>
-              <TabsTrigger value="arena2">Arena 2</TabsTrigger>
+                <TabsTrigger value="schedule">Schedule</TabsTrigger>
+                <TabsTrigger value="competitors">Competitors ({competitors.length})</TabsTrigger>
             </TabsList>
-            <TabsContent value="arena1">
-                <ScheduleTable runs={schedule.arena1} competitors={competitors} judges={judges} />
-            </TabsContent>
-            <TabsContent value="arena2">
-                <ScheduleTable runs={schedule.arena2} competitors={competitors} judges={judges} />
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Competitors ({competitors.length})</CardTitle>
-          <CardDescription>
-            List of all competitors registered for this event.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-            <Table>
-                <TableHeader>
-                    <TableRow>
-                        <TableHead>Competitor Name</TableHead>
-                        <TableHead>K9 Name</TableHead>
-                        <TableHead>Agency</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {loading ? (
-                        <TableRow>
-                            <TableCell colSpan={3} className="h-24 text-center">Loading competitors...</TableCell>
-                        </TableRow>
-                    ) : competitors.length === 0 ? (
-                        <TableRow>
-                            <TableCell colSpan={3} className="h-24 text-center">No competitors imported yet.</TableCell>
-                        </TableRow>
-                    ) : (
-                        competitors.map((c) => (
-                            <TableRow key={c.id}>
-                                <TableCell>{c.name}</TableCell>
-                                <TableCell>{c.dogName}</TableCell>
-                                <TableCell>{c.agency}</TableCell>
+            <div className="ml-auto">
+                <CompetitorImportDialog eventId={eventId} />
+            </div>
+        </div>
+        <TabsContent value="schedule">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Schedule Editor</CardTitle>
+                    <CardDescription>
+                        Assign competitors and judges to their runs.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Tabs defaultValue="arena1">
+                        <TabsList>
+                        <TabsTrigger value="arena1">Arena 1</TabsTrigger>
+                        <TabsTrigger value="arena2">Arena 2</TabsTrigger>
+                        </TabsList>
+                        <TabsContent value="arena1">
+                            <ScheduleTable runs={schedule.arena1} competitors={competitors} judges={judges} />
+                        </TabsContent>
+                        <TabsContent value="arena2">
+                            <ScheduleTable runs={schedule.arena2} competitors={competitors} judges={judges} />
+                        </TabsContent>
+                    </Tabs>
+                </CardContent>
+            </Card>
+        </TabsContent>
+        <TabsContent value="competitors">
+            <Card>
+                <CardHeader>
+                <CardTitle>Competitors</CardTitle>
+                <CardDescription>
+                    List of all competitors registered for this event.
+                </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Competitor Name</TableHead>
+                                <TableHead>K9 Name</TableHead>
+                                <TableHead>Agency</TableHead>
                             </TableRow>
-                        ))
-                    )}
-                </TableBody>
-            </Table>
-        </CardContent>
-      </Card>
+                        </TableHeader>
+                        <TableBody>
+                            {loading ? (
+                                <TableRow>
+                                    <TableCell colSpan={3} className="h-24 text-center">Loading competitors...</TableCell>
+                                </TableRow>
+                            ) : competitors.length === 0 ? (
+                                <TableRow>
+                                    <TableCell colSpan={3} className="h-24 text-center">No competitors imported yet.</TableCell>
+                                </TableRow>
+                            ) : (
+                                competitors.map((c) => (
+                                    <TableRow key={c.id}>
+                                        <TableCell>{c.name}</TableCell>
+                                        <TableCell>{c.dogName}</TableCell>
+                                        <TableCell>{c.agency}</TableCell>
+                                    </TableRow>
+                                ))
+                            )}
+                        </TableBody>
+                    </Table>
+                </CardContent>
+            </Card>
+        </TabsContent>
+       </Tabs>
     </div>
   );
 }
