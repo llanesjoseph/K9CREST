@@ -5,7 +5,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { collection, onSnapshot, doc, setDoc, deleteDoc, writeBatch, query, getDocs, getDoc, Timestamp } from 'firebase/firestore';
 import { generateTimeSlots } from '@/lib/schedule-helpers';
-import { Trash2, GripVertical, AlertTriangle, PlusCircle, Users, X } from 'lucide-react';
+import { Trash2, GripVertical, AlertTriangle, PlusCircle, Users, X, Eraser } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -390,6 +390,30 @@ export default function SchedulePage() {
             toast({ variant: 'destructive', title: 'Error', description: 'Could not remove scheduled event.' });
         }
     };
+    
+    const handleClearSchedule = async () => {
+        if (!eventId) return;
+        try {
+            const batch = writeBatch(db);
+            const scheduleQuery = query(collection(db, `events/${eventId}/schedule`));
+            const scheduleSnapshot = await getDocs(scheduleQuery);
+
+            if (scheduleSnapshot.empty) {
+                toast({ title: 'Schedule Already Clear', description: 'There are no scheduled runs to remove.' });
+                return;
+            }
+
+            scheduleSnapshot.forEach(doc => {
+                batch.delete(doc.ref);
+            });
+
+            await batch.commit();
+            toast({ title: 'Schedule Cleared', description: 'All scheduled runs have been removed.' });
+        } catch (error) {
+            console.error(error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not clear the schedule.' });
+        }
+    };
 
     const handlePrint = () => {
         window.print();
@@ -417,7 +441,7 @@ export default function SchedulePage() {
                 `}</style>
 
                 {/* Left Panel: Competitor List & Arena Mgmt */}
-                 <div className="col-span-1 flex flex-col gap-4 print-hide">
+                 <div className="xl:col-span-1 flex flex-col gap-4 print-hide">
                     <Card className="flex-grow flex flex-col">
                         <CardHeader>
                             <CardTitle>Unscheduled Competitors</CardTitle>
@@ -451,7 +475,7 @@ export default function SchedulePage() {
                                 </>
                             )}
                         </CardContent>
-                        {isAdmin && (
+                        {isAdmin && competitors.length > 0 && (
                             <CardFooter className="border-t pt-4 flex-wrap gap-2">
                                 <AddCompetitorDialog eventId={eventId}/>
                                 <CompetitorImportDialog eventId={eventId} />
@@ -494,16 +518,42 @@ export default function SchedulePage() {
 
 
                 {/* Right Panel: Scheduler */}
-                <div className="col-span-1 xl:col-span-2 flex flex-col gap-4 print-expand">
+                <div className="xl:col-span-2 flex flex-col gap-4 print-expand">
                     <Card className="flex-grow print-expand">
                         <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 print-hide">
                             <div>
                                 <CardTitle>Event Schedule: {eventDetails?.name || <Skeleton className="h-6 w-48 inline-block" />}</CardTitle>
                                 <CardDescription>Drag and drop competitors to build the schedule for each day.</CardDescription>
                             </div>
-                            <Button onClick={handlePrint} variant="outline" className="w-full sm:w-auto">
-                                Print Schedule
-                            </Button>
+                            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                                <Button onClick={handlePrint} variant="outline" className="w-full">
+                                    Print Schedule
+                                </Button>
+                                {isAdmin && (
+                                     <AlertDialog>
+                                        <AlertDialogTrigger asChild>
+                                             <Button variant="destructive" className="w-full" disabled={schedule.length === 0}>
+                                                <Eraser className="mr-2 h-4 w-4"/>
+                                                Clear Schedule
+                                            </Button>
+                                        </AlertDialogTrigger>
+                                        <AlertDialogContent>
+                                            <AlertDialogHeader>
+                                                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                                <AlertDialogDescription>
+                                                    This will remove all scheduled runs for this event. This action cannot be undone.
+                                                </AlertDialogDescription>
+                                            </AlertDialogHeader>
+                                            <AlertDialogFooter>
+                                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                <AlertDialogAction onClick={handleClearSchedule} className="bg-destructive hover:bg-destructive/90">
+                                                    Yes, clear schedule
+                                                </AlertDialogAction>
+                                            </AlertDialogFooter>
+                                        </AlertDialogContent>
+                                    </AlertDialog>
+                                )}
+                            </div>
                         </CardHeader>
                         <CardContent>
                              <div className="overflow-x-auto overflow-y-hidden print-visible relative pb-2">
@@ -615,3 +665,4 @@ export default function SchedulePage() {
         </TooltipProvider>
     );
 }
+
