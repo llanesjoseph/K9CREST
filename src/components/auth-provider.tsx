@@ -8,7 +8,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 
 // Simple list of admin emails for role checking
-const ADMIN_EMAILS = ['admin@example.com', 'super@user.com']; // Add admin emails here
+const ADMIN_EMAILS = ['admin@example.com', 'super@user.com', 'llanes.joseph.m@gmail.com']; // Add admin emails here
 
 interface AuthContextType {
   user: User | null;
