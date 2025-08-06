@@ -65,8 +65,8 @@ export async function getLiveEvent(): Promise<LiveEvent | null> {
 
     } catch (error) {
         console.error("Error fetching live event securely:", error);
-        // We throw the error so it can be caught by the caller, but we log it here for server visibility.
-        // In a production app, you might want more robust error handling/reporting.
-        throw new Error("A server error occurred while checking for live events.");
+        // Instead of throwing an error, we'll return null to prevent a server crash.
+        // The frontend will handle the null case gracefully.
+        return null;
     }
 }
