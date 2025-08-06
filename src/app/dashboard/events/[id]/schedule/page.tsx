@@ -4,7 +4,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { collection, onSnapshot, doc, setDoc, deleteDoc, writeBatch, query, getDocs, getDoc, Timestamp, updateDoc } from 'firebase/firestore';
 import { generateTimeSlots } from '@/lib/schedule-helpers';
-import { Trash2, GripVertical, AlertTriangle, PlusCircle, Users, X, Eraser, Wand2, Clock, Loader2, FileDown } from 'lucide-react';
+import { Trash2, GripVertical, AlertTriangle, PlusCircle, Users, X, Eraser, Wand2, Clock, Loader2, FileDown, Flame, Eye, FileText, Circle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -560,7 +560,7 @@ export default function SchedulePage() {
     };
 
     const handleGeneratePdf = async () => {
-        if (!eventDetails) return;
+        if (!eventDetails || !eventDays.length) return;
         setIsGeneratingPdf(true);
     
         try {
@@ -568,77 +568,151 @@ export default function SchedulePage() {
             const docWidth = doc.internal.pageSize.getWidth();
             const docHeight = doc.internal.pageSize.getHeight();
             const margin = 40;
+            const contentWidth = docWidth - (margin * 2);
     
-            // Prepare data for the table
-            const tableData = schedule
-                .map(run => {
-                    const competitor = competitors.find(c => c.id === run.competitorId);
-                    const arena = arenas.find(a => a.id === run.arenaId);
-                    return {
-                        ...run,
-                        competitor,
-                        arena,
-                    };
-                })
-                .sort((a, b) => {
-                    const dateA = new Date(a.date).getTime();
-                    const dateB = new Date(b.date).getTime();
-                    if (dateA !== dateB) return dateA - dateB;
-                    if (a.startTime !== b.startTime) return a.startTime.localeCompare(b.startTime);
-                    return (a.arena?.name || '').localeCompare(b.arena?.name || '');
-                })
-                .map(run => [
-                    format(parse(run.date, 'yyyy-MM-dd', new Date()), 'E, MMM dd'),
-                    run.startTime,
-                    run.arena?.name || 'N/A',
-                    run.competitor?.name || 'N/A',
-                    run.competitor?.dogName || 'N/A',
-                    run.competitor?.agency || 'N/A',
-                ]);
+            // Group schedule by date, then arena, then sort by time
+            const groupedSchedule = schedule.reduce((acc, run) => {
+                if (!acc[run.date]) acc[run.date] = {};
+                if (!acc[run.date][run.arenaId]) acc[run.date][run.arenaId] = [];
+                acc[run.date][run.arenaId].push(run);
+                return acc;
+            }, {} as Record<string, Record<string, ScheduledEvent[]>>);
+    
+            for (const date in groupedSchedule) {
+                for (const arenaId in groupedSchedule[date]) {
+                    groupedSchedule[date][arenaId].sort((a, b) => a.startTime.localeCompare(b.startTime));
+                }
+            }
     
             const bgImage = new Image();
             bgImage.crossOrigin = "anonymous";
             bgImage.src = 'https://res.cloudinary.com/di8qgld2h/image/upload/v1721950942/desertdog_k9_1x_lgt1y2.png';
-            
             await new Promise((resolve) => { bgImage.onload = resolve; bgImage.onerror = resolve; });
     
-            autoTable(doc, {
-                head: [['Date', 'Time', 'Arena', 'Handler', 'K9', 'Agency']],
-                body: tableData,
-                startY: margin + 30,
-                didDrawPage: (data) => {
-                    // Watermark
-                    doc.setGState(new (doc as any).GState({opacity: 0.1}));
-                    const bgImageWidth = docWidth * 0.75;
-                    const bgImageHeight = (bgImage.height * bgImageWidth) / bgImage.width;
-                    const bgImageX = (docWidth - bgImageWidth) / 2;
-                    const bgImageY = (docHeight - bgImageHeight) / 2;
-                    doc.addImage(bgImage, 'PNG', bgImageX, bgImageY, bgImageWidth, bgImageHeight);
-                    doc.setGState(new (doc as any).GState({opacity: 1}));
+            const numColumns = eventDays.length > 3 ? 3 : eventDays.length; // Max 3 columns
+            const columnWidth = contentWidth / numColumns;
     
-                    // Header
-                    doc.setFontSize(20);
-                    doc.setFont('helvetica', 'bold');
-                    doc.text(eventDetails.name, margin, margin);
+            let currentPage = 1;
+            let currentX = margin;
+            let currentY = margin;
+            let pageCount = 1;
     
-                    // Footer
-                    const pageCount = doc.internal.pages.length;
-                    doc.setFontSize(10);
-                    doc.text(`Page ${data.pageNumber} of ${pageCount -1 }`, docWidth / 2, docHeight - 20, { align: 'center' });
-                },
-                styles: {
-                    font: 'helvetica',
-                    fontSize: 10,
-                },
-                headStyles: {
-                    fillColor: [35, 91, 55], // Primary color
-                    textColor: 255,
-                    fontStyle: 'bold',
-                },
-                alternateRowStyles: {
-                    fillColor: [245, 245, 245]
+            const addPageHeader = () => {
+                // Watermark
+                doc.setGState(new (doc as any).GState({ opacity: 0.1 }));
+                const bgImageWidth = docWidth * 0.75;
+                const bgImageHeight = (bgImage.height * bgImageWidth) / bgImage.width;
+                doc.addImage(bgImage, 'PNG', (docWidth - bgImageWidth) / 2, (docHeight - bgImageHeight) / 2, bgImageWidth, bgImageHeight);
+                doc.setGState(new (doc as any).GState({ opacity: 1 }));
+    
+                // Header
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(20);
+                doc.text(eventDetails.name, margin, currentY);
+                currentY += 25;
+            };
+
+            addPageHeader();
+
+            const arenaColors: Record<ArenaSpecialty, string> = {
+                'Bite Work': '#ef4444', // red-500
+                'Detection (Narcotics)': '#3b82f6', // blue-500
+                'Detection (Explosives)': '#f97316', // orange-500
+                'Any': '#8b5cf6' // violet-500
+            };
+    
+            const arenaIcons: Record<ArenaSpecialty, any> = {
+                'Bite Work': Flame,
+                'Detection (Narcotics)': Eye,
+                'Detection (Explosives)': FileText,
+                'Any': Circle,
+            };
+
+            for (let i = 0; i < eventDays.length; i++) {
+                const day = eventDays[i];
+                const formattedDate = format(day, 'yyyy-MM-dd');
+    
+                if (i > 0 && i % numColumns === 0) {
+                    doc.addPage();
+                    pageCount++;
+                    currentY = margin;
+                    addPageHeader();
+                    currentX = margin;
                 }
-            });
+    
+                let columnY = currentY;
+    
+                // Day Header
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(14);
+                doc.text(format(day, 'EEEE, MMM dd'), currentX, columnY);
+                columnY += 20;
+    
+                const dayArenas = arenas.filter(a => groupedSchedule[formattedDate] && groupedSchedule[formattedDate][a.id]);
+    
+                for (const arena of dayArenas) {
+                    const runs = groupedSchedule[formattedDate][arena.id];
+                    if (!runs || runs.length === 0) continue;
+    
+                    // Arena Header
+                    doc.setFont('helvetica', 'bold');
+                    doc.setFontSize(12);
+                    doc.setTextColor('#333333');
+                    doc.text(arena.name, currentX, columnY);
+                    columnY += 15;
+    
+                    // Cards
+                    for (const run of runs) {
+                        const competitor = competitors.find(c => c.id === run.competitorId);
+                        if (!competitor) continue;
+    
+                        const cardHeight = 40;
+                        if (columnY + cardHeight > docHeight - margin) {
+                            currentX += columnWidth + 10;
+                            if (currentX >= docWidth - margin) {
+                                doc.addPage();
+                                pageCount++;
+                                currentY = margin;
+                                addPageHeader();
+                                currentX = margin;
+                            }
+                            columnY = currentY;
+                            doc.setFont('helvetica', 'bold');
+                            doc.setFontSize(14);
+                            doc.text(`${format(day, 'EEEE')} (cont.)`, currentX, columnY);
+                            columnY += 20;
+                        }
+    
+                        // Card Border
+                        doc.setFillColor(arenaColors[arena.specialtyType] || '#6b7280');
+                        doc.rect(currentX, columnY, 4, cardHeight, 'F');
+    
+                        // Card Content
+                        doc.setFont('helvetica', 'bold');
+                        doc.setFontSize(10);
+                        doc.setTextColor('#000000');
+                        doc.text(`${run.startTime} - ${run.endTime}`, currentX + 10, columnY + 12);
+    
+                        doc.setFont('helvetica', 'normal');
+                        doc.setFontSize(9);
+                        doc.text(`${competitor.dogName} (${competitor.name})`, currentX + 10, columnY + 24);
+                        doc.setTextColor('#6b7280');
+                        doc.text(competitor.agency, currentX + 10, columnY + 34);
+    
+                        columnY += cardHeight + 5;
+                    }
+                    columnY += 10; // Space between arenas
+                }
+                currentX += columnWidth;
+            }
+    
+            // Add page numbers
+            for (let j = 1; j <= pageCount; j++) {
+                doc.setPage(j);
+                doc.setFontSize(10);
+                doc.setTextColor('#888888');
+                doc.text(`Page ${j} of ${pageCount}`, docWidth / 2, docHeight - 20, { align: 'center' });
+            }
     
             const fileName = `schedule_${eventDetails.name.replace(/\s+/g, '_') || eventId}.pdf`;
             doc.save(fileName);
@@ -901,3 +975,5 @@ export default function SchedulePage() {
         </TooltipProvider>
     );
 }
+
+    
