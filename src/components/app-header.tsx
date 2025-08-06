@@ -9,6 +9,7 @@ import {
   Eye,
   Settings,
   User,
+  Gavel,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { auth } from "@/lib/firebase";
