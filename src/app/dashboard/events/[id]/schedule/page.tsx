@@ -567,16 +567,33 @@ export default function SchedulePage() {
         }
     
         setIsGeneratingPdf(true);
-        
-        // Temporarily remove background class for transparent canvas
-        element.classList.remove('bg-card', 'p-4');
+
+        // Find the inner grid to measure full content width
+        const gridEl = element.querySelector<HTMLDivElement>('.space-y-8');
+        if (!gridEl) {
+             toast({ variant: "destructive", title: "Error", description: "Could not find schedule grid." });
+             setIsGeneratingPdf(false);
+             return;
+        }
+
+        const originalClasses = element.className;
+        const originalWidth = element.style.width;
 
         try {
+            // Temporarily change styling to capture full width
+            element.className = 'bg-card p-4';
+            element.style.width = `${gridEl.scrollWidth}px`;
+            
             const canvas = await html2canvas(element, {
                 scale: 2, 
                 useCORS: true,
-                backgroundColor: null, // Make canvas background transparent
+                backgroundColor: null,
             });
+
+            // Restore original styles
+            element.className = originalClasses;
+            element.style.width = originalWidth;
+
             const scheduleImgData = canvas.toDataURL('image/png');
             
             const pdf = new jsPDF({
@@ -611,10 +628,11 @@ export default function SchedulePage() {
             const scheduleImgWidth = canvas.width;
             const scheduleImgHeight = canvas.height;
             const ratio = scheduleImgWidth / scheduleImgHeight;
-            let finalImgWidth = pdfWidth - 60;
+            
+            let finalImgWidth = pdfWidth - 60; // 30pt margin on each side
             let finalImgHeight = finalImgWidth / ratio;
             
-            if (finalImgHeight > pdfHeight - 80) {
+            if (finalImgHeight > pdfHeight - 80) { // 40pt margin top/bottom
                 finalImgHeight = pdfHeight - 80;
                 finalImgWidth = finalImgHeight * ratio;
             }
@@ -631,8 +649,9 @@ export default function SchedulePage() {
             console.error("Error generating PDF:", error);
             toast({ variant: "destructive", title: "PDF Generation Failed", description: "An unexpected error occurred." });
         } finally {
-            // Add background class back
-            element.classList.add('bg-card', 'p-4');
+             // Ensure styles are restored even if an error occurs
+            element.className = originalClasses;
+            element.style.width = originalWidth;
             setIsGeneratingPdf(false);
         }
     };
@@ -889,3 +908,4 @@ export default function SchedulePage() {
 }
 
     
+
