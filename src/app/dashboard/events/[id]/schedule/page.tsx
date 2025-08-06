@@ -572,7 +572,7 @@ export default function SchedulePage() {
             const canvas = await html2canvas(scheduleContainerRef.current, {
                 scale: 2, 
                 useCORS: true,
-                backgroundColor: '#ffffff'
+                backgroundColor: null
             });
             const scheduleImgData = canvas.toDataURL('image/png');
             
@@ -882,3 +882,5 @@ export default function SchedulePage() {
         </TooltipProvider>
     );
 }
+
+    
