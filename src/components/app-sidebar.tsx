@@ -50,7 +50,7 @@ export function AppSidebar() {
   const params = useParams();
   const { user, role, isTrueAdmin, setViewAsRole, viewAsRole } = useAuth();
   const router = useRouter();
-  const eventId = params.id as string;
+  const eventId = params ? (params.id as string) : null;
 
   const handleSignOut = async () => {
     await auth.signOut();
@@ -68,33 +68,34 @@ export function AppSidebar() {
     spectator: [
         { href: "/dashboard", label: "Dashboard", icon: LayoutGrid },
         { href: "/dashboard/events", label: "Events", icon: Calendar },
-        { href: `/dashboard/events/${eventId || 1}/leaderboard`, label: "Leaderboards", icon: Trophy, eventSpecific: true },
+        { href: `/dashboard/events/${eventId || '1'}/leaderboard`, label: "Leaderboards", icon: Trophy, eventSpecific: true },
         { href: "/dashboard/settings", label: "Settings", icon: Settings },
     ],
     competitor: [
         { href: "/dashboard", label: "Dashboard", icon: LayoutGrid },
         { href: "/dashboard/events", label: "Events", icon: Calendar },
-        { href: `/dashboard/events/${eventId || 1}/leaderboard`, label: "Leaderboards", icon: Trophy, eventSpecific: true },
+        { href: `/dashboard/events/${eventId || '1'}/leaderboard`, label: "Leaderboards", icon: Trophy, eventSpecific: true },
         { href: "/dashboard/settings", label: "Settings", icon: Settings },
     ],
     judge: [
         { href: "/dashboard", label: "Dashboard", icon: LayoutGrid },
         { href: "/dashboard/events", label: "Events", icon: Calendar },
-        { href: `/dashboard/judging/${eventId || 1}`, label: "Judging", icon: Gavel, eventSpecific: true },
+        { href: `/dashboard/judging/${eventId || '1'}`, label: "Judging", icon: Gavel, eventSpecific: true },
         { href: "/dashboard/settings", label: "Settings", icon: Settings },
     ],
     admin: [
         { href: "/dashboard", label: "Dashboard", icon: LayoutGrid },
         { href: "/dashboard/events", label: "Events", icon: Calendar },
         { href: `/dashboard/events/${eventId}/rubric`, label: "Configure Rubric", icon: ListChecks, eventSpecific: true },
-        { href: `/dashboard/judging/${eventId || 1}`, label: "Judging", icon: Gavel, eventSpecific: true },
-        { href: `/dashboard/events/${eventId || 1}/leaderboard`, label: "Leaderboards", icon: Trophy, eventSpecific: true },
+        { href: `/dashboard/judging/${eventId || '1'}`, label: "Judging", icon: Gavel, eventSpecific: true },
+        { href: `/dashboard/events/${eventId || '1'}/leaderboard`, label: "Leaderboards", icon: Trophy, eventSpecific: true },
         { href: "/dashboard/users", label: "Users", icon: Users },
         { href: "/dashboard/settings", label: "Settings", icon: Settings },
     ]
   }
   
-  const menuItems = menuConfig[role] || menuConfig.spectator;
+  const currentRole = viewAsRole || role;
+  const menuItems = menuConfig[currentRole] || menuConfig.spectator;
 
   return (
     <Sidebar collapsible="icon">
@@ -111,11 +112,12 @@ export function AppSidebar() {
         <SidebarMenu>
           {menuItems.map((item) => {
              const disabled = item.eventSpecific && !eventId;
+             const finalHref = disabled ? '#' : item.href;
              return (
                 <SidebarMenuItem key={item.label}>
                     <SidebarMenuButton
                         asChild
-                        isActive={isActive(item.href)}
+                        isActive={!disabled && isActive(item.href)}
                         tooltip={{
                         children: item.label,
                         side: "right",
@@ -123,7 +125,7 @@ export function AppSidebar() {
                         className="justify-start"
                         disabled={disabled}
                     >
-                        <Link href={item.href}>
+                        <Link href={finalHref}>
                         <item.icon className="h-5 w-5" />
                         <span className="group-data-[collapsible=icon]:hidden">{item.label}</span>
                         </Link>

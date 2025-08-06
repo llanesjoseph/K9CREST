@@ -1,4 +1,6 @@
 
+"use client";
+
 import Link from "next/link";
 import { ChevronLeft, Trophy } from "lucide-react";
 import {
@@ -26,7 +28,7 @@ const agencyStandings: any[] = [];
 
 export default function LeaderboardPage() {
   const params = useParams();
-  const eventId = params.id;
+  const eventId = params.id as string;
   
   return (
     <div className="flex flex-col gap-6">
@@ -132,5 +134,3 @@ export default function LeaderboardPage() {
     </div>
   );
 }
-
-    
