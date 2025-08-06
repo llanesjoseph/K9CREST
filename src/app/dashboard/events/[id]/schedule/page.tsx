@@ -560,29 +560,36 @@ export default function SchedulePage() {
     };
 
     const handleGeneratePdf = async () => {
-        if (!eventDetails || !eventDays.length || !arenas.length) return;
+        if (!eventDetails || !eventDays.length || !arenas.length || schedule.length === 0) return;
         setIsGeneratingPdf(true);
-    
+
         try {
             const doc = new jsPDF({ orientation: 'p', unit: 'pt', format: 'letter' });
             const docWidth = doc.internal.pageSize.getWidth();
             const docHeight = doc.internal.pageSize.getHeight();
             const margin = 40;
-            const contentWidth = docWidth - (margin * 2);
-    
+            const contentWidth = docWidth - margin * 2;
+
             const bgImage = new Image();
             bgImage.crossOrigin = "anonymous";
             bgImage.src = 'https://res.cloudinary.com/di8qgld2h/image/upload/v1721950942/desertdog_k9_1x_lgt1y2.png';
             await new Promise((resolve) => { bgImage.onload = resolve; bgImage.onerror = resolve; });
-    
+
             const arenaColors: Record<ArenaSpecialty, string> = {
-                'Bite Work': '#ef4444', // red-500
-                'Detection (Narcotics)': '#3b82f6', // blue-500
-                'Detection (Explosives)': '#f97316', // orange-500
-                'Any': '#8b5cf6' // violet-500
+                'Bite Work': '#ef4444',
+                'Detection (Narcotics)': '#3b82f6',
+                'Detection (Explosives)': '#f97316',
+                'Any': '#8b5cf6'
             };
-    
-            // Group schedule by date, then arena, then sort by time
+
+            const arenaIcons: Record<string, string> = {
+                'Bite Work': '🔥',
+                'Detection (Narcotics)': '👀',
+                'Detection (Explosives)': '📄',
+                'Any': '⭐'
+            };
+
+
             const groupedSchedule = schedule.reduce((acc, run) => {
                 const date = run.date;
                 if (!acc[date]) acc[date] = {};
@@ -593,125 +600,139 @@ export default function SchedulePage() {
                 }
                 return acc;
             }, {} as Record<string, Record<string, ScheduledEvent[]>>);
-    
-            Object.keys(groupedSchedule).forEach(date => {
-                Object.keys(groupedSchedule[date]).forEach(arenaName => {
-                    groupedSchedule[date][arenaName].sort((a, b) => a.startTime.localeCompare(b.startTime));
+
+            Object.values(groupedSchedule).forEach(daySchedule => {
+                Object.values(daySchedule).forEach(runs => {
+                    runs.sort((a, b) => a.startTime.localeCompare(b.startTime));
                 });
             });
-            
-            let isFirstPage = true;
+
+            const addPageHeader = (pageNumber: number, date: Date, isContinuation: boolean) => {
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(20);
+                doc.text(eventDetails.name, margin, margin);
+
+                doc.setFontSize(16);
+                const dateText = format(date, 'EEEE, MMMM dd, yyyy') + (isContinuation ? ' (cont.)' : '');
+                doc.text(dateText, margin, margin + 25);
+                doc.setDrawColor('#cccccc');
+                doc.line(margin, margin + 35, docWidth - margin, margin + 35);
+            };
+
+            const addWatermark = () => {
+                doc.setGState(new (doc as any).GState({ opacity: 0.1 }));
+                const bgImageWidth = docWidth * 0.75;
+                const bgImageHeight = (bgImage.height * bgImageWidth) / bgImage.width;
+                doc.addImage(bgImage, 'PNG', (docWidth - bgImageWidth) / 2, (docHeight - bgImageHeight) / 2, bgImageWidth, bgImageHeight);
+                doc.setGState(new (doc as any).GState({ opacity: 1 }));
+            };
 
             for (const day of eventDays) {
                 const formattedDate = format(day, 'yyyy-MM-dd');
                 const daySchedule = groupedSchedule[formattedDate];
                 if (!daySchedule) continue;
 
-                if (!isFirstPage) {
-                    doc.addPage();
-                }
-                isFirstPage = false;
-
-                // Add watermark
-                doc.setGState(new (doc as any).GState({ opacity: 0.1 }));
-                const bgImageWidth = docWidth * 0.75;
-                const bgImageHeight = (bgImage.height * bgImageWidth) / bgImage.width;
-                doc.addImage(bgImage, 'PNG', (docWidth - bgImageWidth) / 2, (docHeight - bgImageHeight) / 2, bgImageWidth, bgImageHeight);
-                doc.setGState(new (doc as any).GState({ opacity: 1 }));
-
-                // Add header
-                doc.setFont('helvetica', 'bold');
-                doc.setFontSize(20);
-                doc.text(eventDetails.name, margin, margin);
-                
-                doc.setFontSize(16);
-                doc.text(format(day, 'EEEE, MMMM dd, yyyy'), margin, margin + 25);
-                doc.setDrawColor('#cccccc');
-                doc.line(margin, margin + 35, docWidth - margin, margin + 35);
-                
-                let currentY = margin + 60;
-                let pageNumber = doc.getNumberOfPages();
-
+                let isFirstPageOfDay = true;
                 const dayArenas = arenas.filter(a => daySchedule[a.name] && daySchedule[a.name].length > 0);
+                if (dayArenas.length === 0) continue;
+
                 const numArenaColumns = dayArenas.length;
                 const colWidth = (contentWidth - (numArenaColumns - 1) * 15) / numArenaColumns;
-                
-                const colCursors = dayArenas.map((_, i) => ({
+                let colCursors = dayArenas.map((_, i) => ({
                     x: margin + i * (colWidth + 15),
-                    y: currentY + 30 // Start Y for cards
+                    y: 0,
+                    runIndex: 0
                 }));
                 
-                // Draw Arena Headers
+                let pageNumber = doc.getNumberOfPages();
+                if(!isFirstPageOfDay) doc.addPage(); else if (day !== eventDays[0]) doc.addPage();
+                addWatermark();
+                addPageHeader(pageNumber, day, !isFirstPageOfDay);
+                
+                colCursors.forEach(c => c.y = margin + 85);
+                
                 dayArenas.forEach((arena, i) => {
                     doc.setFont('helvetica', 'bold');
                     doc.setFontSize(12);
                     doc.setTextColor('#333333');
-                    doc.text(arena.name, colCursors[i].x, currentY);
+                    const icon = arenaIcons[arena.specialtyType] || '⭐';
+                    doc.text(`${icon} ${arena.name}`, colCursors[i].x, margin + 70);
                 });
 
-                // Draw Run Cards
-                let runsToDraw = true;
-                while (runsToDraw) {
-                    runsToDraw = false;
+
+                let runsLeftToDraw = dayArenas.some((arena) => (daySchedule[arena.name] || []).length > 0);
+                while(runsLeftToDraw) {
+                    runsLeftToDraw = false;
                     dayArenas.forEach((arena, colIndex) => {
                         const runs = daySchedule[arena.name] || [];
-                        const runIndex = Math.round((colCursors[colIndex].y - (currentY + 30)) / 48); // Estimate which run we're on
+                        const cursor = colCursors[colIndex];
 
-                        if (runIndex < runs.length) {
-                            runsToDraw = true;
-                            const run = runs[runIndex];
+                        if(cursor.runIndex < runs.length) {
+                            runsLeftToDraw = true;
+                            const run = runs[cursor.runIndex];
                             const competitor = competitors.find(c => c.id === run.competitorId);
                             if (competitor) {
                                 const cardHeight = 40;
-                                const currentX = colCursors[colIndex].x;
-                                let currentCardY = colCursors[colIndex].y;
-                                
-                                // Check for page break
-                                if (currentCardY + cardHeight > docHeight - margin) {
-                                    doc.addPage();
-                                    pageNumber++;
-                                    
-                                    // Reset Y for all columns
-                                    colCursors.forEach(c => c.y = margin + 60);
-                                    currentCardY = margin + 60;
-                                    
-                                    // Add watermark and headers to new page
-                                    doc.setGState(new (doc as any).GState({ opacity: 0.1 }));
-                                    doc.addImage(bgImage, 'PNG', (docWidth - bgImageWidth) / 2, (docHeight - bgImageHeight) / 2, bgImageWidth, bgImageHeight);
-                                    doc.setGState(new (doc as any).GState({ opacity: 1 }));
-                                    doc.setFont('helvetica', 'bold');
-                                    doc.setFontSize(20);
-                                    doc.text(eventDetails.name, margin, margin);
-                                    doc.setFontSize(16);
-                                    doc.text(`${format(day, 'EEEE, MMMM dd, yyyy')} (cont.)`, margin, margin + 25);
-                                    doc.setDrawColor('#cccccc');
-                                    doc.line(margin, margin + 35, docWidth - margin, margin + 35);
-                                }
-                                colCursors[colIndex].y = currentCardY; // Update cursor Y just in case of page break
 
-                                // Card
-                                doc.setFillColor(arenaColors[arena.specialtyType] || '#6b7280');
-                                doc.rect(currentX, currentCardY, 3, cardHeight, 'F');
+                                if (cursor.y + cardHeight > docHeight - margin) {
+                                    // This column is full, need a new page.
+                                    return; // Will be handled by the outer loop check
+                                }
+
+                                const cardX = cursor.x;
+                                const cardY = cursor.y;
                                 
+                                // Card color bar
+                                doc.setFillColor(arenaColors[arena.specialtyType] || '#6b7280');
+                                doc.rect(cardX, cardY, 3, cardHeight, 'F');
+                                
+                                // Card content
                                 doc.setFont('helvetica', 'bold');
                                 doc.setFontSize(9);
                                 doc.setTextColor('#000000');
-                                doc.text(`${run.startTime} - ${run.endTime}`, currentX + 10, currentCardY + 12);
+                                doc.text(`${run.startTime} - ${run.endTime}`, cardX + 10, cardY + 12);
             
                                 doc.setFont('helvetica', 'normal');
                                 doc.setFontSize(8);
-                                doc.text(`${competitor.dogName} (${competitor.name})`, currentX + 10, currentCardY + 24);
+                                doc.text(`${competitor.dogName} (${competitor.name})`, cardX + 10, cardY + 24);
                                 doc.setTextColor('#6b7280');
-                                doc.text(competitor.agency, currentX + 10, currentCardY + 34);
+                                doc.text(competitor.agency, cardX + 10, cardY + 34);
 
-                                colCursors[colIndex].y += cardHeight + 8;
+                                cursor.y += cardHeight + 8;
+                                cursor.runIndex++;
                             }
                         }
                     });
+
+                    // Check if a new page is needed because at least one column is full
+                    const needsNewPage = colCursors.some((cursor, colIndex) => {
+                        const runs = daySchedule[dayArenas[colIndex].name] || [];
+                        if (cursor.runIndex < runs.length) {
+                             const cardHeight = 40;
+                             return cursor.y + cardHeight > docHeight - margin;
+                        }
+                        return false;
+                    });
+                    
+                    if (needsNewPage && runsLeftToDraw) {
+                        isFirstPageOfDay = false;
+                        doc.addPage();
+                        pageNumber++;
+                        addWatermark();
+                        addPageHeader(pageNumber, day, true); // It's a continuation page
+                        
+                        colCursors.forEach(c => c.y = margin + 85);
+                        dayArenas.forEach((arena, i) => {
+                            doc.setFont('helvetica', 'bold');
+                            doc.setFontSize(12);
+                            doc.setTextColor('#333333');
+                            const icon = arenaIcons[arena.specialtyType] || '⭐';
+                            doc.text(`${icon} ${arena.name}`, colCursors[i].x, margin + 70);
+                        });
+                    }
                 }
             }
 
-            // Add page numbers
             const totalPages = doc.getNumberOfPages();
             for (let j = 1; j <= totalPages; j++) {
                 doc.setPage(j);
@@ -722,7 +743,7 @@ export default function SchedulePage() {
 
             const fileName = `schedule_${eventDetails.name.replace(/\s+/g, '_') || eventId}.pdf`;
             doc.save(fileName);
-    
+
         } catch (error) {
             console.error("Error generating PDF:", error);
             toast({ variant: "destructive", title: "PDF Generation Failed", description: "An unexpected error occurred." });
@@ -981,5 +1002,7 @@ export default function SchedulePage() {
         </TooltipProvider>
     );
 }
+
+    
 
     
