@@ -1,7 +1,7 @@
 
 'use server';
 
-import { collection, getDocs, query, where, Timestamp, limit, orderBy } from "firebase/firestore";
+import { collection, getDocs, query } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
 interface LiveEvent {
@@ -14,20 +14,15 @@ export async function getLiveEvent(): Promise<LiveEvent | null> {
         const today = new Date();
         const eventsRef = collection(db, "events");
 
-        // Firestore limitation: Cannot have inequality filters on multiple properties.
-        // A more robust way that doesn't rely on a composite index is to query 
-        // for upcoming or very recent events and filter in code.
-        const q = query(
-            eventsRef,
-            orderBy("startDate", "desc"), // Get most recent first
-            limit(20) // Look at the last 20 created events
-        );
+        // A simple query to get all documents from the events collection.
+        // This avoids needing any specific indexes on the Firestore database.
+        const q = query(eventsRef);
 
         const querySnapshot = await getDocs(q);
         
         const events = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-        // Now, filter for events where the current date falls within the event's date range.
+        // Now, filter in code for events where the current date falls within the event's date range.
         const currentEvent = events.find(event => {
             // Ensure startDate exists and is a Timestamp before calling toDate()
             if (!event.startDate || typeof event.startDate.toDate !== 'function') {
@@ -49,7 +44,6 @@ export async function getLiveEvent(): Promise<LiveEvent | null> {
             // Set start of day for comparison to include the whole start day
             const startDay = new Date(startDate);
             startDay.setHours(0, 0, 0, 0);
-
 
             if (endDate) {
                 // If there is an end date, make sure we are between start and end.
