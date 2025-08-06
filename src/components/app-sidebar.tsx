@@ -72,35 +72,19 @@ export function AppSidebar() {
     return pathname.startsWith(href);
   };
   
-  const menuConfig = {
-    spectator: [
-        { href: "/dashboard", label: "Dashboard", icon: LayoutGrid },
-        { href: "/dashboard/events", label: "Events", icon: Calendar },
-        { href: `/dashboard/events/${eventId}/leaderboard`, label: "Leaderboards", icon: Trophy, eventSpecific: true },
-        { href: "/dashboard/settings", label: "Settings", icon: Settings },
-    ],
-    competitor: [
-        { href: "/dashboard", label: "Dashboard", icon: LayoutGrid },
-        { href: "/dashboard/events", label: "Events", icon: Calendar },
-        { href: `/dashboard/events/${eventId}/leaderboard`, label: "Leaderboards", icon: Trophy, eventSpecific: true },
-        { href: "/dashboard/settings", label: "Settings", icon: Settings },
-    ],
-    judge: [
-        { href: "/dashboard", label: "Dashboard", icon: LayoutGrid },
-        { href: "/dashboard/events", label: "Events", icon: Calendar },
-        { href: `/dashboard/judging/1`, label: "Judging", icon: Gavel, eventSpecific: true },
-        { href: "/dashboard/settings", label: "Settings", icon: Settings },
-    ],
-    admin: [
-        { href: "/dashboard", label: "Dashboard", icon: LayoutGrid },
-        { href: "/dashboard/events", label: "Events", icon: Calendar },
-        { href: "/dashboard/users", label: "Users", icon: Users },
-        { href: "/dashboard/settings", label: "Settings", icon: Settings },
-    ]
-  }
-  
   const currentRole = viewAsRole || role;
-  const menuItems = menuConfig[currentRole] || menuConfig.spectator;
+  
+  const baseMenuItems = [
+      { href: "/dashboard", label: "Dashboard", icon: LayoutGrid, roles: ['admin', 'judge', 'competitor', 'spectator'] },
+      { href: "/dashboard/events", label: "Events", icon: Calendar, roles: ['admin', 'judge', 'competitor', 'spectator'] },
+      { href: `/dashboard/events/${eventId}/leaderboard`, label: "Leaderboard", icon: Trophy, eventSpecific: true, roles: ['admin', 'judge', 'competitor', 'spectator'] },
+      { href: `/dashboard/events/${eventId}/rubric`, label: "Configure Rubric", icon: ListChecks, eventSpecific: true, roles: ['admin', 'judge'] },
+      { href: `/dashboard/judging/1`, label: "Judging", icon: Gavel, eventSpecific: true, roles: ['judge'] },
+      { href: "/dashboard/users", label: "Users", icon: Users, roles: ['admin'] },
+      { href: "/dashboard/settings", label: "Settings", icon: Settings, roles: ['admin', 'judge', 'competitor', 'spectator'] },
+  ];
+
+  const menuItems = baseMenuItems.filter(item => item.roles.includes(currentRole));
 
   return (
     <Sidebar collapsible="icon">
