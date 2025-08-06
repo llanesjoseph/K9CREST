@@ -2,18 +2,17 @@
 "use client";
 
 import Link from "next/link";
-import { Gavel, Calendar, Trophy } from "lucide-react";
+import { Gavel, Calendar, Trophy, RadioTower } from "lucide-react";
 import { useForm, SubmitHandler } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
 import {
-  getAuth,
   signInWithEmailAndPassword,
   signInWithPopup,
-  GoogleAuthProvider,
   createUserWithEmailAndPassword,
 } from "firebase/auth";
+import { collection, getDocs, query, where, Timestamp } from "firebase/firestore";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -26,8 +25,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { auth, googleProvider } from "@/lib/firebase";
-import { useState } from "react";
+import { auth, googleProvider, db } from "@/lib/firebase";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 
 const formSchema = z.object({
@@ -37,6 +36,11 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
+interface LiveEvent {
+    id: string;
+    name: string;
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const { toast } = useToast();
@@ -44,6 +48,43 @@ export default function LoginPage() {
     resolver: zodResolver(formSchema),
   });
   const [isSignUp, setIsSignUp] = useState(false);
+  const [liveEvent, setLiveEvent] = useState<LiveEvent | null>(null);
+  const [isLoadingEvent, setIsLoadingEvent] = useState(true);
+
+  useEffect(() => {
+    const fetchLiveEvent = async () => {
+        try {
+            const today = Timestamp.now();
+            const eventsRef = collection(db, "events");
+            
+            // Query for events where today is between start and end dates
+            // Firestore does not support two inequality filters on different fields.
+            // So we query for startDate <= today and then filter by endDate >= today on the client.
+            const q = query(eventsRef, where("startDate", "<=", today));
+            const querySnapshot = await getDocs(q);
+
+            const events = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+            const currentEvent = events.find(event => {
+                 const endDate = event.endDate?.toDate();
+                 // If there's an end date, it must be today or in the future.
+                 // If no end date, we assume it's a single-day event.
+                 return endDate ? endDate >= new Date() : true;
+            });
+            
+            if (currentEvent) {
+                setLiveEvent({ id: currentEvent.id, name: currentEvent.name });
+            }
+
+        } catch (error) {
+            console.error("Error fetching live event:", error);
+        } finally {
+            setIsLoadingEvent(false);
+        }
+    };
+
+    fetchLiveEvent();
+  }, []);
 
   const handleLogin: SubmitHandler<FormValues> = async ({ email, password }) => {
     try {
@@ -140,7 +181,7 @@ export default function LoginPage() {
       </div>
       <div className="hidden bg-muted lg:flex lg:flex-col lg:items-center lg:justify-start p-12 pt-24">
         <div className="flex items-center gap-4 text-primary mb-8">
-           <Image src="https://res.cloudinary.com/di8qgld2h/image/upload/desertdog_k9_1x_lgt1y2" alt="Desert Dog Trials Logo" width={250} height={250} data-ai-hint="logo company" />
+           <Image src="https://res.cloudinary.com/di8qgld2h/image/upload/v1721950942/desertdog_k9_1x_lgt1y2.png" alt="Desert Dog Trials Logo" width={150} height={150} data-ai-hint="logo company" />
         </div>
         <div className="space-y-6 max-w-md text-center">
           <h2 className="text-3xl font-bold tracking-tight font-headline">
@@ -188,8 +229,25 @@ export default function LoginPage() {
               </CardContent>
             </Card>
           </div>
+
+          {liveEvent && (
+              <Link href={`/dashboard/events/${liveEvent.id}/leaderboard`} className="block w-full mt-6">
+                <Card className="bg-primary/10 border-primary/20 hover:bg-primary/20 transition-colors">
+                    <CardHeader className="flex-row items-center gap-4">
+                        <RadioTower className="h-8 w-8 text-primary animate-pulse" />
+                        <div>
+                            <CardTitle className="text-lg text-left">Event Live Now!</CardTitle>
+                            <CardDescription className="text-left">{liveEvent.name}</CardDescription>
+                        </div>
+                    </CardHeader>
+                </Card>
+            </Link>
+          )}
+
         </div>
       </div>
     </div>
   );
 }
+
+    
