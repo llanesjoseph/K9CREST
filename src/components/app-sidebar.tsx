@@ -94,9 +94,6 @@ export function AppSidebar() {
     admin: [
         { href: "/dashboard", label: "Dashboard", icon: LayoutGrid },
         { href: "/dashboard/events", label: "Events", icon: Calendar },
-        { href: `/dashboard/events/${eventId}/rubric`, label: "Configure Rubric", icon: ListChecks, eventSpecific: true },
-        { href: `/dashboard/judging/1`, label: "Judging", icon: Gavel, eventSpecific: true },
-        { href: `/dashboard/events/${eventId}/leaderboard`, label: "Leaderboards", icon: Trophy, eventSpecific: true },
         { href: "/dashboard/users", label: "Users", icon: Users },
         { href: "/dashboard/settings", label: "Settings", icon: Settings },
     ]
