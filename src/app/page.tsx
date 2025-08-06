@@ -11,6 +11,7 @@ import {
   signInWithEmailAndPassword,
   signInWithPopup,
   createUserWithEmailAndPassword,
+  onAuthStateChanged,
 } from "firebase/auth";
 
 import { Button } from "@/components/ui/button";
@@ -27,6 +28,7 @@ import { useToast } from "@/hooks/use-toast";
 import { auth, googleProvider } from "@/lib/firebase";
 import { useState, useEffect } from "react";
 import Image from "next/image";
+import { Loader2 } from "lucide-react";
 
 const formSchema = z.object({
   email: z.string().email(),
@@ -42,6 +44,18 @@ export default function LoginPage() {
     resolver: zodResolver(formSchema),
   });
   const [isSignUp, setIsSignUp] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        router.push("/dashboard");
+      } else {
+        setIsLoading(false);
+      }
+    });
+    return () => unsubscribe();
+  }, [router]);
 
   const handleLogin: SubmitHandler<FormValues> = async ({ email, password }) => {
     try {
@@ -84,6 +98,14 @@ export default function LoginPage() {
       });
     }
   };
+  
+  if (isLoading) {
+    return (
+        <div className="flex items-center justify-center h-screen">
+            <Loader2 className="h-16 w-16 animate-spin text-primary" />
+        </div>
+    )
+  }
 
   return (
     <div className="w-full lg:grid lg:min-h-screen lg:grid-cols-2">
