@@ -46,15 +46,16 @@ export async function getLiveEvent(): Promise<LiveEvent | null> {
             }
 
             const now = today;
+            // Set start of day for comparison to include the whole start day
+            const startDay = new Date(startDate);
+            startDay.setHours(0, 0, 0, 0);
+
 
             if (endDate) {
                 // If there is an end date, make sure we are between start and end.
-                return now >= startDate && now <= endDate;
+                return now >= startDay && now <= endDate;
             } else {
                 // If there is no end date, check if it's the same day.
-                const startDay = new Date(startDate);
-                startDay.setHours(0,0,0,0);
-
                 const endOfDay = new Date(startDate);
                 endOfDay.setHours(23,59,59,999);
 
@@ -63,7 +64,7 @@ export async function getLiveEvent(): Promise<LiveEvent | null> {
         });
 
         if (currentEvent) {
-            return { id: currentEvent.id, name: currentEvent.name };
+            return { id: currentEvent.id, name: currentEvent.name as string };
         }
 
         return null;
