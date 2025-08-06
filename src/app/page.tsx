@@ -27,7 +27,6 @@ import { useToast } from "@/hooks/use-toast";
 import { auth, googleProvider } from "@/lib/firebase";
 import { useState, useEffect } from "react";
 import Image from "next/image";
-import { getLiveEvent } from "@/app/get-live-event";
 
 const formSchema = z.object({
   email: z.string().email(),
@@ -36,11 +35,6 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
-interface LiveEvent {
-    id: string;
-    name: string;
-}
-
 export default function LoginPage() {
   const router = useRouter();
   const { toast } = useToast();
@@ -48,27 +42,6 @@ export default function LoginPage() {
     resolver: zodResolver(formSchema),
   });
   const [isSignUp, setIsSignUp] = useState(false);
-  const [liveEvent, setLiveEvent] = useState<LiveEvent | null>(null);
-  const [isLoadingEvent, setIsLoadingEvent] = useState(true);
-
-  useEffect(() => {
-    const fetchLiveEvent = async () => {
-        setIsLoadingEvent(true);
-        try {
-            const event = await getLiveEvent();
-            if (event) {
-                setLiveEvent(event);
-            }
-        } catch (error) {
-            console.error("Could not fetch live event:", error);
-            // Don't show a user-facing error for this, as it's a background task.
-        } finally {
-            setIsLoadingEvent(false);
-        }
-    };
-
-    fetchLiveEvent();
-  }, []);
 
   const handleLogin: SubmitHandler<FormValues> = async ({ email, password }) => {
     try {
@@ -213,20 +186,6 @@ export default function LoginPage() {
               </CardContent>
             </Card>
           </div>
-
-          {!isLoadingEvent && liveEvent && (
-              <Link href={`/dashboard/events/${liveEvent.id}/leaderboard`} className="block w-full mt-6">
-                <Card className="bg-primary/10 border-primary/20 hover:bg-primary/20 transition-colors">
-                    <CardHeader className="flex-row items-center gap-4">
-                        <RadioTower className="h-8 w-8 text-primary animate-pulse" />
-                        <div>
-                            <CardTitle className="text-lg text-left">Event Live Now!</CardTitle>
-                            <CardDescription className="text-left">{liveEvent.name}</CardDescription>
-                        </div>
-                    </CardHeader>
-                </Card>
-            </Link>
-          )}
 
         </div>
       </div>
