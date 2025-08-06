@@ -1,8 +1,8 @@
 
 'use server';
 
-import { collection, getDocs, query, where, Timestamp, limit } from "firebase/firestore";
-import { db } from "@/lib/firebase"; // Using the admin-initialized instance
+import { collection, getDocs, query, where, Timestamp, limit, orderBy } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
 interface LiveEvent {
     id: string;
@@ -11,33 +11,54 @@ interface LiveEvent {
 
 export async function getLiveEvent(): Promise<LiveEvent | null> {
     try {
-        const today = Timestamp.now();
+        const today = new Date();
         const eventsRef = collection(db, "events");
 
-        // Query for events that have started and are not in the future.
+        // Firestore limitation: Cannot have inequality filters on multiple properties.
+        // A more robust way that doesn't rely on a composite index is to query 
+        // for upcoming or very recent events and filter in code.
         const q = query(
-            eventsRef, 
-            where("startDate", "<=", today),
-            limit(10) // Limit to a reasonable number to filter on the server
+            eventsRef,
+            orderBy("startDate", "desc"), // Get most recent first
+            limit(20) // Look at the last 20 created events
         );
 
         const querySnapshot = await getDocs(q);
         
         const events = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-        // Now, filter for events where the end date is also valid.
-        // This is necessary because Firestore doesn't allow two inequality filters on different fields.
+        // Now, filter for events where the current date falls within the event's date range.
         const currentEvent = events.find(event => {
+            // Ensure startDate exists and is a Timestamp before calling toDate()
+            if (!event.startDate || typeof event.startDate.toDate !== 'function') {
+                return false;
+            }
             const startDate = event.startDate.toDate();
-            const endDate = event.endDate?.toDate();
-            const now = new Date();
+
+            // endDate is optional
+            const endDate = event.endDate && typeof event.endDate.toDate === 'function' 
+                ? event.endDate.toDate() 
+                : null;
+            
+            // Set time to end of day for comparison
+            if (endDate) {
+                endDate.setHours(23, 59, 59, 999);
+            }
+
+            const now = today;
 
             if (endDate) {
                 // If there is an end date, make sure we are between start and end.
                 return now >= startDate && now <= endDate;
             } else {
                 // If there is no end date, check if it's the same day.
-                return now.toDateString() === startDate.toDateString();
+                const startDay = new Date(startDate);
+                startDay.setHours(0,0,0,0);
+
+                const endOfDay = new Date(startDate);
+                endOfDay.setHours(23,59,59,999);
+
+                return now >= startDay && now <= endOfDay;
             }
         });
 
