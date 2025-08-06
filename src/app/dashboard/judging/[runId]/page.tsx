@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useForm, useFieldArray } from "react-hook-form";
+import { useForm, useFieldArray, Controller } from "react-hook-form";
 import Link from "next/link";
 import { ChevronLeft, Save, Loader2 } from "lucide-react";
 import {
@@ -21,7 +21,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { doc, getDoc, updateDoc, collectionGroup, query, where, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -31,6 +31,8 @@ interface JudgingFormValues {
         exercises: {
             exerciseName: string;
             score: number | boolean;
+            type: string;
+            maxPoints?: number;
         }[];
     }[];
     notes: string;
@@ -40,12 +42,13 @@ export default function JudgingPage() {
   const { toast } = useToast();
   const router = useRouter();
   const params = useParams();
-  const runId = params.runId as string; // Note: This should be the SCHEDULE ID from Firestore
+  const runId = params.runId as string;
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [eventData, setEventData] = useState<any>(null);
   const [runData, setRunData] = useState<any>(null);
   const [competitorData, setCompetitorData] = useState<any>(null);
+  const [eventId, setEventId] = useState<string | null>(null);
 
   const form = useForm<JudgingFormValues>({
       defaultValues: { scores: [], notes: "" }
@@ -56,42 +59,57 @@ export default function JudgingPage() {
 
     const fetchData = async () => {
       try {
-        // This logic assumes we can find the event from the run.
-        // In a real app, you might pass eventId in the URL: /dashboard/events/[eventId]/judging/[runId]
-        // For now, we'll try to deduce it, which is brittle. Let's assume a hardcoded event for now.
-        const eventId = "iFImBv9C03yL0wz1K5NA"; // HARDCODED FOR NOW
+        // Find the event and run document
+        const scheduleQuery = query(collectionGroup(db, 'schedule'), where('id', '==', runId));
+        const scheduleSnapshot = await getDocs(scheduleQuery);
+
+        if (scheduleSnapshot.empty) {
+            throw new Error("Run not found across any event.");
+        }
         
-        const eventRef = doc(db, "events", eventId);
-        const runRef = doc(db, `events/${eventId}/schedule`, runId);
+        const runDoc = scheduleSnapshot.docs[0];
+        const run = runDoc.data();
+        const eventRef = runDoc.ref.parent.parent;
+
+        if (!eventRef) {
+            throw new Error("Could not determine the event for this run.");
+        }
         
-        const [eventSnap, runSnap] = await Promise.all([
-          getDoc(eventRef),
-          getDoc(runRef)
-        ]);
+        setEventId(eventRef.id);
+        
+        const eventSnap = await getDoc(eventRef);
 
         if (!eventSnap.exists()) throw new Error("Event not found.");
-        if (!runSnap.exists()) throw new Error("Run not found.");
-
+        
         const event = eventSnap.data();
-        const run = runSnap.data();
         setEventData(event);
         setRunData(run);
         
         if(run.competitorId) {
-            const competitorRef = doc(db, `events/${eventId}/competitors`, run.competitorId);
+            const competitorRef = doc(db, `events/${eventRef.id}/competitors`, run.competitorId);
             const competitorSnap = await getDoc(competitorRef);
             if(competitorSnap.exists()) {
                 setCompetitorData(competitorSnap.data());
             }
         }
 
-        // Initialize form with rubric structure
+        // Initialize form with rubric structure and existing scores
         const initialScores = (event.rubric?.phases || []).map((phase: any) => ({
           phaseName: phase.name,
-          exercises: phase.exercises.map((ex: any) => ({
-            exerciseName: ex.name,
-            score: ex.type === 'pass/fail' ? false : 0, // Default score
-          })),
+          exercises: phase.exercises.map((ex: any) => {
+            const existingPhase = run.scores?.find((s:any) => s.phaseName === phase.name);
+            const existingExercise = existingPhase?.exercises.find((e:any) => e.exerciseName === ex.name);
+            
+            let defaultScore: number | boolean = 0;
+            if (ex.type === 'pass/fail') defaultScore = false;
+            
+            return {
+              exerciseName: ex.name,
+              score: existingExercise?.score ?? defaultScore,
+              type: ex.type,
+              maxPoints: ex.maxPoints,
+            }
+          }),
         }));
         
         form.reset({
@@ -99,28 +117,25 @@ export default function JudgingPage() {
             notes: run.notes || ''
         });
 
-
       } catch (error) {
         console.error(error);
         toast({
           variant: "destructive",
-          title: "Error",
+          title: "Error Loading Data",
           description: "Could not load run data. Please go back and try again.",
         });
+        router.push('/dashboard/events');
       } finally {
         setLoading(false);
       }
     };
 
     fetchData();
-  }, [runId, toast, form]);
+  }, [runId, toast, form, router]);
 
   async function onSubmit(data: JudgingFormValues) {
-    if(!runId || !eventData) return;
+    if(!runId || !eventId) return;
     setIsSubmitting(true);
-    
-    // In a real app, this eventId should come from the URL or state
-    const eventId = "iFImBv9C03yL0wz1K5NA";
     
     try {
         const runRef = doc(db, `events/${eventId}/schedule`, runId);
@@ -153,8 +168,19 @@ export default function JudgingPage() {
         <div className="flex flex-col gap-6 max-w-4xl mx-auto">
             <Skeleton className="h-10 w-1/2" />
             <Skeleton className="h-24 w-full" />
-            <Skeleton className="h-64 w-full" />
-            <Skeleton className="h-48 w-full" />
+            <Card>
+                <CardHeader><Skeleton className="h-8 w-1/3" /></CardHeader>
+                <CardContent className="space-y-4">
+                    <div className="flex items-center justify-between"><Skeleton className="h-6 w-1/4" /><Skeleton className="h-10 w-1/3" /></div>
+                    <div className="flex items-center justify-between"><Skeleton className="h-6 w-1/4" /><Skeleton className="h-10 w-1/3" /></div>
+                </CardContent>
+            </Card>
+             <Card>
+                <CardHeader><Skeleton className="h-8 w-1/3" /></CardHeader>
+                <CardContent>
+                    <Skeleton className="h-24 w-full" />
+                </CardContent>
+            </Card>
         </div>
       )
   }
@@ -163,7 +189,7 @@ export default function JudgingPage() {
     <div className="flex flex-col gap-6 max-w-4xl mx-auto">
       <div className="flex items-center gap-4">
         <Button variant="outline" size="icon" asChild>
-          <Link href={`/dashboard/events/${eventData?.id || ''}/schedule`}>
+          <Link href={`/dashboard/events/${eventId}/schedule`}>
             <ChevronLeft className="h-4 w-4" />
           </Link>
         </Button>
@@ -193,22 +219,22 @@ export default function JudgingPage() {
             </CardContent>
           </Card>
         ) : (
-          eventData.rubric.phases.map((phase: any, phaseIndex: number) => (
-            <Card key={phase.name}>
+          form.getValues('scores').map((phase, phaseIndex) => (
+            <Card key={phase.phaseName}>
               <CardHeader>
-                <CardTitle>{phase.name}</CardTitle>
+                <CardTitle>{phase.phaseName}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {phase.exercises.map((exercise: any, exerciseIndex: number) => (
-                  <div key={exercise.name}>
+                {phase.exercises.map((exercise, exerciseIndex) => (
+                  <div key={exercise.exerciseName}>
                     <div className="grid grid-cols-3 items-center gap-4">
-                      <Label htmlFor={`${phase.name}-${exercise.name}`} className="col-span-2">
-                        {exercise.name}
+                      <Label htmlFor={`${phase.phaseName}-${exercise.exerciseName}`} className="col-span-2">
+                        {exercise.exerciseName}
                       </Label>
                       {exercise.type === "points" && (
                         <div className="flex items-center gap-2">
                           <Input
-                            id={`${phase.name}-${exercise.name}`}
+                            id={`${phase.phaseName}-${exercise.exerciseName}`}
                             type="number"
                             placeholder="0"
                             className="text-right"
@@ -223,7 +249,7 @@ export default function JudgingPage() {
                       {exercise.type === "time" && (
                         <div className="flex items-center gap-2">
                           <Input
-                            id={`${phase.name}-${exercise.name}`}
+                            id={`${phase.phaseName}-${exercise.exerciseName}`}
                             type="number"
                             placeholder="0.00"
                             step="0.01"

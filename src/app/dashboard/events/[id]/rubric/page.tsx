@@ -41,7 +41,7 @@ import { cn } from "@/lib/utils";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useEffect, useState } from "react";
-import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { doc, getDoc, updateDoc, setDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
 const exerciseSchema = z.object({
@@ -76,11 +76,15 @@ export default function RubricPage() {
   useEffect(() => {
     if (!eventId) return;
     const fetchRubric = async () => {
+      setIsLoading(true);
       try {
         const eventRef = doc(db, 'events', eventId);
         const eventSnap = await getDoc(eventRef);
         if (eventSnap.exists() && eventSnap.data().rubric) {
           form.reset({ phases: eventSnap.data().rubric.phases || [] });
+        } else {
+          // If no rubric exists, initialize with empty phases
+          form.reset({ phases: [] });
         }
       } catch (error) {
         toast({
@@ -105,7 +109,8 @@ export default function RubricPage() {
     setIsSubmitting(true);
     try {
       const eventRef = doc(db, "events", eventId);
-      await updateDoc(eventRef, { rubric: data });
+      // Use setDoc with merge to create or update the rubric
+      await setDoc(eventRef, { rubric: data }, { merge: true });
       toast({
         title: "Rubric Saved!",
         description: "The scoring rubric has been successfully updated.",
@@ -140,7 +145,7 @@ export default function RubricPage() {
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              <Accordion type="multiple" className="w-full space-y-4">
+              <Accordion type="multiple" className="w-full space-y-4" defaultValue={fields.map((_, index) => `item-${index}`)}>
                 {fields.map((phase, phaseIndex) => (
                   <AccordionItem key={phase.id} value={`item-${phaseIndex}`} className="border rounded-lg bg-background">
                     <AccordionTrigger className="p-4 hover:no-underline">
@@ -177,12 +182,12 @@ export default function RubricPage() {
                         <p>Loading Rubric...</p>
                     </div>
                 ) : fields.length === 0 && (
-                    <div className="text-center text-muted-foreground py-12">
-                        <p>No phases defined.</p>
-                        <p>Click "Add Phase" to get started.</p>
+                    <div className="text-center text-muted-foreground py-12 border-2 border-dashed rounded-lg">
+                        <p className="font-semibold">No phases defined yet.</p>
+                        <p>Click "Add Phase" to get started building your scoring rubric.</p>
                     </div>
                 )}
-              <div className="flex justify-between items-center">
+              <div className="flex justify-between items-center mt-6">
                 <Button
                   type="button"
                   variant="outline"
@@ -192,7 +197,7 @@ export default function RubricPage() {
                 </Button>
                 <div className="flex gap-2">
                     <Button variant="ghost" asChild><Link href={`/dashboard/events/${eventId}/schedule`}>Cancel</Link></Button>
-                    <Button type="submit" disabled={isSubmitting}>
+                    <Button type="submit" disabled={isSubmitting || isLoading}>
                       {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                       Save Rubric
                     </Button>
@@ -224,7 +229,7 @@ function PhaseExercises({ control, phaseIndex }: { control: any, phaseIndex: num
         />
       ))}
        {fields.length === 0 && (
-          <p className="text-sm text-muted-foreground pt-4">No exercises in this phase.</p>
+          <p className="text-sm text-muted-foreground pt-4">No exercises in this phase. Add one below.</p>
       )}
       <Button
         type="button"
@@ -291,9 +296,9 @@ function ExerciseItem({ control, phaseIndex, exerciseIndex, remove }: { control:
                       name={`phases.${phaseIndex}.exercises.${exerciseIndex}.maxPoints`}
                       render={({ field }) => (
                         <FormItem className="w-full">
-                          <FormLabel>Max Points</FormLabel>
+                          <FormLabel>{exerciseType === 'time' ? 'Max Time (sec)' : 'Max Points'}</FormLabel>
                           <FormControl>
-                            <Input {...field} type="number" placeholder="e.g., 10" />
+                            <Input {...field} type="number" placeholder={exerciseType === 'time' ? "e.g., 60" : "e.g., 10"} />
                           </FormControl>
                         </FormItem>
                       )}
