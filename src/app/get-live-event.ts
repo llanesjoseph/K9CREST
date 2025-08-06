@@ -2,7 +2,7 @@
 'use server';
 
 import { collection, getDocs, query } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { adminDb } from "@/lib/firebase-admin";
 
 interface LiveEvent {
     id: string;
@@ -12,7 +12,7 @@ interface LiveEvent {
 export async function getLiveEvent(): Promise<LiveEvent | null> {
     try {
         const today = new Date();
-        const eventsRef = collection(db, "events");
+        const eventsRef = collection(adminDb, "events");
 
         // A simple query to get all documents from the events collection.
         // This avoids needing any specific indexes on the Firestore database.
