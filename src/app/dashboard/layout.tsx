@@ -3,7 +3,8 @@
 
 import { AuthProvider, useAuth } from "@/components/auth-provider";
 import { AppHeader } from "@/components/app-header";
-import { AppSidebar, SidebarProvider } from "@/components/ui/sidebar";
+import { AppSidebar } from "@/components/app-sidebar";
+import { SidebarProvider } from "@/components/ui/sidebar";
 
 function DashboardWrapper({ children }: { children: React.ReactNode }) {
   const { user, role } = useAuth();
