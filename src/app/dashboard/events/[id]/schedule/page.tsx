@@ -196,6 +196,7 @@ const TimeSlot = ({
 
     return (
         <div
+            data-pdf-timeslot="true"
             className={`w-32 h-20 border border-dashed rounded-md flex items-center justify-center text-center text-sm transition-all duration-200 ease-in-out relative
                 ${scheduledEvent ? 'bg-green-100 dark:bg-green-900/30 border-green-500/50' : isDraggable ? 'bg-background hover:bg-muted/80' : 'bg-secondary/50'}
                 ${isOver ? 'border-primary ring-2 ring-primary' : ''}
@@ -208,7 +209,7 @@ const TimeSlot = ({
             draggable={canDragEvent}
         >
             {scheduledEvent && eventCompetitor ? (
-                <div className="flex flex-col items-center justify-center p-1 group w-full h-full">
+                <div data-pdf-competitor-card="true" className="flex flex-col items-center justify-center p-1 group w-full h-full">
                     <span className="font-bold text-green-800 dark:text-green-300 text-sm">{eventCompetitor.dogName}</span>
                     <span className="text-xs text-green-700 dark:text-green-400">({eventCompetitor.name})</span>
                     {isDraggable && (
@@ -224,7 +225,7 @@ const TimeSlot = ({
                     )}
                 </div>
             ) : isDraggable ? (
-                <span className="text-muted-foreground text-xs">Drop Here</span>
+                <span className="text-muted-foreground text-xs" data-pdf-droplabel="true">Drop Here</span>
             ) : null}
         </div>
     );
@@ -560,87 +561,131 @@ export default function SchedulePage() {
     };
 
     const handleGeneratePdf = async () => {
-        const element = scheduleContainerRef.current;
-        if (!element) {
-            toast({ variant: "destructive", title: "Error", description: "Could not find schedule content to export." });
+        const scheduleEl = scheduleContainerRef.current;
+        if (!scheduleEl) {
+            toast({ variant: "destructive", title: "Error", description: "Could not find schedule content." });
             return;
         }
-    
+
         setIsGeneratingPdf(true);
 
-        // Find the inner grid to measure full content width
-        const gridEl = element.querySelector<HTMLDivElement>('.space-y-8');
+        const pdf = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'letter' });
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = pdf.internal.pageSize.getHeight();
+        const margin = 30;
+
+        // 1. Add background watermark
+        try {
+            const bgImage = new Image();
+            bgImage.crossOrigin = "anonymous";
+            bgImage.src = 'https://res.cloudinary.com/di8qgld2h/image/upload/v1721950942/desertdog_k9_1x_lgt1y2.png';
+            await new Promise((resolve) => { bgImage.onload = resolve; bgImage.onerror = resolve; });
+            
+            const bgImageWidth = pdfWidth * 0.7;
+            const bgImageHeight = (bgImage.height * bgImageWidth) / bgImage.width;
+            const bgImageX = (pdfWidth - bgImageWidth) / 2;
+            const bgImageY = (pdfHeight - bgImageHeight) / 2;
+            
+            pdf.setGState(new (pdf as any).GState({opacity: 0.15}));
+            pdf.addImage(bgImage, 'PNG', bgImageX, bgImageY, bgImageWidth, bgImageHeight);
+            pdf.setGState(new (pdf as any).GState({opacity: 1}));
+
+        } catch (e) {
+            console.warn("Could not load background image for PDF.", e);
+        }
+
+        // Add a title to the PDF
+        pdf.setFontSize(22);
+        pdf.setTextColor('#333333');
+        pdf.setFont('helvetica', 'bold');
+        pdf.text(eventDetails?.name || 'Event Schedule', pdfWidth / 2, margin + 10, { align: 'center' });
+
+
+        // 2. Add "Frosted Glass" overlay for content
+        pdf.setFillColor(255, 255, 255);
+        pdf.setGState(new (pdf as any).GState({opacity: 0.9}));
+        pdf.rect(margin / 2, margin + 30, pdfWidth - margin, pdfHeight - margin - 40, 'F');
+        pdf.setGState(new (pdf as any).GState({opacity: 1}));
+
+
+        // 3. Prepare and capture schedule content
+        const gridEl = scheduleEl.querySelector<HTMLDivElement>('.space-y-8');
         if (!gridEl) {
              toast({ variant: "destructive", title: "Error", description: "Could not find schedule grid." });
              setIsGeneratingPdf(false);
              return;
         }
 
-        const originalClasses = element.className;
-        const originalWidth = element.style.width;
+        const originalClasses = scheduleEl.className;
+        const originalWidth = scheduleEl.style.width;
+
+        // Inject styles for PDF rendering
+        const style = document.createElement('style');
+        style.innerHTML = `
+            body { font-family: Inter, sans-serif; }
+            .pdf-capture-mode {
+                background: transparent !important;
+                padding: 10px !important;
+                color: #333 !important;
+            }
+            .pdf-capture-mode h3 {
+                font-size: 18px !important;
+                font-weight: 700 !important;
+                color: #000 !important;
+                padding-bottom: 8px !important;
+            }
+            .pdf-capture-mode [data-pdf-droplabel] {
+                display: none !important;
+            }
+            .pdf-capture-mode [data-pdf-timeslot] {
+                 border: 1px solid #e5e7eb !important;
+            }
+            .pdf-capture-mode [data-pdf-competitor-card] {
+                background-color: #059669 !important; /* A richer green */
+                color: white !important;
+                border-radius: 4px;
+                padding: 4px !important;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            }
+            .pdf-capture-mode [data-pdf-competitor-card] span {
+                color: white !important;
+            }
+        `;
+        document.head.appendChild(style);
 
         try {
-            // Temporarily change styling to capture full width
-            element.className = 'bg-card p-4';
-            element.style.width = `${gridEl.scrollWidth}px`;
+            scheduleEl.className = 'pdf-capture-mode';
+            scheduleEl.style.width = `${gridEl.scrollWidth}px`;
             
-            const canvas = await html2canvas(element, {
+            const canvas = await html2canvas(scheduleEl, {
                 scale: 2, 
+                backgroundColor: null, // Transparent background
                 useCORS: true,
-                backgroundColor: null,
             });
 
             // Restore original styles
-            element.className = originalClasses;
-            element.style.width = originalWidth;
+            scheduleEl.className = originalClasses;
+            scheduleEl.style.width = originalWidth;
 
-            const scheduleImgData = canvas.toDataURL('image/png');
+            // 4. Add captured content to PDF
+            const contentImgData = canvas.toDataURL('image/png');
             
-            const pdf = new jsPDF({
-                orientation: 'landscape',
-                unit: 'pt',
-                format: 'letter'
-            });
-    
-            const pdfWidth = pdf.internal.pageSize.getWidth();
-            const pdfHeight = pdf.internal.pageSize.getHeight();
-    
-            // Add background image
-            const bgImage = new Image();
-            bgImage.crossOrigin = "anonymous";
-            bgImage.src = 'https://res.cloudinary.com/di8qgld2h/image/upload/v1721950942/desertdog_k9_1x_lgt1y2.png';
-            await new Promise(resolve => { bgImage.onload = resolve; bgImage.onerror = resolve; });
-    
-            const bgImageWidth = pdfWidth * 0.8;
-            const bgImageHeight = (bgImage.height * bgImageWidth) / bgImage.width;
-            const bgImageX = (pdfWidth - bgImageWidth) / 2;
-            const bgImageY = (pdfHeight - bgImageHeight) / 2;
-    
-            pdf.setGState(new (pdf as any).GState({opacity: 0.1}));
-            pdf.addImage(bgImage, 'PNG', bgImageX, bgImageY, bgImageWidth, bgImageHeight);
-            pdf.setGState(new (pdf as any).GState({opacity: 1}));
-    
-            // Add Title
-            pdf.setFontSize(20);
-            pdf.text(eventDetails?.name || 'Event Schedule', pdfWidth / 2, 40, { align: 'center' });
-    
-            // Add schedule content
-            const scheduleImgWidth = canvas.width;
-            const scheduleImgHeight = canvas.height;
-            const ratio = scheduleImgWidth / scheduleImgHeight;
+            const contentImgWidth = canvas.width;
+            const contentImgHeight = canvas.height;
+            const ratio = contentImgWidth / contentImgHeight;
             
-            let finalImgWidth = pdfWidth - 60; // 30pt margin on each side
+            let finalImgWidth = pdfWidth - margin * 2;
             let finalImgHeight = finalImgWidth / ratio;
             
-            if (finalImgHeight > pdfHeight - 80) { // 40pt margin top/bottom
-                finalImgHeight = pdfHeight - 80;
+            if (finalImgHeight > pdfHeight - margin * 2 - 40) {
+                finalImgHeight = pdfHeight - margin * 2 - 40;
                 finalImgWidth = finalImgHeight * ratio;
             }
             
             const x = (pdfWidth - finalImgWidth) / 2;
-            const y = (pdfHeight - finalImgHeight) / 2 + 10;
+            const y = margin + 40;
     
-            pdf.addImage(scheduleImgData, 'PNG', x, y, finalImgWidth, finalImgHeight);
+            pdf.addImage(contentImgData, 'PNG', x, y, finalImgWidth, finalImgHeight);
             
             const fileName = `schedule_${eventDetails?.name.replace(/\s+/g, '_') || eventId}.pdf`;
             pdf.save(fileName);
@@ -650,8 +695,9 @@ export default function SchedulePage() {
             toast({ variant: "destructive", title: "PDF Generation Failed", description: "An unexpected error occurred." });
         } finally {
              // Ensure styles are restored even if an error occurs
-            element.className = originalClasses;
-            element.style.width = originalWidth;
+            scheduleEl.className = originalClasses;
+            scheduleEl.style.width = originalWidth;
+            document.head.removeChild(style);
             setIsGeneratingPdf(false);
         }
     };
@@ -909,3 +955,6 @@ export default function SchedulePage() {
 
     
 
+
+
+    
