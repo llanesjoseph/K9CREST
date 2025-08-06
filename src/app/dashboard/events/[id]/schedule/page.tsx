@@ -647,19 +647,6 @@ export default function SchedulePage() {
                     doc.setFontSize(12);
                     doc.setTextColor('#333333');
                     doc.text(arena.name, colCursors[i].x, currentY);
-                    
-                    const svgIcon = arena.specialtyType === 'Bite Work' ? 
-                        '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-flame"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5-2 4.5-2 4.5-.5 1-1.5 2.5-1.5 2.5-1 2.304-1.5 4.843-1.5 7.5a4.5 4.5 0 0 0 4.5 4.5c.36 0 .71-.04 1.04-.12.92-.23 1.96-1.04 1.96-2.38 0-1.38.5-2 1-3 1.072-2.143.224-4.054-2-6-.5 2.5 2 4.5 2 4.5.5 1 1.5 2.5 1.5 2.5 1 2.304 1.5 4.843 1.5 7.5a4.5 4.5 0 0 1-4.5 4.5c-2.48 0-4.5-2.02-4.5-4.5Z"/></svg>' :
-                        arena.specialtyType.includes('Explosives') ?
-                        '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-file-text"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>' :
-                        '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-eye"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>';
-
-                    doc.svg(svgIcon, {
-                        x: colCursors[i].x + doc.getTextWidth(arena.name) + 5,
-                        y: currentY - 10,
-                        width: 14,
-                        height: 14
-                    });
                 });
 
                 // Draw Run Cards
