@@ -565,42 +565,61 @@ export default function SchedulePage() {
             toast({ variant: "destructive", title: "Error", description: "Could not find schedule content to export." });
             return;
         }
-
+    
         setIsGeneratingPdf(true);
         
         try {
             const canvas = await html2canvas(scheduleContainerRef.current, {
-                scale: 2, // Higher scale for better quality
+                scale: 2, 
                 useCORS: true,
-                backgroundColor: '#ffffff' // Set a background color for transparent elements
+                backgroundColor: '#ffffff'
             });
-            const imgData = canvas.toDataURL('image/png');
+            const scheduleImgData = canvas.toDataURL('image/png');
             
             const pdf = new jsPDF({
                 orientation: 'landscape',
                 unit: 'pt',
                 format: 'letter'
             });
-
+    
             const pdfWidth = pdf.internal.pageSize.getWidth();
             const pdfHeight = pdf.internal.pageSize.getHeight();
-            const imgWidth = canvas.width;
-            const imgHeight = canvas.height;
-            const ratio = imgWidth / imgHeight;
-            let finalImgWidth = pdfWidth - 40; // with margins
+    
+            // Add background image
+            const bgImage = new Image();
+            bgImage.crossOrigin = "anonymous"; // Important for cross-origin images
+            bgImage.src = 'https://res.cloudinary.com/di8qgld2h/image/upload/v1721950942/desertdog_k9_1x_lgt1y2.png';
+            await new Promise(resolve => bgImage.onload = resolve);
+    
+            const bgImageWidth = pdfWidth * 0.8; 
+            const bgImageHeight = (bgImage.height * bgImageWidth) / bgImage.width;
+            const bgImageX = (pdfWidth - bgImageWidth) / 2;
+            const bgImageY = (pdfHeight - bgImageHeight) / 2;
+    
+            pdf.setGState(new pdf.GState({opacity: 0.1})); // Set watermark opacity
+            pdf.addImage(bgImage, 'PNG', bgImageX, bgImageY, bgImageWidth, bgImageHeight);
+            pdf.setGState(new pdf.GState({opacity: 1})); // Reset opacity
+    
+            // Add Title
+            pdf.setFontSize(20);
+            pdf.text(eventDetails?.name || 'Event Schedule', pdfWidth / 2, 40, { align: 'center' });
+    
+            // Add schedule content
+            const scheduleImgWidth = canvas.width;
+            const scheduleImgHeight = canvas.height;
+            const ratio = scheduleImgWidth / scheduleImgHeight;
+            let finalImgWidth = pdfWidth - 60; // with margins
             let finalImgHeight = finalImgWidth / ratio;
             
-            if (finalImgHeight > pdfHeight - 40) {
-                finalImgHeight = pdfHeight - 40;
+            if (finalImgHeight > pdfHeight - 80) { // with margins
+                finalImgHeight = pdfHeight - 80;
                 finalImgWidth = finalImgHeight * ratio;
             }
             
             const x = (pdfWidth - finalImgWidth) / 2;
-
-            pdf.setFontSize(20);
-            pdf.text(eventDetails?.name || 'Event Schedule', pdfWidth / 2, 30, { align: 'center' });
-
-            pdf.addImage(imgData, 'PNG', x, 50, finalImgWidth, finalImgHeight);
+            const y = (pdfHeight - finalImgHeight) / 2 + 10;
+    
+            pdf.addImage(scheduleImgData, 'PNG', x, y, finalImgWidth, finalImgHeight);
             
             const fileName = `schedule_${eventDetails?.name.replace(/\s+/g, '_') || eventId}.pdf`;
             pdf.save(fileName);
