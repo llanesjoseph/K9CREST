@@ -12,7 +12,6 @@ import {
   signInWithPopup,
   createUserWithEmailAndPassword,
 } from "firebase/auth";
-import { collection, getDocs, query, where, Timestamp } from "firebase/firestore";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -25,9 +24,10 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { auth, googleProvider, db } from "@/lib/firebase";
+import { auth, googleProvider } from "@/lib/firebase";
 import { useState, useEffect } from "react";
 import Image from "next/image";
+import { getLiveEvent } from "@/app/get-live-event";
 
 const formSchema = z.object({
   email: z.string().email(),
@@ -53,31 +53,15 @@ export default function LoginPage() {
 
   useEffect(() => {
     const fetchLiveEvent = async () => {
+        setIsLoadingEvent(true);
         try {
-            const today = Timestamp.now();
-            const eventsRef = collection(db, "events");
-            
-            // Query for events where today is between start and end dates
-            // Firestore does not support two inequality filters on different fields.
-            // So we query for startDate <= today and then filter by endDate >= today on the client.
-            const q = query(eventsRef, where("startDate", "<=", today));
-            const querySnapshot = await getDocs(q);
-
-            const events = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-            const currentEvent = events.find(event => {
-                 const endDate = event.endDate?.toDate();
-                 // If there's an end date, it must be today or in the future.
-                 // If no end date, we assume it's a single-day event.
-                 return endDate ? endDate >= new Date() : true;
-            });
-            
-            if (currentEvent) {
-                setLiveEvent({ id: currentEvent.id, name: currentEvent.name });
+            const event = await getLiveEvent();
+            if (event) {
+                setLiveEvent(event);
             }
-
         } catch (error) {
-            console.error("Error fetching live event:", error);
+            console.error("Could not fetch live event:", error);
+            // Don't show a user-facing error for this, as it's a background task.
         } finally {
             setIsLoadingEvent(false);
         }
@@ -230,7 +214,7 @@ export default function LoginPage() {
             </Card>
           </div>
 
-          {liveEvent && (
+          {!isLoadingEvent && liveEvent && (
               <Link href={`/dashboard/events/${liveEvent.id}/leaderboard`} className="block w-full mt-6">
                 <Card className="bg-primary/10 border-primary/20 hover:bg-primary/20 transition-colors">
                     <CardHeader className="flex-row items-center gap-4">
@@ -249,5 +233,3 @@ export default function LoginPage() {
     </div>
   );
 }
-
-    
