@@ -64,7 +64,7 @@ export function AppHeader() {
             <NavLink href="/dashboard/events"><Calendar /> Events</NavLink>
             {eventId && (
                  <>
-                    {currentRole === 'admin' && <NavLink href={`/dashboard/events/${eventId}/rubric`}><ListChecks /> Rubric</NavLink>}
+                    {['admin', 'judge'].includes(currentRole) && <NavLink href={`/dashboard/events/${eventId}/rubric`}><ListChecks /> Rubric</NavLink>}
                     {['admin', 'judge'].includes(currentRole) && <NavLink href={`/dashboard/judging/1`}><Gavel /> Judging</NavLink>}
                     <NavLink href={`/dashboard/events/${eventId}/leaderboard`}><Trophy /> Leaderboard</NavLink>
                  </>
