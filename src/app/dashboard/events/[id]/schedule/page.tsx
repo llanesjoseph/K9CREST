@@ -17,7 +17,7 @@ import { eachDayOfInterval, format, parse } from 'date-fns';
 import { CompetitorImportDialog } from '@/components/competitor-import-dialog';
 import { AddCompetitorDialog } from '@/components/add-competitor-dialog';
 import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
+import 'jspdf-autotable';
 
 import {
   AlertDialog,
@@ -584,129 +584,145 @@ export default function SchedulePage() {
     
             // Group schedule by date, then arena, then sort by time
             const groupedSchedule = schedule.reduce((acc, run) => {
-                if (!acc[run.date]) acc[run.date] = {};
+                const date = run.date;
+                if (!acc[date]) acc[date] = {};
                 const arena = arenas.find(a => a.id === run.arenaId);
                 if (arena) {
-                    if (!acc[run.date][arena.name]) acc[run.date][arena.name] = [];
-                    acc[run.date][arena.name].push(run);
+                    if (!acc[date][arena.name]) acc[date][arena.name] = [];
+                    acc[date][arena.name].push(run);
                 }
                 return acc;
             }, {} as Record<string, Record<string, ScheduledEvent[]>>);
     
-            for (const date in groupedSchedule) {
-                for (const arenaName in groupedSchedule[date]) {
+            Object.keys(groupedSchedule).forEach(date => {
+                Object.keys(groupedSchedule[date]).forEach(arenaName => {
                     groupedSchedule[date][arenaName].sort((a, b) => a.startTime.localeCompare(b.startTime));
-                }
-            }
+                });
+            });
             
-            let pageCount = 1;
-
-            const addPageWithHeader = (isContinuation = false) => {
-                doc.addPage();
-                pageCount++;
-                addPageHeader(isContinuation ? `(cont.)` : '');
-                return margin + 40; // return starting Y
-            }
-
-            const addPageHeader = (titleSuffix = '') => {
-                // Watermark
-                doc.setGState(new (doc as any).GState({ opacity: 0.1 }));
-                const bgImageWidth = docWidth * 0.75;
-                const bgImageHeight = (bgImage.height * bgImageWidth) / bgImage.width;
-                doc.addImage(bgImage, 'PNG', (docWidth - bgImageWidth) / 2, (docHeight - bgImageHeight) / 2, bgImageWidth, bgImageHeight);
-                doc.setGState(new (doc as any).GState({ opacity: 1 }));
-    
-                // Header
-                doc.setFont('helvetica', 'bold');
-                doc.setFontSize(20);
-                doc.text(`${eventDetails.name} ${titleSuffix}`, margin, margin);
-            };
-
-            // Initial Page
-            addPageHeader();
-            let currentY = margin + 40;
-            let pageNumber = 1;
-
+            let isFirstPage = true;
 
             for (const day of eventDays) {
                 const formattedDate = format(day, 'yyyy-MM-dd');
                 const daySchedule = groupedSchedule[formattedDate];
                 if (!daySchedule) continue;
 
-                const dayArenas = arenas.filter(a => daySchedule[a.name] && daySchedule[a.name].length > 0);
-                if(dayArenas.length === 0) continue;
+                if (!isFirstPage) {
+                    doc.addPage();
+                }
+                isFirstPage = false;
 
-                // Day Header
+                // Add watermark
+                doc.setGState(new (doc as any).GState({ opacity: 0.1 }));
+                const bgImageWidth = docWidth * 0.75;
+                const bgImageHeight = (bgImage.height * bgImageWidth) / bgImage.width;
+                doc.addImage(bgImage, 'PNG', (docWidth - bgImageWidth) / 2, (docHeight - bgImageHeight) / 2, bgImageWidth, bgImageHeight);
+                doc.setGState(new (doc as any).GState({ opacity: 1 }));
+
+                // Add header
                 doc.setFont('helvetica', 'bold');
+                doc.setFontSize(20);
+                doc.text(eventDetails.name, margin, margin);
+                
                 doc.setFontSize(16);
-                currentY += 10;
-                doc.text(format(day, 'EEEE, MMMM dd'), margin, currentY);
-                currentY += 5;
+                doc.text(format(day, 'EEEE, MMMM dd, yyyy'), margin, margin + 25);
                 doc.setDrawColor('#cccccc');
-                doc.line(margin, currentY, docWidth - margin, currentY);
-                currentY += 25;
+                doc.line(margin, margin + 35, docWidth - margin, margin + 35);
+                
+                let currentY = margin + 60;
+                let pageNumber = doc.getNumberOfPages();
 
+                const dayArenas = arenas.filter(a => daySchedule[a.name] && daySchedule[a.name].length > 0);
                 const numArenaColumns = dayArenas.length;
                 const colWidth = (contentWidth - (numArenaColumns - 1) * 15) / numArenaColumns;
-                let currentX = margin;
-                const startYForDay = currentY;
-                const colEndY: number[] = new Array(numArenaColumns).fill(startYForDay);
-
-                for(let i=0; i < dayArenas.length; i++) {
-                    const arena = dayArenas[i];
-                    currentX = margin + i * (colWidth + 15);
-                    colEndY[i] = startYForDay;
-                    
+                
+                const colCursors = dayArenas.map((_, i) => ({
+                    x: margin + i * (colWidth + 15),
+                    y: currentY + 30 // Start Y for cards
+                }));
+                
+                // Draw Arena Headers
+                dayArenas.forEach((arena, i) => {
                     doc.setFont('helvetica', 'bold');
                     doc.setFontSize(12);
                     doc.setTextColor('#333333');
-                    doc.text(arena.name, currentX, colEndY[i]);
-                    colEndY[i] += 20;
+                    doc.text(arena.name, colCursors[i].x, currentY);
+                    
+                    const svgIcon = arena.specialtyType === 'Bite Work' ? 
+                        '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-flame"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5-2 4.5-2 4.5-.5 1-1.5 2.5-1.5 2.5-1 2.304-1.5 4.843-1.5 7.5a4.5 4.5 0 0 0 4.5 4.5c.36 0 .71-.04 1.04-.12.92-.23 1.96-1.04 1.96-2.38 0-1.38.5-2 1-3 1.072-2.143.224-4.054-2-6-.5 2.5 2 4.5 2 4.5.5 1 1.5 2.5 1.5 2.5 1 2.304 1.5 4.843 1.5 7.5a4.5 4.5 0 0 1-4.5 4.5c-2.48 0-4.5-2.02-4.5-4.5Z"/></svg>' :
+                        arena.specialtyType.includes('Explosives') ?
+                        '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-file-text"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>' :
+                        '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-eye"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>';
 
-                    const runs = daySchedule[arena.name];
-                    for(const run of runs) {
-                        const competitor = competitors.find(c => c.id === run.competitorId);
-                        if(!competitor) continue;
+                    doc.svg(svgIcon, {
+                        x: colCursors[i].x + doc.getTextWidth(arena.name) + 5,
+                        y: currentY - 10,
+                        width: 14,
+                        height: 14
+                    });
+                });
 
-                        const cardHeight = 40;
-                        if(colEndY[i] + cardHeight > docHeight - margin) {
-                            // This logic is simplified. A more robust solution would be needed
-                            // for content perfectly spanning pages within a multi-column layout.
-                            // For now, we assume a day's schedule per arena fits in a column.
+                // Draw Run Cards
+                let runsToDraw = true;
+                while (runsToDraw) {
+                    runsToDraw = false;
+                    dayArenas.forEach((arena, colIndex) => {
+                        const runs = daySchedule[arena.name] || [];
+                        const runIndex = Math.round((colCursors[colIndex].y - (currentY + 30)) / 48); // Estimate which run we're on
+
+                        if (runIndex < runs.length) {
+                            runsToDraw = true;
+                            const run = runs[runIndex];
+                            const competitor = competitors.find(c => c.id === run.competitorId);
+                            if (competitor) {
+                                const cardHeight = 40;
+                                const currentX = colCursors[colIndex].x;
+                                let currentCardY = colCursors[colIndex].y;
+                                
+                                // Check for page break
+                                if (currentCardY + cardHeight > docHeight - margin) {
+                                    doc.addPage();
+                                    pageNumber++;
+                                    
+                                    // Reset Y for all columns
+                                    colCursors.forEach(c => c.y = margin + 60);
+                                    currentCardY = margin + 60;
+                                    
+                                    // Add watermark and headers to new page
+                                    doc.setGState(new (doc as any).GState({ opacity: 0.1 }));
+                                    doc.addImage(bgImage, 'PNG', (docWidth - bgImageWidth) / 2, (docHeight - bgImageHeight) / 2, bgImageWidth, bgImageHeight);
+                                    doc.setGState(new (doc as any).GState({ opacity: 1 }));
+                                    doc.setFont('helvetica', 'bold');
+                                    doc.setFontSize(20);
+                                    doc.text(eventDetails.name, margin, margin);
+                                    doc.setFontSize(16);
+                                    doc.text(`${format(day, 'EEEE, MMMM dd, yyyy')} (cont.)`, margin, margin + 25);
+                                    doc.setDrawColor('#cccccc');
+                                    doc.line(margin, margin + 35, docWidth - margin, margin + 35);
+                                }
+                                colCursors[colIndex].y = currentCardY; // Update cursor Y just in case of page break
+
+                                // Card
+                                doc.setFillColor(arenaColors[arena.specialtyType] || '#6b7280');
+                                doc.rect(currentX, currentCardY, 3, cardHeight, 'F');
+                                
+                                doc.setFont('helvetica', 'bold');
+                                doc.setFontSize(9);
+                                doc.setTextColor('#000000');
+                                doc.text(`${run.startTime} - ${run.endTime}`, currentX + 10, currentCardY + 12);
+            
+                                doc.setFont('helvetica', 'normal');
+                                doc.setFontSize(8);
+                                doc.text(`${competitor.dogName} (${competitor.name})`, currentX + 10, currentCardY + 24);
+                                doc.setTextColor('#6b7280');
+                                doc.text(competitor.agency, currentX + 10, currentCardY + 34);
+
+                                colCursors[colIndex].y += cardHeight + 8;
+                            }
                         }
-
-                        // Card
-                        doc.setFillColor(arenaColors[arena.specialtyType] || '#6b7280');
-                        doc.rect(currentX, colEndY[i], 3, cardHeight, 'F');
-                        
-                        doc.setFont('helvetica', 'bold');
-                        doc.setFontSize(9);
-                        doc.setTextColor('#000000');
-                        doc.text(`${run.startTime} - ${run.endTime}`, currentX + 10, colEndY[i] + 12);
-    
-                        doc.setFont('helvetica', 'normal');
-                        doc.setFontSize(8);
-                        doc.text(`${competitor.dogName} (${competitor.name})`, currentX + 10, colEndY[i] + 24);
-                        doc.setTextColor('#6b7280');
-                        doc.text(competitor.agency, currentX + 10, colEndY[i] + 34);
-
-                        colEndY[i] += cardHeight + 8;
-                    }
-                }
-                
-                currentY = Math.max(...colEndY) + 20;
-
-                // Check if next day fits, if not, new page
-                if(day !== eventDays[eventDays.length - 1]){
-                    if(currentY > docHeight - margin - 100) { // rough estimate for next header
-                        addPageWithHeader();
-                        currentY = margin + 40;
-                    }
+                    });
                 }
             }
-
-            // Remove the initial blank page
-            doc.deletePage(1);
 
             // Add page numbers
             const totalPages = doc.getNumberOfPages();
@@ -978,3 +994,5 @@ export default function SchedulePage() {
         </TooltipProvider>
     );
 }
+
+    
