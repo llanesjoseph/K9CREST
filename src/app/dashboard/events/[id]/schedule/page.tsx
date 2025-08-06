@@ -561,18 +561,22 @@ export default function SchedulePage() {
     };
 
     const handleGeneratePdf = async () => {
-        if (!scheduleContainerRef.current) {
+        const element = scheduleContainerRef.current;
+        if (!element) {
             toast({ variant: "destructive", title: "Error", description: "Could not find schedule content to export." });
             return;
         }
     
         setIsGeneratingPdf(true);
         
+        // Temporarily remove background class for transparent canvas
+        element.classList.remove('bg-card', 'p-4');
+
         try {
-            const canvas = await html2canvas(scheduleContainerRef.current, {
+            const canvas = await html2canvas(element, {
                 scale: 2, 
                 useCORS: true,
-                backgroundColor: null
+                backgroundColor: null, // Make canvas background transparent
             });
             const scheduleImgData = canvas.toDataURL('image/png');
             
@@ -587,18 +591,18 @@ export default function SchedulePage() {
     
             // Add background image
             const bgImage = new Image();
-            bgImage.crossOrigin = "anonymous"; // Important for cross-origin images
+            bgImage.crossOrigin = "anonymous";
             bgImage.src = 'https://res.cloudinary.com/di8qgld2h/image/upload/v1721950942/desertdog_k9_1x_lgt1y2.png';
-            await new Promise(resolve => bgImage.onload = resolve);
+            await new Promise(resolve => { bgImage.onload = resolve; bgImage.onerror = resolve; });
     
-            const bgImageWidth = pdfWidth * 0.8; 
+            const bgImageWidth = pdfWidth * 0.8;
             const bgImageHeight = (bgImage.height * bgImageWidth) / bgImage.width;
             const bgImageX = (pdfWidth - bgImageWidth) / 2;
             const bgImageY = (pdfHeight - bgImageHeight) / 2;
     
-            pdf.setGState(new pdf.GState({opacity: 0.1})); // Set watermark opacity
+            pdf.setGState(new (pdf as any).GState({opacity: 0.1}));
             pdf.addImage(bgImage, 'PNG', bgImageX, bgImageY, bgImageWidth, bgImageHeight);
-            pdf.setGState(new pdf.GState({opacity: 1})); // Reset opacity
+            pdf.setGState(new (pdf as any).GState({opacity: 1}));
     
             // Add Title
             pdf.setFontSize(20);
@@ -608,10 +612,10 @@ export default function SchedulePage() {
             const scheduleImgWidth = canvas.width;
             const scheduleImgHeight = canvas.height;
             const ratio = scheduleImgWidth / scheduleImgHeight;
-            let finalImgWidth = pdfWidth - 60; // with margins
+            let finalImgWidth = pdfWidth - 60;
             let finalImgHeight = finalImgWidth / ratio;
             
-            if (finalImgHeight > pdfHeight - 80) { // with margins
+            if (finalImgHeight > pdfHeight - 80) {
                 finalImgHeight = pdfHeight - 80;
                 finalImgWidth = finalImgHeight * ratio;
             }
@@ -628,6 +632,8 @@ export default function SchedulePage() {
             console.error("Error generating PDF:", error);
             toast({ variant: "destructive", title: "PDF Generation Failed", description: "An unexpected error occurred." });
         } finally {
+            // Add background class back
+            element.classList.add('bg-card', 'p-4');
             setIsGeneratingPdf(false);
         }
     };
@@ -882,5 +888,7 @@ export default function SchedulePage() {
         </TooltipProvider>
     );
 }
+
+    
 
     
