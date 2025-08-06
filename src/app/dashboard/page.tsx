@@ -106,12 +106,6 @@ export default function Dashboard() {
         title: "Manage Users",
         description: "Invite and manage platform user roles.",
       },
-      {
-        href: "/dashboard/events",
-        icon: ListChecks,
-        title: "Configure Rubrics",
-        description: "Define scoring criteria for events.",
-      },
     ],
     judge: [
       {

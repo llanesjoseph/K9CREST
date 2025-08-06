@@ -59,8 +59,16 @@ export function AppSidebar() {
 
   const isActive = (href: string) => {
     if (!href) return false;
-    if (href === "/dashboard") return pathname === href;
+    // Special case for create page to highlight events tab
     if (pathname.startsWith('/dashboard/events/create') && href === '/dashboard/events') return true;
+    
+    // For event specific links, we need exact match, otherwise they all become active
+    if(href.includes('[id]')) {
+        return pathname === href.replace('[id]', eventId || '');
+    }
+
+    if (href === "/dashboard") return pathname === href;
+
     return pathname.startsWith(href);
   };
   
@@ -68,27 +76,27 @@ export function AppSidebar() {
     spectator: [
         { href: "/dashboard", label: "Dashboard", icon: LayoutGrid },
         { href: "/dashboard/events", label: "Events", icon: Calendar },
-        { href: `/dashboard/events/${eventId || '1'}/leaderboard`, label: "Leaderboards", icon: Trophy, eventSpecific: true },
+        { href: `/dashboard/events/${eventId}/leaderboard`, label: "Leaderboards", icon: Trophy, eventSpecific: true },
         { href: "/dashboard/settings", label: "Settings", icon: Settings },
     ],
     competitor: [
         { href: "/dashboard", label: "Dashboard", icon: LayoutGrid },
         { href: "/dashboard/events", label: "Events", icon: Calendar },
-        { href: `/dashboard/events/${eventId || '1'}/leaderboard`, label: "Leaderboards", icon: Trophy, eventSpecific: true },
+        { href: `/dashboard/events/${eventId}/leaderboard`, label: "Leaderboards", icon: Trophy, eventSpecific: true },
         { href: "/dashboard/settings", label: "Settings", icon: Settings },
     ],
     judge: [
         { href: "/dashboard", label: "Dashboard", icon: LayoutGrid },
         { href: "/dashboard/events", label: "Events", icon: Calendar },
-        { href: `/dashboard/judging/${eventId || '1'}`, label: "Judging", icon: Gavel, eventSpecific: true },
+        { href: `/dashboard/judging/1`, label: "Judging", icon: Gavel, eventSpecific: true },
         { href: "/dashboard/settings", label: "Settings", icon: Settings },
     ],
     admin: [
         { href: "/dashboard", label: "Dashboard", icon: LayoutGrid },
         { href: "/dashboard/events", label: "Events", icon: Calendar },
         { href: `/dashboard/events/${eventId}/rubric`, label: "Configure Rubric", icon: ListChecks, eventSpecific: true },
-        { href: `/dashboard/judging/${eventId || '1'}`, label: "Judging", icon: Gavel, eventSpecific: true },
-        { href: `/dashboard/events/${eventId || '1'}/leaderboard`, label: "Leaderboards", icon: Trophy, eventSpecific: true },
+        { href: `/dashboard/judging/1`, label: "Judging", icon: Gavel, eventSpecific: true },
+        { href: `/dashboard/events/${eventId}/leaderboard`, label: "Leaderboards", icon: Trophy, eventSpecific: true },
         { href: "/dashboard/users", label: "Users", icon: Users },
         { href: "/dashboard/settings", label: "Settings", icon: Settings },
     ]
