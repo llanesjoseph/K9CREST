@@ -17,7 +17,7 @@ import { eachDayOfInterval, format, parse } from 'date-fns';
 import { CompetitorImportDialog } from '@/components/competitor-import-dialog';
 import { AddCompetitorDialog } from '@/components/add-competitor-dialog';
 import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
+import autoTable from 'jspdf-autotable';
 
 import {
   AlertDialog,
@@ -196,7 +196,6 @@ const TimeSlot = ({
 
     return (
         <div
-            data-pdf-timeslot="true"
             className={`w-32 h-20 border border-dashed rounded-md flex items-center justify-center text-center text-sm transition-all duration-200 ease-in-out relative
                 ${scheduledEvent ? 'bg-green-100 dark:bg-green-900/30 border-green-500/50' : isDraggable ? 'bg-background hover:bg-muted/80' : 'bg-secondary/50'}
                 ${isOver ? 'border-primary ring-2 ring-primary' : ''}
@@ -209,7 +208,7 @@ const TimeSlot = ({
             draggable={canDragEvent}
         >
             {scheduledEvent && eventCompetitor ? (
-                <div data-pdf-competitor-card="true" className="flex flex-col items-center justify-center p-1 group w-full h-full">
+                <div className="flex flex-col items-center justify-center p-1 group w-full h-full">
                     <span className="font-bold text-green-800 dark:text-green-300 text-sm">{eventCompetitor.dogName}</span>
                     <span className="text-xs text-green-700 dark:text-green-400">({eventCompetitor.name})</span>
                     {isDraggable && (
@@ -225,7 +224,7 @@ const TimeSlot = ({
                     )}
                 </div>
             ) : isDraggable ? (
-                <span className="text-muted-foreground text-xs" data-pdf-droplabel="true">Drop Here</span>
+                <span className="text-muted-foreground text-xs">Drop Here</span>
             ) : null}
         </div>
     );
@@ -561,143 +560,93 @@ export default function SchedulePage() {
     };
 
     const handleGeneratePdf = async () => {
-        const scheduleEl = scheduleContainerRef.current;
-        if (!scheduleEl) {
-            toast({ variant: "destructive", title: "Error", description: "Could not find schedule content." });
-            return;
-        }
-
+        if (!eventDetails) return;
         setIsGeneratingPdf(true);
-
-        const pdf = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'letter' });
-        const pdfWidth = pdf.internal.pageSize.getWidth();
-        const pdfHeight = pdf.internal.pageSize.getHeight();
-        const margin = 30;
-
-        // 1. Add background watermark
+    
         try {
+            const doc = new jsPDF({ orientation: 'p', unit: 'pt', format: 'letter' });
+            const docWidth = doc.internal.pageSize.getWidth();
+            const docHeight = doc.internal.pageSize.getHeight();
+            const margin = 40;
+    
+            // Prepare data for the table
+            const tableData = schedule
+                .map(run => {
+                    const competitor = competitors.find(c => c.id === run.competitorId);
+                    const arena = arenas.find(a => a.id === run.arenaId);
+                    return {
+                        ...run,
+                        competitor,
+                        arena,
+                    };
+                })
+                .sort((a, b) => {
+                    const dateA = new Date(a.date).getTime();
+                    const dateB = new Date(b.date).getTime();
+                    if (dateA !== dateB) return dateA - dateB;
+                    if (a.startTime !== b.startTime) return a.startTime.localeCompare(b.startTime);
+                    return (a.arena?.name || '').localeCompare(b.arena?.name || '');
+                })
+                .map(run => [
+                    format(parse(run.date, 'yyyy-MM-dd', new Date()), 'E, MMM dd'),
+                    run.startTime,
+                    run.arena?.name || 'N/A',
+                    run.competitor?.name || 'N/A',
+                    run.competitor?.dogName || 'N/A',
+                    run.competitor?.agency || 'N/A',
+                ]);
+    
             const bgImage = new Image();
             bgImage.crossOrigin = "anonymous";
             bgImage.src = 'https://res.cloudinary.com/di8qgld2h/image/upload/v1721950942/desertdog_k9_1x_lgt1y2.png';
+            
             await new Promise((resolve) => { bgImage.onload = resolve; bgImage.onerror = resolve; });
-            
-            const bgImageWidth = pdfWidth * 0.7;
-            const bgImageHeight = (bgImage.height * bgImageWidth) / bgImage.width;
-            const bgImageX = (pdfWidth - bgImageWidth) / 2;
-            const bgImageY = (pdfHeight - bgImageHeight) / 2;
-            
-            pdf.setGState(new (pdf as any).GState({opacity: 0.15}));
-            pdf.addImage(bgImage, 'PNG', bgImageX, bgImageY, bgImageWidth, bgImageHeight);
-            pdf.setGState(new (pdf as any).GState({opacity: 1}));
-
-        } catch (e) {
-            console.warn("Could not load background image for PDF.", e);
-        }
-
-        // Add a title to the PDF
-        pdf.setFontSize(22);
-        pdf.setTextColor('#333333');
-        pdf.setFont('helvetica', 'bold');
-        pdf.text(eventDetails?.name || 'Event Schedule', pdfWidth / 2, margin + 10, { align: 'center' });
-
-
-        // 2. Add "Frosted Glass" overlay for content
-        pdf.setFillColor(255, 255, 255);
-        pdf.setGState(new (pdf as any).GState({opacity: 0.9}));
-        pdf.rect(margin / 2, margin + 30, pdfWidth - margin, pdfHeight - margin - 40, 'F');
-        pdf.setGState(new (pdf as any).GState({opacity: 1}));
-
-
-        // 3. Prepare and capture schedule content
-        const gridEl = scheduleEl.querySelector<HTMLDivElement>('.space-y-8');
-        if (!gridEl) {
-             toast({ variant: "destructive", title: "Error", description: "Could not find schedule grid." });
-             setIsGeneratingPdf(false);
-             return;
-        }
-
-        const originalClasses = scheduleEl.className;
-        const originalWidth = scheduleEl.style.width;
-
-        // Inject styles for PDF rendering
-        const style = document.createElement('style');
-        style.innerHTML = `
-            body { font-family: Inter, sans-serif; }
-            .pdf-capture-mode {
-                background: transparent !important;
-                padding: 10px !important;
-                color: #333 !important;
-            }
-            .pdf-capture-mode h3 {
-                font-size: 18px !important;
-                font-weight: 700 !important;
-                color: #000 !important;
-                padding-bottom: 8px !important;
-            }
-            .pdf-capture-mode [data-pdf-droplabel] {
-                display: none !important;
-            }
-            .pdf-capture-mode [data-pdf-timeslot] {
-                 border: 1px solid #e5e7eb !important;
-            }
-            .pdf-capture-mode [data-pdf-competitor-card] {
-                background-color: #059669 !important; /* A richer green */
-                color: white !important;
-                border-radius: 4px;
-                padding: 4px !important;
-                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            }
-            .pdf-capture-mode [data-pdf-competitor-card] span {
-                color: white !important;
-            }
-        `;
-        document.head.appendChild(style);
-
-        try {
-            scheduleEl.className = 'pdf-capture-mode';
-            scheduleEl.style.width = `${gridEl.scrollWidth}px`;
-            
-            const canvas = await html2canvas(scheduleEl, {
-                scale: 2, 
-                backgroundColor: null, // Transparent background
-                useCORS: true,
-            });
-
-            // Restore original styles
-            scheduleEl.className = originalClasses;
-            scheduleEl.style.width = originalWidth;
-
-            // 4. Add captured content to PDF
-            const contentImgData = canvas.toDataURL('image/png');
-            
-            const contentImgWidth = canvas.width;
-            const contentImgHeight = canvas.height;
-            const ratio = contentImgWidth / contentImgHeight;
-            
-            let finalImgWidth = pdfWidth - margin * 2;
-            let finalImgHeight = finalImgWidth / ratio;
-            
-            if (finalImgHeight > pdfHeight - margin * 2 - 40) {
-                finalImgHeight = pdfHeight - margin * 2 - 40;
-                finalImgWidth = finalImgHeight * ratio;
-            }
-            
-            const x = (pdfWidth - finalImgWidth) / 2;
-            const y = margin + 40;
     
-            pdf.addImage(contentImgData, 'PNG', x, y, finalImgWidth, finalImgHeight);
-            
-            const fileName = `schedule_${eventDetails?.name.replace(/\s+/g, '_') || eventId}.pdf`;
-            pdf.save(fileName);
-            
+            autoTable(doc, {
+                head: [['Date', 'Time', 'Arena', 'Handler', 'K9', 'Agency']],
+                body: tableData,
+                startY: margin + 30,
+                didDrawPage: (data) => {
+                    // Watermark
+                    doc.setGState(new (doc as any).GState({opacity: 0.1}));
+                    const bgImageWidth = docWidth * 0.75;
+                    const bgImageHeight = (bgImage.height * bgImageWidth) / bgImage.width;
+                    const bgImageX = (docWidth - bgImageWidth) / 2;
+                    const bgImageY = (docHeight - bgImageHeight) / 2;
+                    doc.addImage(bgImage, 'PNG', bgImageX, bgImageY, bgImageWidth, bgImageHeight);
+                    doc.setGState(new (doc as any).GState({opacity: 1}));
+    
+                    // Header
+                    doc.setFontSize(20);
+                    doc.setFont('helvetica', 'bold');
+                    doc.text(eventDetails.name, margin, margin);
+    
+                    // Footer
+                    const pageCount = doc.internal.pages.length;
+                    doc.setFontSize(10);
+                    doc.text(`Page ${data.pageNumber} of ${pageCount -1 }`, docWidth / 2, docHeight - 20, { align: 'center' });
+                },
+                styles: {
+                    font: 'helvetica',
+                    fontSize: 10,
+                },
+                headStyles: {
+                    fillColor: [35, 91, 55], // Primary color
+                    textColor: 255,
+                    fontStyle: 'bold',
+                },
+                alternateRowStyles: {
+                    fillColor: [245, 245, 245]
+                }
+            });
+    
+            const fileName = `schedule_${eventDetails.name.replace(/\s+/g, '_') || eventId}.pdf`;
+            doc.save(fileName);
+    
         } catch (error) {
             console.error("Error generating PDF:", error);
             toast({ variant: "destructive", title: "PDF Generation Failed", description: "An unexpected error occurred." });
         } finally {
-             // Ensure styles are restored even if an error occurs
-            scheduleEl.className = originalClasses;
-            scheduleEl.style.width = originalWidth;
-            document.head.removeChild(style);
             setIsGeneratingPdf(false);
         }
     };
@@ -814,7 +763,7 @@ export default function SchedulePage() {
                                         currentSchedule={schedule}
                                      />
                                 )}
-                                <Button onClick={handleGeneratePdf} variant="outline" className="w-full" disabled={isGeneratingPdf}>
+                                <Button onClick={handleGeneratePdf} variant="outline" className="w-full" disabled={isGeneratingPdf || schedule.length === 0}>
                                     {isGeneratingPdf ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <FileDown className="mr-2 h-4 w-4"/>}
                                     Download as PDF
                                 </Button>
@@ -952,9 +901,3 @@ export default function SchedulePage() {
         </TooltipProvider>
     );
 }
-
-    
-
-
-
-    
