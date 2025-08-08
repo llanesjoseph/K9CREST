@@ -4,7 +4,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { collection, onSnapshot, doc, setDoc, deleteDoc, writeBatch, query, getDocs, getDoc, Timestamp, updateDoc, where } from 'firebase/firestore';
 import { generateTimeSlots } from '@/lib/schedule-helpers';
-import { Trash2, AlertTriangle, PlusCircle, Users, X, Eraser, Wand2, Clock, Loader2, FileDown, GripVertical } from 'lucide-react';
+import { Trash2, AlertTriangle, PlusCircle, Users, X, Eraser, Wand2, Clock, Loader2, FileDown, GripVertical, Upload } from 'lucide-react';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragOverlay, DragStartEvent, DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -767,9 +767,19 @@ export default function SchedulePage() {
                 {/* Left Panel: Competitor List & Arena Mgmt */}
                  <div className="xl:col-span-1 flex flex-col gap-4">
                     <Card className="flex-grow flex flex-col h-full min-h-0">
-                        <CardHeader>
-                            <CardTitle>Competitors</CardTitle>
-                             <CardDescription>Drag and drop competitors to re-order the list for scheduling priority.</CardDescription>
+                        <CardHeader className="flex flex-row items-center justify-between">
+                            <div>
+                                <CardTitle>Competitors</CardTitle>
+                                 <CardDescription>Drag and drop competitors to re-order the list for scheduling priority.</CardDescription>
+                            </div>
+                            {isAdmin && (
+                                <CompetitorImportDialog eventId={eventId}>
+                                    <Button variant="outline" size="sm">
+                                        <Upload className="mr-2 h-4 w-4" />
+                                        Import
+                                    </Button>
+                                </CompetitorImportDialog>
+                            )}
                         </CardHeader>
                         <CardContent className="flex-grow p-0 overflow-hidden relative">
                            <div className="absolute inset-0">
@@ -785,7 +795,14 @@ export default function SchedulePage() {
                                       {competitors.length === 0 ? (
                                           <div className="text-center text-muted-foreground p-8 border border-dashed rounded-md h-full flex flex-col justify-center items-center gap-4">
                                               <p>No competitors have been imported for this event yet.</p>
-                                              {isAdmin && <CompetitorImportDialog eventId={eventId} />}
+                                              {isAdmin && (
+                                                <div className="flex gap-2">
+                                                    <AddCompetitorDialog eventId={eventId}/>
+                                                    <CompetitorImportDialog eventId={eventId}>
+                                                        <Button variant="outline">Import from CSV</Button>
+                                                    </CompetitorImportDialog>
+                                                </div>
+                                              )}
                                           </div>
                                       ) : (
                                         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
@@ -807,7 +824,6 @@ export default function SchedulePage() {
                         {isAdmin && competitors.length > 0 && (
                             <CardFooter className="border-t pt-4 flex-wrap gap-2">
                                 <AddCompetitorDialog eventId={eventId}/>
-                                <CompetitorImportDialog eventId={eventId} />
                             </CardFooter>
                         )}
                     </Card>
@@ -1020,3 +1036,5 @@ export default function SchedulePage() {
         </TooltipProvider>
     );
 }
+
+    
