@@ -116,6 +116,11 @@ export function CompetitorImportDialog({ eventId }: CompetitorImportDialogProps)
     if (!isAdmin) {
       setError("You do not have permission to import competitors. Please contact an administrator.");
       setStep(ImportStep.Error);
+      toast({
+        variant: 'destructive',
+        title: 'Permission Denied',
+        description: "You are not authorized to import competitors.",
+      });
       return;
     }
 

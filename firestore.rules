@@ -1,3 +1,4 @@
+
 rules_version = '2';
 
 service cloud.firestore {
@@ -5,13 +6,13 @@ service cloud.firestore {
 
     // Helper function to check if the user is an admin.
     // IMPORTANT: You must replace the placeholder UIDs below with the
-    // actual Firebase User IDs (UIDs) of your admin accounts.
-    // You can find these in your Firebase Console under Authentication > Users.
+    // actual Firebase User IDs (UIDs) of your admin accounts from the console.
     function isAdmin() {
+      // List of admin User IDs (UIDs)
       let admin_uids = [
-        'REPLACE_WITH_ADMIN_USER_ID_1',
-        'REPLACE_WITH_ADMIN_USER_ID_2'
-        // Add more admin UIDs here if needed
+        'REPLACE_WITH_YOUR_ADMIN_UID_1',
+        'llanes.joseph.m@gmail.com', // Example, replace with a real UID
+        'super@user.com' // Example, replace with a real UID
       ];
       return request.auth != null && request.auth.uid in admin_uids;
     }
@@ -21,23 +22,26 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Rules for the 'events' collection
-    match /events/{eventId} {
-      // Any authenticated user can read the main event documents (name, date, etc.).
-      // Admins can create, update, or delete events.
-      allow read: if isAuthenticated();
-      allow write: if isAdmin();
-
-      // Rules for the subcollections within each event (competitors, arenas, schedule, etc.)
-      match /{subcollection}/{docId} {
-        // Admins have full read and write access to all subcollection documents.
-        allow read, write: if isAdmin();
-
-        // Non-admin authenticated users can READ data from these specific
-        // subcollections, which is necessary for viewing schedules and leaderboards.
-        // They cannot write or delete.
-        allow read: if isAuthenticated() && subcollection in ['competitors', 'arenas', 'schedule', 'rubrics'];
-      }
+    // Rules for the 'events' collection and its subcollections
+    match /events/{eventId}/{document=**} {
+      // Admins have full read and write access to all event data and subcollections.
+      allow read, write: if isAdmin();
+      
+      // Any authenticated user can read documents in the 'events' collection itself,
+      // and from the 'arenas', 'schedule', and 'rubrics' subcollections.
+      // This allows non-admins to view schedules and leaderboards.
+      // The path capture {document} with `get` ensures this rule applies correctly.
+      allow get: if isAuthenticated() && (
+        !exists(/databases/$(database)/documents/events/$(eventId)/competitors/$(request.resource.id))
+      );
+      
+       // Authenticated users can list documents in specific subcollections
+      allow list: if isAuthenticated() && (
+          // Allow listing events collection itself
+          (resource.id == eventId) || 
+          // Allow listing these specific subcollections
+          (request.path[4] in ['arenas', 'schedule', 'rubrics', 'competitors'])
+      );
     }
   }
 }

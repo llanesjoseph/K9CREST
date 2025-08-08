@@ -265,7 +265,7 @@ const TimeSlot = ({
 
 
 export default function SchedulePage() {
-    const { isAdmin } = useAuth();
+    const { isAdmin, loading: authLoading } = useAuth();
     const { toast } = useToast();
     const params = useParams();
     const eventId = params.id as string;
@@ -292,7 +292,7 @@ export default function SchedulePage() {
 
     // --- Firestore Data Fetching ---
     useEffect(() => {
-        if (!eventId) return;
+        if (!eventId || authLoading) return;
 
         setLoading({ event: true, arenas: true, schedule: true, competitors: true });
 
@@ -326,6 +326,7 @@ export default function SchedulePage() {
                 setLoading(prev => ({...prev, arenas: false}));
             }, (error) => {
                 console.error("Error fetching arenas:", error);
+                 toast({ variant: 'destructive', title: 'Error fetching arenas', description: 'Please check permissions or network.' });
                 setLoading(prev => ({...prev, arenas: false}));
             });
             
@@ -335,6 +336,7 @@ export default function SchedulePage() {
                 setLoading(prev => ({...prev, schedule: false}));
             }, (error) => {
                 console.error("Error fetching schedule:", error);
+                toast({ variant: 'destructive', title: 'Error fetching schedule', description: 'Please check permissions or network.' });
                 setLoading(prev => ({...prev, schedule: false}));
             });
 
@@ -353,6 +355,7 @@ export default function SchedulePage() {
                 setLoading(prev => ({...prev, competitors: false}));
             }, (error) => {
                 console.error("Error fetching competitors:", error);
+                toast({ variant: 'destructive', title: 'Error fetching competitors', description: 'Please check permissions or network.' });
                 setLoading(prev => ({...prev, competitors: false}));
             });
 
@@ -366,7 +369,7 @@ export default function SchedulePage() {
             // We can just set loading to false for those parts.
             setLoading({ event: false, arenas: false, schedule: false, competitors: false });
         }
-    }, [eventId, toast, isAdmin]);
+    }, [eventId, toast, isAdmin, authLoading]);
     
     // --- Logic for competitor status and sorting ---
     const displayCompetitors = useMemo<DisplayCompetitor[]>(() => {
@@ -773,7 +776,7 @@ export default function SchedulePage() {
 
     const activeCompetitor = useMemo(() => sortedCompetitors.find(c => c.id === activeId), [activeId, sortedCompetitors]);
 
-    const isFullyLoading = loading.arenas || loading.schedule || loading.competitors || loading.event;
+    const isFullyLoading = loading.arenas || loading.schedule || loading.competitors || loading.event || authLoading;
 
     // --- Render ---
     return (
