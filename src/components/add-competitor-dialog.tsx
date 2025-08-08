@@ -23,7 +23,6 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { Checkbox } from './ui/checkbox';
-import { Competitor } from '@/app/dashboard/events/[id]/schedule/page';
 import { useAuth } from './auth-provider';
 
 const specialtySchema = z.object({
@@ -72,6 +71,15 @@ export function AddCompetitorDialog({ eventId }: { eventId: string }) {
         return;
     }
     
+    if (authLoading) {
+        toast({
+            variant: "destructive",
+            title: "Please wait",
+            description: "Authentication is still loading.",
+        });
+        return;
+    }
+
     if (!isAdmin) {
       toast({
         variant: "destructive",
