@@ -3,39 +3,23 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to check if the user is an admin by their UID.
-    // IMPORTANT: You must replace the placeholder UID below with the
-    // actual Firebase User ID (UID) of your admin account.
-    // You can find this in your Firebase Console under Authentication > Users.
+    // This function checks if the logged-in user is the administrator
+    // by their specific email address.
     function isAdmin() {
-      // List of admin UIDs
-      let admin_uids = [
-        'REPLACE_WITH_YOUR_ADMIN_USER_ID'
-      ];
-      return request.auth != null && request.auth.uid in admin_uids;
+      return request.auth != null && request.auth.token.email == 'llanes.joseph.m@gmail.com';
     }
 
-    // Helper function to check if a user is simply logged in.
+    // This function checks if a user is logged in.
     function isAuthenticated() {
       return request.auth != null;
     }
 
-    // Rules for the main 'events' collection documents
-    match /events/{eventId} {
-      // Any authenticated user can read the list of events.
-      // Only admins can create, update, or delete event documents.
+    // Rules for all documents in the database.
+    match /{path=**} {
+      // If the user is the admin, allow them to read and write everything.
+      // Otherwise, any authenticated (logged-in) user can only read data.
       allow read: if isAuthenticated();
       allow write: if isAdmin();
-
-      // Rules for ALL subcollections within an event (competitors, arenas, schedule, rubrics)
-      match /{subcollection}/{docId} {
-        // Admins have full read and write access to all event subcollections.
-        allow read, write: if isAdmin();
-
-        // Allow non-admin authenticated users to READ data from specific subcollections.
-        // This is necessary for viewing schedules, leaderboards, etc.
-        allow read: if isAuthenticated() && !isAdmin();
-      }
     }
   }
 }
