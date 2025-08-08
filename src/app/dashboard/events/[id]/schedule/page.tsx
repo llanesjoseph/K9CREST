@@ -279,6 +279,8 @@ export default function SchedulePage() {
     useEffect(() => {
         if (!eventId) return;
 
+        setLoading({ event: true, arenas: true, schedule: true, competitors: true });
+
         const fetchEventDetails = async () => {
              try {
                 const eventRef = doc(db, 'events', eventId);
@@ -303,9 +305,9 @@ export default function SchedulePage() {
         fetchEventDetails();
 
         if (!isAdmin) {
-            setLoading(prev => ({...prev, arenas: false, schedule: false, competitors: false}));
+            setLoading({ event: false, arenas: false, schedule: false, competitors: false });
             return;
-        };
+        }
 
         const arenasUnsub = onSnapshot(collection(db, `events/${eventId}/arenas`), (snapshot) => {
             const arenasData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Arena));
@@ -354,6 +356,7 @@ export default function SchedulePage() {
     
     // --- Logic for competitor status and sorting ---
     const displayCompetitors = useMemo<DisplayCompetitor[]>(() => {
+        if (!isAdmin) return [];
         const scheduledRunsByCompetitor = schedule.reduce((acc, run) => {
             if (!acc[run.competitorId]) {
                 acc[run.competitorId] = [];
@@ -384,7 +387,7 @@ export default function SchedulePage() {
                     ),
                 }
             });
-    }, [competitors, schedule]);
+    }, [competitors, schedule, isAdmin]);
 
     const [sortedCompetitors, setSortedCompetitors] = useState<DisplayCompetitor[]>([]);
 
