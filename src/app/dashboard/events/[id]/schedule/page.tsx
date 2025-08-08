@@ -1,9 +1,10 @@
+
 "use client";
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { collection, onSnapshot, doc, setDoc, deleteDoc, writeBatch, query, getDocs, getDoc, Timestamp, updateDoc, where } from 'firebase/firestore';
 import { generateTimeSlots } from '@/lib/schedule-helpers';
-import { Trash2, AlertTriangle, PlusCircle, Users, X, Eraser, Wand2, Clock, Loader2, FileDown, GripVertical, Upload } from 'lucide-react';
+import { Trash2, AlertTriangle, PlusCircle, Users, X, Eraser, Wand2, Clock, Loader2, FileDown, GripVertical, Upload, ListChecks } from 'lucide-react';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragOverlay, DragStartEvent, DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -21,6 +22,7 @@ import { AddCompetitorDialog } from '@/components/add-competitor-dialog';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { AssignRubricDialog } from '@/components/assign-rubric-dialog';
+import { EditArenaDialog } from '@/components/edit-arena-dialog';
 
 import {
   AlertDialog,
@@ -81,7 +83,7 @@ interface EventDetails {
     name: string;
     startDate: Timestamp;
     endDate?: Timestamp;
-    rubrics?: any[];
+    rubrics?: { id: string; name: string }[];
 }
 
 type SchedulingStatus = 'unscheduled' | 'partiallyScheduled' | 'fullyScheduled';
@@ -421,12 +423,10 @@ export default function SchedulePage() {
         try {
             const batch = writeBatch(db);
 
-            const scheduleQuery = query(collection(db, `events/${eventId}/schedule`));
+            const scheduleQuery = query(collection(db, `events/${eventId}/schedule`), where("arenaId", "==", arena.id));
             const scheduleSnapshot = await getDocs(scheduleQuery);
             scheduleSnapshot.forEach(doc => {
-                if (doc.data().arenaId === arena.id) {
-                    batch.delete(doc.ref);
-                }
+                 batch.delete(doc.ref);
             });
 
             const arenaRef = doc(db, `events/${eventId}/arenas`, arena.id);
@@ -847,6 +847,7 @@ export default function SchedulePage() {
                                             <SelectValue placeholder="Assign Rubric" />
                                         </SelectTrigger>
                                         <SelectContent>
+                                            <SelectItem value="new">No Rubric</SelectItem>
                                             {eventDetails?.rubrics && eventDetails.rubrics.map((rubric: any) => (
                                                 <SelectItem key={rubric.id} value={rubric.id}>{rubric.name}</SelectItem>
                                             ))}
@@ -953,64 +954,72 @@ export default function SchedulePage() {
                                                     <div className="grid gap-2 min-w-max">
                                                         {/* Header Row: Time Slots */}
                                                         <div className="grid grid-flow-col auto-cols-fr gap-2 border-b-2 pb-2 sticky top-[4.2rem] bg-card z-10">
-                                                            <div className="w-32 font-semibold text-muted-foreground">Arenas / Time</div>
+                                                            <div className="w-48 font-semibold text-muted-foreground">Arenas / Time</div>
                                                             {timeSlots.map(time => (
                                                                 <div key={time} className="w-32 text-center font-semibold text-muted-foreground">{time}</div>
                                                             ))}
                                                         </div>
 
                                                         {/* Arena Rows */}
-                                                        {arenas.map(arena => (
-                                                            <div key={arena.id} className="grid grid-flow-col auto-cols-fr gap-2 items-center border-b py-2">
-                                                                <div className="w-32 font-medium text-card-foreground flex items-center pr-2">
-                                                                    <div className="flex-grow">
-                                                                        <span>{arena.name}</span>
-                                                                        <span className="text-xs text-muted-foreground block">({arena.specialtyType})</span>
+                                                        {arenas.map(arena => {
+                                                            const rubric = eventDetails?.rubrics?.find(r => r.id === arena.rubricId);
+                                                            return (
+                                                                <div key={arena.id} className="grid grid-flow-col auto-cols-fr gap-2 items-center border-b py-2">
+                                                                    <div className="w-48 font-medium text-card-foreground flex items-center pr-2">
+                                                                        <div className="flex-grow">
+                                                                            <span className="font-bold">{arena.name}</span>
+                                                                            <span className="text-xs text-muted-foreground block">({arena.specialtyType})</span>
+                                                                             <div className="text-xs text-muted-foreground/80 flex items-center gap-1 mt-1">
+                                                                                <ListChecks className="h-3 w-3" /> 
+                                                                                <span>{rubric?.name || 'No Rubric'}</span>
+                                                                                 {isAdmin && <EditArenaDialog eventId={eventId} arena={arena} rubrics={eventDetails?.rubrics || []} />}
+                                                                            </div>
+                                                                        </div>
+                                                                        {isAdmin && (
+                                                                            <AlertDialog>
+                                                                                <Tooltip>
+                                                                                    <TooltipTrigger asChild>
+                                                                                        <AlertDialogTrigger asChild>
+                                                                                            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive text-sm h-8 w-8">
+                                                                                                <Trash2 className="h-4 w-4" />
+                                                                                            </Button>
+                                                                                        </AlertDialogTrigger>
+                                                                                    </TooltipTrigger>
+                                                                                    <TooltipContent>
+                                                                                        <p>Remove Arena</p>
+                                                                                    </TooltipContent>
+                                                                                </Tooltip>
+                                                                                <AlertDialogContent>
+                                                                                    <AlertDialogHeader>
+                                                                                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                                                                        <AlertDialogDescription>
+                                                                                            This will remove the arena "{arena.name}" and all of its scheduled runs. This action cannot be undone.
+                                                                                        </AlertDialogDescription>
+                                                                                    </AlertDialogHeader>
+                                                                                    <AlertDialogFooter>
+                                                                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                                                        <AlertDialogAction onClick={() => removeArena(arena)}>Delete</AlertDialogAction>
+                                                                                    </AlertDialogFooter>
+                                                                                </AlertDialogContent>
+                                                                            </AlertDialog>
+                                                                        )}
                                                                     </div>
-                                                                    {isAdmin && (
-                                                                        <AlertDialog>
-                                                                            <Tooltip>
-                                                                                <TooltipTrigger asChild>
-                                                                                    <AlertDialogTrigger asChild>
-                                                                                        <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive text-sm h-8 w-8">
-                                                                                            <Trash2 className="h-4 w-4" />
-                                                                                        </Button>
-                                                                                    </AlertDialogTrigger>
-                                                                                </TooltipTrigger>
-                                                                                <TooltipContent>
-                                                                                    <p>Remove Arena</p>
-                                                                                </TooltipContent>
-                                                                            </Tooltip>
-                                                                            <AlertDialogContent>
-                                                                                <AlertDialogHeader>
-                                                                                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                                                                                    <AlertDialogDescription>
-                                                                                        This will remove the arena "{arena.name}" and all of its scheduled runs. This action cannot be undone.
-                                                                                    </AlertDialogDescription>
-                                                                                </AlertDialogHeader>
-                                                                                <AlertDialogFooter>
-                                                                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                                                                    <AlertDialogAction onClick={() => removeArena(arena)}>Delete</AlertDialogAction>
-                                                                                </AlertDialogFooter>
-                                                                            </AlertDialogContent>
-                                                                        </AlertDialog>
-                                                                    )}
+                                                                    {timeSlots.map(time => (
+                                                                        <TimeSlot
+                                                                            key={`${arena.id}-${time}`}
+                                                                            arenaId={arena.id}
+                                                                            startTime={time}
+                                                                            date={formattedDate}
+                                                                            onDrop={(e, arenaId, startTime, date) => handleDrop(e, arenaId, startTime, date)}
+                                                                            scheduledEvent={schedule.find(event => event.arenaId === arena.id && event.startTime === time && event.date === formattedDate)}
+                                                                            competitors={competitors}
+                                                                            removeScheduledEvent={removeScheduledEvent}
+                                                                            isDraggable={isAdmin}
+                                                                        />
+                                                                    ))}
                                                                 </div>
-                                                                {timeSlots.map(time => (
-                                                                    <TimeSlot
-                                                                        key={`${arena.id}-${time}`}
-                                                                        arenaId={arena.id}
-                                                                        startTime={time}
-                                                                        date={formattedDate}
-                                                                        onDrop={(e, arenaId, startTime, date) => handleDrop(e, arenaId, startTime, date)}
-                                                                        scheduledEvent={schedule.find(event => event.arenaId === arena.id && event.startTime === time && event.date === formattedDate)}
-                                                                        competitors={competitors}
-                                                                        removeScheduledEvent={removeScheduledEvent}
-                                                                        isDraggable={isAdmin}
-                                                                    />
-                                                                ))}
-                                                            </div>
-                                                        ))}
+                                                            )
+                                                        })}
                                                     </div>
                                                 )}
                                             </div>
