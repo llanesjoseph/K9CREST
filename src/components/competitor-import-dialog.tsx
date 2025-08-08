@@ -22,7 +22,7 @@ import { Progress } from './ui/progress';
 import { processCompetitorCsv, ProcessCompetitorCsvOutput } from '@/ai/flows/process-competitor-csv';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { cn } from '@/lib/utils';
-import { useAuth } from '../auth-provider';
+import { useAuth } from '@/components/auth-provider';
 
 interface CompetitorImportDialogProps {
   eventId: string;
@@ -296,5 +296,7 @@ export function CompetitorImportDialog({ eventId }: CompetitorImportDialogProps)
     </Dialog>
   );
 }
+
+    
 
     
