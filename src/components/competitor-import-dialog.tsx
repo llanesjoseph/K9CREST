@@ -22,6 +22,7 @@ import { Progress } from './ui/progress';
 import { processCompetitorCsv, ProcessCompetitorCsvOutput } from '@/ai/flows/process-competitor-csv';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { cn } from '@/lib/utils';
+import { useAuth } from '../auth-provider';
 
 interface CompetitorImportDialogProps {
   eventId: string;
@@ -46,6 +47,7 @@ export function CompetitorImportDialog({ eventId }: CompetitorImportDialogProps)
   const [error, setError] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const { toast } = useToast();
+  const { isAdmin } = useAuth();
 
   const resetState = () => {
     setStep(ImportStep.Idle);
@@ -138,7 +140,7 @@ export function CompetitorImportDialog({ eventId }: CompetitorImportDialogProps)
       });
     } catch (e) {
       console.error('Error importing competitors: ', e);
-      setError('An error occurred while saving the data to the database.');
+      setError('An error occurred while saving the data to the database. You may not have the required permissions.');
       setStep(ImportStep.Error);
       toast({
         variant: 'destructive',
@@ -254,12 +256,15 @@ export function CompetitorImportDialog({ eventId }: CompetitorImportDialogProps)
         return null;
     }
   };
+  
+  if (!isAdmin) return null;
 
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
         <DialogTrigger asChild>
-             <Button variant="outline" disabled={!eventId}>
-                Import Competitors
+             <Button variant="outline" size="sm">
+                <Upload className="mr-2 h-4 w-4" />
+                Import
             </Button>
         </DialogTrigger>
         <DialogContent className="sm:max-w-lg h-[80vh] flex flex-col">
@@ -291,3 +296,5 @@ export function CompetitorImportDialog({ eventId }: CompetitorImportDialogProps)
     </Dialog>
   );
 }
+
+    

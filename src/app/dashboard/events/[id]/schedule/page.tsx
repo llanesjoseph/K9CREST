@@ -92,7 +92,7 @@ interface DisplayCompetitor extends Competitor {
     runs: ScheduledEvent[];
 }
 
-const SortableCompetitorItem = ({ competitor }: { competitor: DisplayCompetitor }) => {
+const SortableCompetitorItem = ({ competitor, isDraggable }: { competitor: DisplayCompetitor, isDraggable: boolean }) => {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: competitor.id });
     const style = {
         transform: CSS.Transform.toString(transform),
@@ -100,10 +100,13 @@ const SortableCompetitorItem = ({ competitor }: { competitor: DisplayCompetitor 
         opacity: isDragging ? 0.5 : 1,
         zIndex: isDragging ? 10 : 0,
     };
+    
+    // Only allow dragging if the user is an admin
+    const canDrag = isDraggable;
 
     return (
         <div ref={setNodeRef} style={style}>
-            <CompetitorItem competitor={competitor} isDraggable={true} dragHandle={{...attributes, ...listeners}} />
+            <CompetitorItem competitor={competitor} isDraggable={canDrag} dragHandle={canDrag ? {...attributes, ...listeners} : undefined} />
         </div>
     );
 };
@@ -130,9 +133,21 @@ const CompetitorItem = ({ competitor, isDraggable, dragHandle }: { competitor: D
         fullyScheduled: 'bg-green-100 dark:bg-green-900/30 border-green-500/30',
     };
 
+    const handleDragStart = (e: React.DragEvent<HTMLDivElement>) => {
+        if (!isDraggable) {
+             e.preventDefault();
+             return;
+        }
+        e.dataTransfer.setData('competitorId', competitor.id);
+        e.dataTransfer.effectAllowed = 'move';
+    };
+
+
     return (
         <div
-            className={`border rounded-md p-3 mb-2 flex items-start gap-2 shadow-sm ${isDraggable ? 'hover:shadow-md transition-all duration-200 ease-in-out transform hover:-translate-y-px' : 'cursor-not-allowed opacity-70'} ${statusClasses[competitor.status]}`}
+            className={`border rounded-md p-3 mb-2 flex items-start gap-2 shadow-sm ${isDraggable ? 'hover:shadow-md transition-all duration-200 ease-in-out transform hover:-translate-y-px' : ''} ${statusClasses[competitor.status]}`}
+            draggable={isDraggable}
+            onDragStart={handleDragStart}
         >
             {isDraggable && dragHandle && (
                  <button {...dragHandle} className="p-1 -ml-1 mt-1 cursor-grab focus:outline-none focus:ring-2 focus:ring-primary rounded">
@@ -773,12 +788,7 @@ export default function SchedulePage() {
                                  <CardDescription>Drag and drop competitors to re-order the list for scheduling priority.</CardDescription>
                             </div>
                             {isAdmin && (
-                                <CompetitorImportDialog eventId={eventId}>
-                                    <Button variant="outline" size="sm">
-                                        <Upload className="mr-2 h-4 w-4" />
-                                        Import
-                                    </Button>
-                                </CompetitorImportDialog>
+                                <CompetitorImportDialog eventId={eventId} />
                             )}
                         </CardHeader>
                         <CardContent className="flex-grow p-0 overflow-hidden relative">
@@ -798,9 +808,7 @@ export default function SchedulePage() {
                                               {isAdmin && (
                                                 <div className="flex gap-2">
                                                     <AddCompetitorDialog eventId={eventId}/>
-                                                    <CompetitorImportDialog eventId={eventId}>
-                                                        <Button variant="outline">Import from CSV</Button>
-                                                    </CompetitorImportDialog>
+                                                    <CompetitorImportDialog eventId={eventId}/>
                                                 </div>
                                               )}
                                           </div>
@@ -808,11 +816,11 @@ export default function SchedulePage() {
                                         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
                                             <SortableContext items={sortedCompetitors.map(c => c.id)} strategy={verticalListSortingStrategy}>
                                                 {sortedCompetitors.map(comp => (
-                                                    <SortableCompetitorItem key={comp.id} competitor={comp} />
+                                                    <SortableCompetitorItem key={comp.id} competitor={comp} isDraggable={isAdmin} />
                                                 ))}
                                             </SortableContext>
                                              <DragOverlay>
-                                                {activeCompetitor ? <CompetitorItem competitor={activeCompetitor} isDraggable={true} /> : null}
+                                                {activeCompetitor ? <CompetitorItem competitor={activeCompetitor} isDraggable={isAdmin} /> : null}
                                             </DragOverlay>
                                         </DndContext>
                                       )}
@@ -1036,5 +1044,7 @@ export default function SchedulePage() {
         </TooltipProvider>
     );
 }
+
+    
 
     
