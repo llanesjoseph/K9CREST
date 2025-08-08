@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { collection, onSnapshot, doc, setDoc, deleteDoc, writeBatch, query, getDocs, getDoc, Timestamp, updateDoc } from 'firebase/firestore';
+import { collection, onSnapshot, doc, setDoc, deleteDoc, writeBatch, query, getDocs, getDoc, Timestamp, updateDoc, where } from 'firebase/firestore';
 import { generateTimeSlots } from '@/lib/schedule-helpers';
 import { Trash2, AlertTriangle, PlusCircle, Users, X, Eraser, Wand2, Clock, Loader2, FileDown, GripVertical } from 'lucide-react';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragOverlay, DragStartEvent, DragEndEvent } from '@dnd-kit/core';
@@ -21,6 +21,7 @@ import { CompetitorImportDialog } from '@/components/competitor-import-dialog';
 import { AddCompetitorDialog } from '@/components/add-competitor-dialog';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
+import { AssignRubricDialog } from '@/components/assign-rubric-dialog';
 
 import {
   AlertDialog,
@@ -65,6 +66,7 @@ export interface Arena {
     id: string;
     name: string;
     specialtyType: ArenaSpecialty;
+    rubricId?: string;
 }
 
 export interface ScheduledEvent {
@@ -80,6 +82,7 @@ interface EventDetails {
     name: string;
     startDate: Timestamp;
     endDate?: Timestamp;
+    rubrics?: any[];
 }
 
 type SchedulingStatus = 'unscheduled' | 'partiallyScheduled' | 'fullyScheduled';
@@ -265,6 +268,8 @@ export default function SchedulePage() {
     
     const [newArenaName, setNewArenaName] = useState('');
     const [newArenaSpecialty, setNewArenaSpecialty] = useState<ArenaSpecialty>('Any');
+    const [selectedRubricId, setSelectedRubricId] = useState<string>('new');
+
     const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
     const scheduleContainerRef = useRef<HTMLDivElement>(null);
 
@@ -398,9 +403,14 @@ export default function SchedulePage() {
 
         const newArenaRef = doc(collection(db, `events/${eventId}/arenas`));
         try {
-            await setDoc(newArenaRef, { name: newArenaName.trim(), specialtyType: newArenaSpecialty });
+            await setDoc(newArenaRef, { 
+                name: newArenaName.trim(), 
+                specialtyType: newArenaSpecialty,
+                rubricId: selectedRubricId === 'new' ? null : selectedRubricId,
+             });
             setNewArenaName('');
             setNewArenaSpecialty('Any');
+            setSelectedRubricId('new');
             toast({ title: 'Success', description: `Arena "${newArenaName.trim()}" added!` });
         } catch (error) {
              toast({ variant: 'destructive', title: 'Error', description: 'Could not add arena.' });
@@ -805,26 +815,43 @@ export default function SchedulePage() {
                             <CardHeader>
                                 <CardTitle>Manage Arenas</CardTitle>
                             </CardHeader>
-                            <CardContent className="flex flex-col sm:flex-row items-center gap-2">
+                            <CardContent className="space-y-3">
                                 <Input
                                     type="text"
                                     placeholder="New Arena Name"
                                     value={newArenaName}
                                     onChange={e => setNewArenaName(e.target.value)}
-                                    className="flex-grow"
                                 />
-                                <Select value={newArenaSpecialty} onValueChange={(val: ArenaSpecialty) => setNewArenaSpecialty(val)}>
-                                     <SelectTrigger className="w-full sm:w-[240px]">
-                                        <SelectValue placeholder="Select specialty" />
-                                     </SelectTrigger>
-                                     <SelectContent>
-                                        <SelectItem value="Any">Any Specialty</SelectItem>
-                                        <SelectItem value="Bite Work">Bite Work</SelectItem>
-                                        <SelectItem value="Detection (Narcotics)">Detection (Narcotics)</SelectItem>
-                                        <SelectItem value="Detection (Explosives)">Detection (Explosives)</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                                <Button onClick={addArena} className="w-full sm:w-auto">
+                                <div className="flex flex-col sm:flex-row gap-2">
+                                    <Select value={newArenaSpecialty} onValueChange={(val: ArenaSpecialty) => setNewArenaSpecialty(val)}>
+                                         <SelectTrigger>
+                                            <SelectValue placeholder="Select specialty" />
+                                         </SelectTrigger>
+                                         <SelectContent>
+                                            <SelectItem value="Any">Any Specialty</SelectItem>
+                                            <SelectItem value="Bite Work">Bite Work</SelectItem>
+                                            <SelectItem value="Detection (Narcotics)">Detection (Narcotics)</SelectItem>
+                                            <SelectItem value="Detection (Explosives)">Detection (Explosives)</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                     <Select value={selectedRubricId} onValueChange={setSelectedRubricId}>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Assign Rubric" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {eventDetails?.rubrics && eventDetails.rubrics.map((rubric: any) => (
+                                                <SelectItem key={rubric.id} value={rubric.id}>{rubric.name}</SelectItem>
+                                            ))}
+                                            <Separator />
+                                            <AssignRubricDialog eventId={eventId} onRubricCreated={(id) => setSelectedRubricId(id)}>
+                                                 <Button variant="ghost" className="w-full justify-start pl-2 font-normal">
+                                                    <PlusCircle className="mr-2 h-4 w-4" /> Create New Rubric
+                                                 </Button>
+                                            </AssignRubricDialog>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <Button onClick={addArena} className="w-full">
                                     <PlusCircle className="mr-2 h-4 w-4"/>
                                     Add Arena
                                 </Button>
