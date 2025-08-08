@@ -19,7 +19,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { Arena, Competitor, ScheduledEvent, ArenaSpecialty } from '@/app/dashboard/events/[id]/schedule/page';
-import { generateSchedule, GenerateScheduleInput } from '@/ai/flows/generate-schedule';
+import { generateSchedule } from '@/ai/flows/generate-schedule';
 
 
 interface AiScheduleDialogProps {
@@ -70,7 +70,7 @@ export function AiScheduleDialog({ eventId, arenas, competitors, eventDays, time
       try {
           const formattedEventDays = eventDays.map(day => format(day, 'yyyy-MM-dd'));
           
-          const input: GenerateScheduleInput = {
+          const input = {
               competitors,
               arenas,
               eventDays: formattedEventDays,

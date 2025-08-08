@@ -1,9 +1,10 @@
 
 "use client";
 
-import { useState, useRef } from 'react';
-import { Upload, Loader2, FileCheck2, AlertTriangle, Users, Wand2 } from 'lucide-react';
-import { collection, writeBatch, doc } from 'firebase/firestore';
+import { useState, useCallback } from 'react';
+import { useDropzone } from 'react-dropzone';
+import { Loader2, Upload, FileText, CheckCircle, AlertTriangle } from 'lucide-react';
+import { writeBatch, collection, doc } from 'firebase/firestore';
 
 import {
   Dialog,
@@ -12,6 +13,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -19,6 +21,7 @@ import { db } from '@/lib/firebase';
 import { Progress } from './ui/progress';
 import { processCompetitorCsv, ProcessCompetitorCsvOutput } from '@/ai/flows/process-competitor-csv';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
+import { cn } from '@/lib/utils';
 
 interface CompetitorImportDialogProps {
   eventId: string;
@@ -42,7 +45,6 @@ export function CompetitorImportDialog({ eventId }: CompetitorImportDialogProps)
   const [parsedData, setParsedData] = useState<ParsedCompetitor[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   const resetState = () => {
@@ -51,21 +53,12 @@ export function CompetitorImportDialog({ eventId }: CompetitorImportDialogProps)
     setParsedData([]);
     setError(null);
     setUploadProgress(0);
-    if(fileInputRef.current) {
-        fileInputRef.current.value = "";
-    }
   };
   
-  const handleTriggerClick = () => {
-      resetState();
-      fileInputRef.current?.click();
-  }
-
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
+  const onDrop = useCallback((acceptedFiles: File[]) => {
+    const file = acceptedFiles[0];
     if (!file) return;
 
-    setIsOpen(true);
     setFileName(file.name);
 
     if (file.type !== 'text/csv' && !file.name.endsWith('.csv')) {
@@ -106,7 +99,14 @@ export function CompetitorImportDialog({ eventId }: CompetitorImportDialogProps)
         setStep(ImportStep.Error);
     }
     reader.readAsText(file);
-  };
+  }, []);
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+      onDrop,
+      multiple: false,
+      accept: { 'text/csv': ['.csv'] }
+  });
+
 
   const handleImport = async () => {
     if (!eventId || parsedData.length === 0) return;
@@ -182,7 +182,7 @@ export function CompetitorImportDialog({ eventId }: CompetitorImportDialogProps)
         return (
           <div className="flex flex-col h-full">
             <div className="flex items-center gap-3 bg-muted/50 p-3 rounded-lg mb-4">
-              <FileCheck2 className="h-6 w-6 text-green-500 shrink-0" />
+              <FileText className="h-6 w-6 text-primary shrink-0" />
               <div>
                 <p className="font-medium truncate">{fileName}</p>
                 <p className="text-sm text-muted-foreground">
@@ -227,7 +227,7 @@ export function CompetitorImportDialog({ eventId }: CompetitorImportDialogProps)
       case ImportStep.Complete:
         return (
            <div className="flex flex-col items-center justify-center h-full text-center">
-            <FileCheck2 className="mx-auto h-12 w-12 text-green-500" />
+            <CheckCircle className="mx-auto h-12 w-12 text-green-500" />
             <p className="mt-4 font-medium">Import Complete!</p>
             <p className="text-sm text-muted-foreground">{parsedData.length} competitors were successfully added.</p>
           </div>
@@ -242,10 +242,11 @@ export function CompetitorImportDialog({ eventId }: CompetitorImportDialogProps)
         );
       case ImportStep.Idle:
           return (
-            <div className="flex flex-col items-center justify-center h-full text-center border-2 border-dashed rounded-lg">
+            <div {...getRootProps()} className={cn("flex flex-col items-center justify-center h-full text-center border-2 border-dashed rounded-lg cursor-pointer transition-colors", isDragActive ? "border-primary bg-primary/10" : "hover:border-primary/50")}>
+                <input {...getInputProps()} />
                 <Upload className="mx-auto h-12 w-12 text-muted-foreground" />
-                <p className="mt-4 font-medium">Drag & drop your CSV file here</p>
-                <p className="text-sm text-muted-foreground">or click the button to browse.</p>
+                <p className="mt-4 font-medium">{isDragActive ? 'Drop the file here!' : 'Drag & drop your CSV file here'}</p>
+                <p className="text-sm text-muted-foreground">or click to browse.</p>
                 <p className="text-xs text-muted-foreground mt-4">AI will automatically map columns.</p>
             </div>
           )
@@ -256,21 +257,11 @@ export function CompetitorImportDialog({ eventId }: CompetitorImportDialogProps)
 
   return (
     <>
-        <Button 
-            variant="outline"
-            disabled={!eventId} 
-            onClick={handleTriggerClick}
-        >
-            <Users className="mr-2 h-4 w-4" />
-            Import Competitors
-        </Button>
-        <input
-            ref={fileInputRef}
-            type="file"
-            accept=".csv,text/csv"
-            className="hidden"
-            onChange={handleFileChange}
-          />
+        <DialogTrigger asChild>
+             <Button variant="outline" disabled={!eventId}>
+                Import Competitors
+            </Button>
+        </DialogTrigger>
         <Dialog open={isOpen} onOpenChange={handleOpenChange}>
           <DialogContent className="sm:max-w-lg h-[80vh] flex flex-col">
             <DialogHeader>
@@ -287,6 +278,7 @@ export function CompetitorImportDialog({ eventId }: CompetitorImportDialogProps)
             </div>
             <DialogFooter>
               {[ImportStep.Processing, ImportStep.Uploading].includes(step) && <Button variant="outline" disabled>Processing...</Button>}
+              {step === ImportStep.Idle && <Button variant="outline" onClick={() => setIsOpen(false)}>Cancel</Button>}
               {step === ImportStep.Confirming && (
                 <>
                   <Button variant="outline" onClick={() => setIsOpen(false)}>Cancel</Button>

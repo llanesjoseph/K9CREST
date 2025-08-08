@@ -4,7 +4,10 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { collection, onSnapshot, doc, setDoc, deleteDoc, writeBatch, query, getDocs, getDoc, Timestamp, updateDoc } from 'firebase/firestore';
 import { generateTimeSlots } from '@/lib/schedule-helpers';
-import { Trash2, GripVertical, AlertTriangle, PlusCircle, Users, X, Eraser, Wand2, Clock, Loader2, FileDown, Flame, Eye, FileText, Circle } from 'lucide-react';
+import { Trash2, AlertTriangle, PlusCircle, Users, X, Eraser, Wand2, Clock, Loader2, FileDown, GripVertical } from 'lucide-react';
+import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragOverlay, DragStartEvent, DragEndEvent } from '@dnd-kit/core';
+import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -86,17 +89,26 @@ interface DisplayCompetitor extends Competitor {
     runs: ScheduledEvent[];
 }
 
-// --- CompetitorItem Component ---
-const CompetitorItem = ({ competitor, isDraggable }: { competitor: DisplayCompetitor, isDraggable: boolean }) => {
-    const handleDragStart = (e: React.DragEvent<HTMLDivElement>) => {
-        if (!isDraggable) {
-            e.preventDefault();
-            return;
-        }
-        e.dataTransfer.setData('competitorId', competitor.id);
-        e.dataTransfer.effectAllowed = 'move';
+const SortableCompetitorItem = ({ competitor }: { competitor: DisplayCompetitor }) => {
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: competitor.id });
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.5 : 1,
+        zIndex: isDragging ? 10 : 0,
     };
 
+    return (
+        <div ref={setNodeRef} style={style}>
+            <CompetitorItem competitor={competitor} isDraggable={true} dragHandle={{...attributes, ...listeners}} />
+        </div>
+    );
+};
+
+
+// --- CompetitorItem Component ---
+const CompetitorItem = ({ competitor, isDraggable, dragHandle }: { competitor: DisplayCompetitor, isDraggable: boolean, dragHandle?: any }) => {
+    
     const getSpecialtyDisplay = (specialties: Specialty[] = []) => {
         if (!specialties || specialties.length === 0) {
             return "No specialty listed";
@@ -117,10 +129,13 @@ const CompetitorItem = ({ competitor, isDraggable }: { competitor: DisplayCompet
 
     return (
         <div
-            className={`border rounded-md p-3 mb-2 flex flex-col items-start gap-2 shadow-sm ${isDraggable ? 'cursor-grab hover:shadow-md transition-all duration-200 ease-in-out transform hover:-translate-y-px' : 'cursor-not-allowed opacity-70'} ${statusClasses[competitor.status]}`}
-            draggable={isDraggable}
-            onDragStart={handleDragStart}
+            className={`border rounded-md p-3 mb-2 flex items-start gap-2 shadow-sm ${isDraggable ? 'hover:shadow-md transition-all duration-200 ease-in-out transform hover:-translate-y-px' : 'cursor-not-allowed opacity-70'} ${statusClasses[competitor.status]}`}
         >
+            {isDraggable && dragHandle && (
+                 <button {...dragHandle} className="p-1 -ml-1 mt-1 cursor-grab focus:outline-none focus:ring-2 focus:ring-primary rounded">
+                    <GripVertical className="h-5 w-5 text-muted-foreground/50" />
+                </button>
+            )}
             <div className="w-full">
                 <span className="font-semibold text-primary">{competitor.dogName}</span>
                 <span className="text-sm text-muted-foreground"> ({competitor.name})</span>
@@ -236,6 +251,8 @@ export default function SchedulePage() {
     const { toast } = useToast();
     const params = useParams();
     const eventId = params.id as string;
+    const sensors = useSensors(useSensor(PointerSensor));
+    const [activeId, setActiveId] = useState<string | null>(null);
 
     // --- State Management ---
     const [competitors, setCompetitors] = useState<Competitor[]>([]);
@@ -336,74 +353,36 @@ export default function SchedulePage() {
             return acc;
         }, {} as Record<string, ScheduledEvent[]>);
 
-        const statusMap: { [key: string]: SchedulingStatus } = {};
-        competitors.forEach(comp => {
-            const scheduledCount = (scheduledRunsByCompetitor[comp.id] || []).length;
-            const requiredCount = comp.specialties.length > 0 ? comp.specialties.length : 1;
-
-            if (scheduledCount === 0) {
-                statusMap[comp.id] = 'unscheduled';
-            } else if (scheduledCount >= requiredCount) {
-                statusMap[comp.id] = 'fullyScheduled';
-            } else {
-                statusMap[comp.id] = 'partiallyScheduled';
-            }
-        });
-
-
-        const statusOrder: Record<SchedulingStatus, number> = {
-            'partiallyScheduled': 1,
-            'unscheduled': 2,
-            'fullyScheduled': 3,
-        };
-
         return competitors
-            .map(comp => ({
-                ...comp,
-                status: statusMap[comp.id] || 'unscheduled',
-                runs: (scheduledRunsByCompetitor[comp.id] || []).sort((a,b) => 
-                    new Date(a.date.replace(/-/g, '/')).getTime() - new Date(b.date.replace(/-/g, '/')).getTime() || a.startTime.localeCompare(b.startTime)
-                ),
-            }))
-            .sort((a, b) => {
-                const statusDiff = statusOrder[a.status] - statusOrder[b.status];
-                if (statusDiff !== 0) return statusDiff;
-                return a.name.localeCompare(b.name);
+            .map(comp => {
+                const scheduledCount = (scheduledRunsByCompetitor[comp.id] || []).length;
+                const requiredCount = comp.specialties.length > 0 ? comp.specialties.length : 1;
+                let status: SchedulingStatus;
+
+                if (scheduledCount === 0) {
+                    status = 'unscheduled';
+                } else if (scheduledCount >= requiredCount) {
+                    status = 'fullyScheduled';
+                } else {
+                    status = 'partiallyScheduled';
+                }
+                
+                return {
+                    ...comp,
+                    status,
+                    runs: (scheduledRunsByCompetitor[comp.id] || []).sort((a,b) => 
+                        new Date(a.date.replace(/-/g, '/')).getTime() - new Date(b.date.replace(/-/g, '/')).getTime() || a.startTime.localeCompare(b.startTime)
+                    ),
+                }
             });
     }, [competitors, schedule]);
 
-    const groupedCompetitors = useMemo(() => {
-        const groups: { [key: string]: DisplayCompetitor[] } = {
-            'Bite Work Only': [],
-            'Detection (Narcotics) Only': [],
-            'Detection (Explosives) Only': [],
-            'Bite Work & Detection (Narcotics)': [],
-            'Bite Work & Detection (Explosives)': [],
-            'No Specialty': [],
-        };
+    const [sortedCompetitors, setSortedCompetitors] = useState<DisplayCompetitor[]>([]);
 
-        displayCompetitors.forEach(comp => {
-            const hasBiteWork = comp.specialties.some(s => s.type === 'Bite Work');
-            const hasNarcotics = comp.specialties.some(s => s.detectionType === 'Narcotics');
-            const hasExplosives = comp.specialties.some(s => s.detectionType === 'Explosives');
-
-            if (comp.specialties.length === 0) {
-                groups['No Specialty'].push(comp);
-            } else if (hasBiteWork && hasNarcotics) {
-                groups['Bite Work & Detection (Narcotics)'].push(comp);
-            } else if (hasBiteWork && hasExplosives) {
-                groups['Bite Work & Detection (Explosives)'].push(comp);
-            } else if (hasBiteWork) {
-                groups['Bite Work Only'].push(comp);
-            } else if (hasNarcotics) {
-                groups['Detection (Narcotics) Only'].push(comp);
-            } else if (hasExplosives) {
-                groups['Detection (Explosives) Only'].push(comp);
-            }
-        });
-
-        return groups;
+    useEffect(() => {
+        setSortedCompetitors(displayCompetitors);
     }, [displayCompetitors]);
+
 
     // --- Functions ---
     const addArena = async () => {
@@ -569,12 +548,7 @@ export default function SchedulePage() {
             const docHeight = doc.internal.pageSize.getHeight();
             const margin = 40;
             const contentWidth = docWidth - margin * 2;
-
-            const bgImage = new Image();
-            bgImage.crossOrigin = "anonymous";
-            bgImage.src = 'https://res.cloudinary.com/di8qgld2h/image/upload/v1721950942/desertdog_k9_1x_lgt1y2.png';
-            await new Promise((resolve) => { bgImage.onload = resolve; bgImage.onerror = resolve; });
-
+            
             const arenaColors: Record<ArenaSpecialty, string> = {
                 'Bite Work': '#ef4444',
                 'Detection (Narcotics)': '#3b82f6',
@@ -621,9 +595,6 @@ export default function SchedulePage() {
 
             const addWatermark = () => {
                 doc.setGState(new (doc as any).GState({ opacity: 0.1 }));
-                const bgImageWidth = docWidth * 0.75;
-                const bgImageHeight = (bgImage.height * bgImageWidth) / bgImage.width;
-                doc.addImage(bgImage, 'PNG', (docWidth - bgImageWidth) / 2, (docHeight - bgImageHeight) / 2, bgImageWidth, bgImageHeight);
                 doc.setGState(new (doc as any).GState({ opacity: 1 }));
             };
 
@@ -752,6 +723,25 @@ export default function SchedulePage() {
         }
     };
     
+    function handleDragStart(event: DragStartEvent) {
+        setActiveId(event.active.id as string);
+    }
+
+    function handleDragEnd(event: DragEndEvent) {
+        const { active, over } = event;
+        setActiveId(null);
+
+        if (over && active.id !== over.id) {
+            setSortedCompetitors((items) => {
+                const oldIndex = items.findIndex(item => item.id === active.id);
+                const newIndex = items.findIndex(item => item.id === over.id);
+                return arrayMove(items, oldIndex, newIndex);
+            });
+        }
+    }
+
+    const activeCompetitor = useMemo(() => sortedCompetitors.find(c => c.id === activeId), [activeId, sortedCompetitors]);
+
     const isFullyLoading = loading.arenas || loading.schedule || loading.competitors || loading.event;
 
     // --- Render ---
@@ -763,7 +753,7 @@ export default function SchedulePage() {
                     <Card className="flex-grow flex flex-col h-full min-h-0">
                         <CardHeader>
                             <CardTitle>Competitors</CardTitle>
-                             <CardDescription>Drag competitors to the schedule. Colors indicate status.</CardDescription>
+                             <CardDescription>Drag and drop competitors to re-order the list for scheduling priority.</CardDescription>
                         </CardHeader>
                         <CardContent className="flex-grow p-0 overflow-hidden relative">
                            <div className="absolute inset-0">
@@ -782,21 +772,16 @@ export default function SchedulePage() {
                                               {isAdmin && <CompetitorImportDialog eventId={eventId} />}
                                           </div>
                                       ) : (
-                                          <div className="space-y-4">
-                                             {Object.entries(groupedCompetitors).map(([groupName, groupCompetitors]) => (
-                                                groupCompetitors.length > 0 && (
-                                                <div key={groupName}>
-                                                    <h4 className="text-sm font-semibold text-muted-foreground mb-2 px-1">{groupName}</h4>
-                                                    <Separator className="mb-3"/>
-                                                    <div className="space-y-2">
-                                                        {groupCompetitors.map(comp => (
-                                                            <CompetitorItem key={comp.id} competitor={comp} isDraggable={isAdmin} />
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                                )
-                                             ))}
-                                          </div>
+                                        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+                                            <SortableContext items={sortedCompetitors.map(c => c.id)} strategy={verticalListSortingStrategy}>
+                                                {sortedCompetitors.map(comp => (
+                                                    <SortableCompetitorItem key={comp.id} competitor={comp} />
+                                                ))}
+                                            </SortableContext>
+                                             <DragOverlay>
+                                                {activeCompetitor ? <CompetitorItem competitor={activeCompetitor} isDraggable={true} /> : null}
+                                            </DragOverlay>
+                                        </DndContext>
                                       )}
                                   </>
                               )}
@@ -851,14 +836,14 @@ export default function SchedulePage() {
                         <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                             <div>
                                 <CardTitle>Event Schedule: {eventDetails?.name || <Skeleton className="h-6 w-48 inline-block" />}</CardTitle>
-                                <CardDescription>Drag and drop competitors to build the schedule for each day.</CardDescription>
+                                <CardDescription>Drop competitors into time slots, or use the AI assistant.</CardDescription>
                             </div>
                             <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                                {isAdmin && (
                                      <AiScheduleDialog 
                                         eventId={eventId}
                                         arenas={arenas}
-                                        competitors={competitors}
+                                        competitors={sortedCompetitors}
                                         eventDays={eventDays}
                                         timeSlots={timeSlots}
                                         currentSchedule={schedule}
@@ -1002,7 +987,3 @@ export default function SchedulePage() {
         </TooltipProvider>
     );
 }
-
-    
-
-    
