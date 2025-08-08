@@ -294,7 +294,7 @@ export default function SchedulePage() {
     useEffect(() => {
         if (!eventId || authLoading) return;
 
-        setLoading({ event: true, arenas: true, schedule: true, competitors: true });
+        setLoading(prev => ({...prev, event: true}));
 
         const fetchEventDetails = async () => {
              try {
@@ -320,6 +320,7 @@ export default function SchedulePage() {
         fetchEventDetails();
 
         if (isAdmin) {
+             setLoading(prev => ({...prev, arenas: true, schedule: true, competitors: true}));
             const arenasUnsub = onSnapshot(collection(db, `events/${eventId}/arenas`), (snapshot) => {
                 const arenasData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Arena));
                 setArenas(arenasData);
@@ -367,7 +368,7 @@ export default function SchedulePage() {
         } else {
             // If not admin, we don't need to fetch admin-specific data.
             // We can just set loading to false for those parts.
-            setLoading({ event: false, arenas: false, schedule: false, competitors: false });
+            setLoading(prev => ({ ...prev, arenas: false, schedule: false, competitors: false }));
         }
     }, [eventId, toast, isAdmin, authLoading]);
     
@@ -1047,3 +1048,5 @@ export default function SchedulePage() {
         </TooltipProvider>
     );
 }
+
+    

@@ -313,3 +313,5 @@ export function CompetitorImportDialog({ eventId }: CompetitorImportDialogProps)
     </Dialog>
   );
 }
+
+    
