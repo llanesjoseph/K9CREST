@@ -1,4 +1,3 @@
-
 rules_version = '2';
 
 service cloud.firestore {
@@ -9,35 +8,36 @@ service cloud.firestore {
     // actual Firebase User IDs (UIDs) of your admin accounts.
     // You can find these in your Firebase Console under Authentication > Users.
     function isAdmin() {
+      // List of admin UIDs
       let admin_uids = [
         'REPLACE_WITH_ADMIN_USER_ID_1',
-        'REPLACE_WITH_ADMIN_USER_ID_2',
-        'k0jND1yS2YQ0w4i7f2aC3kFjG8y1' // Example UID, replace it
+        'REPLACE_WITH_ADMIN_USER_ID_2'
       ];
       return request.auth != null && request.auth.uid in admin_uids;
     }
 
-    // Helper function to check if a user is logged in.
+    // Helper function to check if a user is simply logged in.
     function isAuthenticated() {
       return request.auth != null;
     }
 
-    // Rules for the 'events' collection
+    // Rules for the main 'events' collection documents
     match /events/{eventId} {
-      // Any authenticated user can read the main event documents (name, date, etc.).
-      // Admins can create, update, or delete events.
+      // Any authenticated user can read the list of events.
+      // Only admins can create, update, or delete event documents.
       allow read: if isAuthenticated();
       allow write: if isAdmin();
 
-      // Rules for the subcollections within each event (competitors, arenas, schedule, etc.)
+      // Rules for ALL subcollections within an event (competitors, arenas, schedule, rubrics)
       match /{subcollection}/{docId} {
-        // Admins have full read and write access to all subcollection documents.
-        allow read, write: if isAdmin();
+        // Admins have full read and write access to all event subcollections.
+        // This is necessary for managing arenas, importing competitors, etc.
+        allow write: if isAdmin();
 
-        // Non-admin authenticated users can READ data from these specific
-        // subcollections, which is necessary for viewing schedules and leaderboards.
-        // They cannot write or delete.
-        allow read: if isAuthenticated() && subcollection in ['competitors', 'arenas', 'schedule', 'rubrics'];
+        // Any authenticated user can READ documents from any subcollection.
+        // This is necessary for judges, competitors, and spectators to view
+        // schedules, leaderboards, rubrics, etc.
+        allow read: if isAuthenticated();
       }
     }
   }
