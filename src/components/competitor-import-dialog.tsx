@@ -47,7 +47,7 @@ export function CompetitorImportDialog({ eventId }: CompetitorImportDialogProps)
   const [error, setError] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const { toast } = useToast();
-  const { isAdmin } = useAuth();
+  const { isAdmin, loading: authLoading } = useAuth();
 
   const resetState = () => {
     setStep(ImportStep.Idle);
@@ -112,7 +112,10 @@ export function CompetitorImportDialog({ eventId }: CompetitorImportDialogProps)
 
 
   const handleImport = async () => {
-    if (!eventId || parsedData.length === 0) return;
+    if (authLoading) {
+      toast({ variant: 'destructive', title: 'Please wait', description: 'Authentication is still loading.' });
+      return;
+    }
     
     if (!isAdmin) {
       const msg = "Permission denied. You do not have access to import competitors for this event.";
@@ -122,6 +125,8 @@ export function CompetitorImportDialog({ eventId }: CompetitorImportDialogProps)
       return;
     }
 
+    if (!eventId || parsedData.length === 0) return;
+    
     setStep(ImportStep.Uploading);
     const batch = writeBatch(db);
     
@@ -301,7 +306,10 @@ export function CompetitorImportDialog({ eventId }: CompetitorImportDialogProps)
             {step === ImportStep.Confirming && (
             <>
                 <Button variant="outline" onClick={() => setIsOpen(false)}>Cancel</Button>
-                <Button onClick={handleImport}>Import {parsedData.length} Competitors</Button>
+                <Button onClick={handleImport} disabled={authLoading}>
+                  {authLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Import {parsedData.length} Competitors
+                </Button>
             </>
             )}
             {step === ImportStep.Error && <Button variant="outline" onClick={resetState}>Try Again</Button>}
@@ -311,3 +319,5 @@ export function CompetitorImportDialog({ eventId }: CompetitorImportDialogProps)
     </Dialog>
   );
 }
+
+    

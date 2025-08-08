@@ -294,87 +294,66 @@ export default function SchedulePage() {
     useEffect(() => {
         if (!eventId || authLoading) return;
 
-        setLoading(prev => ({...prev, event: true}));
+        setLoading(prev => ({ event: true, arenas: true, schedule: true, competitors: true }));
 
-        const fetchEventDetails = async () => {
-             try {
-                const eventRef = doc(db, 'events', eventId);
-                const eventSnap = await getDoc(eventRef);
-                if (eventSnap.exists()) {
-                    const data = eventSnap.data() as EventDetails;
-                    setEventDetails(data);
-                    
-                    const start = data.startDate.toDate();
-                    const end = data.endDate?.toDate() || start;
-                    const days = eachDayOfInterval({ start, end });
-                    setEventDays(days);
-                } else {
-                    toast({ variant: 'destructive', title: 'Error', description: 'Event not found.' });
-                }
-            } catch (error) {
-                 toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch event details.' });
-            } finally {
-                setLoading(prev => ({...prev, event: false}));
+        const eventRef = doc(db, 'events', eventId);
+        const eventUnsub = onSnapshot(eventRef, (docSnap) => {
+            if (docSnap.exists()) {
+                const data = docSnap.data() as EventDetails;
+                setEventDetails(data);
+                const start = data.startDate.toDate();
+                const end = data.endDate?.toDate() || start;
+                setEventDays(eachDayOfInterval({ start, end }));
+            } else {
+                toast({ variant: 'destructive', title: 'Error', description: 'Event not found.' });
             }
+            setLoading(prev => ({ ...prev, event: false }));
+        }, (error) => {
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch event details.' });
+            setLoading(prev => ({ ...prev, event: false }));
+        });
+
+        // These listeners are for all authenticated users
+        const scheduleUnsub = onSnapshot(collection(db, `events/${eventId}/schedule`), (snapshot) => {
+            const scheduleData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ScheduledEvent));
+            setSchedule(scheduleData);
+            setLoading(prev => ({ ...prev, schedule: false }));
+        }, (error) => {
+            console.error("Error fetching schedule:", error);
+            toast({ variant: 'destructive', title: 'Error fetching schedule', description: error.message });
+            setLoading(prev => ({ ...prev, schedule: false }));
+        });
+
+        const competitorsUnsub = onSnapshot(collection(db, `events/${eventId}/competitors`), (snapshot) => {
+            const competitorsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Competitor));
+            setCompetitors(competitorsData);
+            setLoading(prev => ({ ...prev, competitors: false }));
+        }, (error) => {
+            console.error("Error fetching competitors:", error);
+            toast({ variant: 'destructive', title: 'Error fetching competitors', description: error.message });
+            setLoading(prev => ({ ...prev, competitors: false }));
+        });
+        
+        const arenasUnsub = onSnapshot(collection(db, `events/${eventId}/arenas`), (snapshot) => {
+            const arenasData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Arena));
+            setArenas(arenasData);
+            setLoading(prev => ({ ...prev, arenas: false }));
+        }, (error) => {
+            console.error("Error fetching arenas:", error);
+            toast({ variant: 'destructive', title: 'Error fetching arenas', description: error.message });
+            setLoading(prev => ({ ...prev, arenas: false }));
+        });
+
+        return () => {
+            eventUnsub();
+            arenasUnsub();
+            scheduleUnsub();
+            competitorsUnsub();
         };
-        fetchEventDetails();
-
-        if (isAdmin) {
-             setLoading(prev => ({...prev, arenas: true, schedule: true, competitors: true}));
-            const arenasUnsub = onSnapshot(collection(db, `events/${eventId}/arenas`), (snapshot) => {
-                const arenasData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Arena));
-                setArenas(arenasData);
-                setLoading(prev => ({...prev, arenas: false}));
-            }, (error) => {
-                console.error("Error fetching arenas:", error);
-                 toast({ variant: 'destructive', title: 'Error fetching arenas', description: 'Please check permissions or network.' });
-                setLoading(prev => ({...prev, arenas: false}));
-            });
-            
-            const scheduleUnsub = onSnapshot(collection(db, `events/${eventId}/schedule`), (snapshot) => {
-                const scheduleData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ScheduledEvent));
-                setSchedule(scheduleData);
-                setLoading(prev => ({...prev, schedule: false}));
-            }, (error) => {
-                console.error("Error fetching schedule:", error);
-                toast({ variant: 'destructive', title: 'Error fetching schedule', description: 'Please check permissions or network.' });
-                setLoading(prev => ({...prev, schedule: false}));
-            });
-
-            const competitorsUnsub = onSnapshot(collection(db, `events/${eventId}/competitors`), (snapshot) => {
-                const competitorsData = snapshot.docs.map(doc => {
-                     const data = doc.data();
-                     return { 
-                         id: doc.id,
-                         name: data.name,
-                         dogName: data.dogName,
-                         agency: data.agency,
-                         specialties: data.specialties || []
-                     } as Competitor;
-                });
-                setCompetitors(competitorsData);
-                setLoading(prev => ({...prev, competitors: false}));
-            }, (error) => {
-                console.error("Error fetching competitors:", error);
-                toast({ variant: 'destructive', title: 'Error fetching competitors', description: 'Please check permissions or network.' });
-                setLoading(prev => ({...prev, competitors: false}));
-            });
-
-            return () => {
-                arenasUnsub();
-                scheduleUnsub();
-                competitorsUnsub();
-            };
-        } else {
-            // Non-admins don't need write access or full lists, just read access
-            // which is handled by Firestore rules. We can simplify their data loading.
-            setLoading(prev => ({ ...prev, arenas: false, schedule: false, competitors: false }));
-        }
-    }, [eventId, toast, isAdmin, authLoading]);
+    }, [eventId, toast, authLoading]);
     
     // --- Logic for competitor status and sorting ---
     const displayCompetitors = useMemo<DisplayCompetitor[]>(() => {
-        if (!isAdmin) return [];
         const scheduledRunsByCompetitor = schedule.reduce((acc, run) => {
             if (!acc[run.competitorId]) {
                 acc[run.competitorId] = [];
@@ -405,7 +384,7 @@ export default function SchedulePage() {
                     ),
                 }
             });
-    }, [competitors, schedule, isAdmin]);
+    }, [competitors, schedule]);
 
     const [sortedCompetitors, setSortedCompetitors] = useState<DisplayCompetitor[]>([]);
 
@@ -1048,5 +1027,7 @@ export default function SchedulePage() {
         </TooltipProvider>
     );
 }
+
+    
 
     
