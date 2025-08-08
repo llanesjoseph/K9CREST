@@ -256,40 +256,38 @@ export function CompetitorImportDialog({ eventId }: CompetitorImportDialogProps)
   };
 
   return (
-    <>
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
         <DialogTrigger asChild>
              <Button variant="outline" disabled={!eventId}>
                 Import Competitors
             </Button>
         </DialogTrigger>
-        <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-          <DialogContent className="sm:max-w-lg h-[80vh] flex flex-col">
-            <DialogHeader>
-              <DialogTitle>Bulk Import Competitors</DialogTitle>
-              <DialogDescription>
-                {step === ImportStep.Confirming 
-                    ? "Review the data parsed by the AI. If it looks correct, proceed with the import."
-                    : "Upload a CSV file with competitor data. The AI will attempt to map columns automatically."
-                }
-              </DialogDescription>
-            </DialogHeader>
-            <div className="flex-grow py-4 overflow-hidden">
-                {renderContent()}
-            </div>
-            <DialogFooter>
-              {[ImportStep.Processing, ImportStep.Uploading].includes(step) && <Button variant="outline" disabled>Processing...</Button>}
-              {step === ImportStep.Idle && <Button variant="outline" onClick={() => setIsOpen(false)}>Cancel</Button>}
-              {step === ImportStep.Confirming && (
-                <>
-                  <Button variant="outline" onClick={() => setIsOpen(false)}>Cancel</Button>
-                  <Button onClick={handleImport}>Import {parsedData.length} Competitors</Button>
-                </>
-              )}
-              {step === ImportStep.Error && <Button variant="outline" onClick={() => setIsOpen(false)}>Close</Button>}
-              {step === ImportStep.Complete && <Button onClick={() => setIsOpen(false)}>Done</Button>}
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-    </>
+        <DialogContent className="sm:max-w-lg h-[80vh] flex flex-col">
+        <DialogHeader>
+            <DialogTitle>Bulk Import Competitors</DialogTitle>
+            <DialogDescription>
+            {step === ImportStep.Confirming 
+                ? "Review the data parsed by the AI. If it looks correct, proceed with the import."
+                : "Upload a CSV file with competitor data. The AI will attempt to map columns automatically."
+            }
+            </DialogDescription>
+        </DialogHeader>
+        <div className="flex-grow py-4 overflow-hidden">
+            {renderContent()}
+        </div>
+        <DialogFooter>
+            {[ImportStep.Processing, ImportStep.Uploading].includes(step) && <Button variant="outline" disabled>Processing...</Button>}
+            {step === ImportStep.Idle && <Button variant="outline" onClick={() => setIsOpen(false)}>Cancel</Button>}
+            {step === ImportStep.Confirming && (
+            <>
+                <Button variant="outline" onClick={() => setIsOpen(false)}>Cancel</Button>
+                <Button onClick={handleImport}>Import {parsedData.length} Competitors</Button>
+            </>
+            )}
+            {step === ImportStep.Error && <Button variant="outline" onClick={() => setIsOpen(false)}>Close</Button>}
+            {step === ImportStep.Complete && <Button onClick={() => setIsOpen(false)}>Done</Button>}
+        </DialogFooter>
+        </DialogContent>
+    </Dialog>
   );
 }

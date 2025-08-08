@@ -297,6 +297,10 @@ export default function SchedulePage() {
         };
         fetchEventDetails();
 
+        if (!isAdmin) {
+            setLoading(prev => ({...prev, arenas: false, schedule: false, competitors: false}));
+            return;
+        };
 
         const arenasUnsub = onSnapshot(collection(db, `events/${eventId}/arenas`), (snapshot) => {
             const arenasData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Arena));
@@ -341,7 +345,7 @@ export default function SchedulePage() {
             competitorsUnsub();
         };
 
-    }, [eventId, toast]);
+    }, [eventId, toast, isAdmin]);
     
     // --- Logic for competitor status and sorting ---
     const displayCompetitors = useMemo<DisplayCompetitor[]>(() => {
