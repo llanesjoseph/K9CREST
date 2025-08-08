@@ -98,12 +98,15 @@ export function EditArenaDialog({ eventId, arena, rubrics }: EditArenaDialogProp
                     control={form.control}
                     name="rubricId"
                     render={({ field }) => (
-                         <Select onValueChange={field.onChange} value={field.value || ''}>
+                         <Select 
+                            onValueChange={(value) => field.onChange(value === "none" ? null : value)} 
+                            value={field.value || "none"}
+                         >
                             <SelectTrigger>
                                 <SelectValue placeholder="Select a rubric" />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="">No Rubric</SelectItem>
+                                <SelectItem value="none">No Rubric</SelectItem>
                                 {rubrics.map((rubric) => (
                                     <SelectItem key={rubric.id} value={rubric.id}>
                                         {rubric.name}
@@ -126,4 +129,3 @@ export function EditArenaDialog({ eventId, arena, rubrics }: EditArenaDialogProp
     </Dialog>
   );
 }
-
