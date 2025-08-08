@@ -1,32 +1,31 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to check if the user has the 'admin' role via custom claims.
-    // This is the secure way to manage roles.
+    // This function checks if the user's authentication token has a custom claim 'role' set to 'admin'.
+    // This is the secure, recommended way to handle roles.
     function isAdmin() {
-      return request.auth != null && request.auth.token.role == 'admin';
+      return request.auth.token.role == 'admin';
     }
 
-    // Helper function to check if a user is simply logged in.
+    // Checks if the user is logged in.
     function isAuthenticated() {
       return request.auth != null;
     }
 
-    // Rules for the main 'events' collection documents
     match /events/{eventId} {
-      // Any authenticated user can read the list of events.
-      // Only admins can create, update, or delete event documents.
+      // Admins can read and write events.
+      // Any authenticated user can read event details.
       allow read: if isAuthenticated();
       allow write: if isAdmin();
 
-      // Rules for ALL subcollections within an event (competitors, arenas, schedule, rubrics)
+      // Rules for all subcollections within an event.
       match /{subcollection}/{docId} {
-        // Admins have full read and write access to all event subcollections.
+         // Admins have full read/write access.
         allow write: if isAdmin();
-
-        // Any authenticated user can READ documents from any subcollection.
+        // Any authenticated user can read the data for viewing schedules, leaderboards, etc.
         allow read: if isAuthenticated();
       }
     }
