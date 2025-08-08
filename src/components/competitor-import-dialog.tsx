@@ -70,6 +70,7 @@ export function CompetitorImportDialog({ eventId }: CompetitorImportDialogProps)
     }
     
     setStep(ImportStep.Processing);
+    setError(null);
 
     const reader = new FileReader();
     reader.onload = async (e) => {
@@ -303,7 +304,7 @@ export function CompetitorImportDialog({ eventId }: CompetitorImportDialogProps)
                 <Button onClick={handleImport}>Import {parsedData.length} Competitors</Button>
             </>
             )}
-            {step === ImportStep.Error && <Button variant="outline" onClick={() => setIsOpen(false)}>Close</Button>}
+            {step === ImportStep.Error && <Button variant="outline" onClick={resetState}>Try Again</Button>}
             {step === ImportStep.Complete && <Button onClick={() => setIsOpen(false)}>Done</Button>}
         </DialogFooter>
         </DialogContent>

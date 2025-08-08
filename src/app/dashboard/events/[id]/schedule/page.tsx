@@ -366,8 +366,8 @@ export default function SchedulePage() {
                 competitorsUnsub();
             };
         } else {
-            // If not admin, we don't need to fetch admin-specific data.
-            // We can just set loading to false for those parts.
+            // Non-admins don't need write access or full lists, just read access
+            // which is handled by Firestore rules. We can simplify their data loading.
             setLoading(prev => ({ ...prev, arenas: false, schedule: false, competitors: false }));
         }
     }, [eventId, toast, isAdmin, authLoading]);
