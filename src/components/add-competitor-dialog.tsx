@@ -71,25 +71,20 @@ export function AddCompetitorDialog({ eventId }: { eventId: string }) {
         return;
     }
     
-    if (authLoading) {
-        toast({
-            variant: "destructive",
-            title: "Please wait",
-            description: "Authentication is still loading.",
-        });
-        return;
-    }
+    setIsSubmitting(true);
 
-    if (!isAdmin) {
-      toast({
-        variant: "destructive",
-        title: "Permission Denied",
-        description: "You do not have permission to add competitors.",
-      });
+    if (authLoading) {
+      toast({ variant: "destructive", title: "Please wait", description: "Verifying permissions..." });
+      setIsSubmitting(false);
       return;
     }
 
-    setIsSubmitting(true);
+    if (!isAdmin) {
+      toast({ variant: "destructive", title: "Permission Denied", description: "You do not have permission to add competitors." });
+      setIsSubmitting(false);
+      return;
+    }
+
     try {
         const competitorsRef = collection(db, `events/${eventId}/competitors`);
         await addDoc(competitorsRef, { ...data, createdAt: new Date() });

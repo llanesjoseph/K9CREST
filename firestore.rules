@@ -3,17 +3,10 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to check if the user is an admin.
-    // IMPORTANT: You must replace the placeholder UIDs below with the
-    // actual Firebase User IDs (UIDs) of your admin accounts.
-    // You can find these in your Firebase Console under Authentication > Users.
+    // Helper function to check if the user has the 'admin' role via custom claims.
+    // This is the secure way to manage roles.
     function isAdmin() {
-      // List of admin UIDs
-      let admin_uids = [
-        'REPLACE_WITH_ADMIN_USER_ID_1',
-        'REPLACE_WITH_ADMIN_USER_ID_2'
-      ];
-      return request.auth != null && request.auth.uid in admin_uids;
+      return request.auth != null && request.auth.token.role == 'admin';
     }
 
     // Helper function to check if a user is simply logged in.
@@ -31,12 +24,9 @@ service cloud.firestore {
       // Rules for ALL subcollections within an event (competitors, arenas, schedule, rubrics)
       match /{subcollection}/{docId} {
         // Admins have full read and write access to all event subcollections.
-        // This is necessary for managing arenas, importing competitors, etc.
         allow write: if isAdmin();
 
         // Any authenticated user can READ documents from any subcollection.
-        // This is necessary for judges, competitors, and spectators to view
-        // schedules, leaderboards, rubrics, etc.
         allow read: if isAuthenticated();
       }
     }

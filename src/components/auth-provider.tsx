@@ -9,22 +9,13 @@ import { Loader2 } from 'lucide-react';
 
 export type UserRole = 'admin' | 'judge' | 'competitor' | 'spectator';
 
-// Simple list of emails for role checking
-const USER_ROLES: { [email: string]: UserRole } = {
-  'admin@example.com': 'admin',
-  'super@user.com': 'admin',
-  'llanes.joseph.m@gmail.com': 'admin',
-  'judge@example.com': 'judge',
-  'competitor@example.com': 'competitor',
-};
-
 interface AuthContextType {
   user: User | null;
   loading: boolean;
   role: UserRole;
   isAdmin: boolean;
   isTrueAdmin: boolean;
-  setViewAsRole: (role: UserRole) => void;
+  setViewAsRole: (role: UserRole | null) => void;
   viewAsRole: UserRole | null;
 }
 
@@ -48,11 +39,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const pathname = usePathname();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUser(user);
-      const userEmail = user?.email || '';
-      const userRole = USER_ROLES[userEmail] || 'spectator';
-      setTrueRole(userRole);
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        // Force refresh the token to get the latest custom claims.
+        const idTokenResult = await user.getIdTokenResult(true);
+        const userRole = (idTokenResult.claims.role as UserRole) || 'spectator';
+        setTrueRole(userRole);
+        setUser(user);
+      } else {
+        setUser(null);
+        setTrueRole('spectator');
+      }
       // Reset viewAsRole on user change
       setViewAsRole(null);
       setLoading(false);
@@ -85,7 +82,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       role,
       isAdmin,
       isTrueAdmin,
-      setViewAsRole: (newRole: UserRole) => {
+      setViewAsRole: (newRole: UserRole | null) => {
           if(isTrueAdmin) {
               setViewAsRole(newRole === trueRole ? null : newRole);
           }
