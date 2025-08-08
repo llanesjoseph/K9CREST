@@ -37,8 +37,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   Tooltip,
-  TooltipContent,
   TooltipProvider,
+  TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useParams } from 'next/navigation';
@@ -284,7 +284,7 @@ export default function SchedulePage() {
     
     const [newArenaName, setNewArenaName] = useState('');
     const [newArenaSpecialty, setNewArenaSpecialty] = useState<ArenaSpecialty>('Any');
-    const [selectedRubricId, setSelectedRubricId] = useState<string>('new');
+    const [selectedRubricId, setSelectedRubricId] = useState<string>('none');
 
     const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
     const scheduleContainerRef = useRef<HTMLDivElement>(null);
@@ -407,11 +407,11 @@ export default function SchedulePage() {
             await setDoc(newArenaRef, { 
                 name: newArenaName.trim(), 
                 specialtyType: newArenaSpecialty,
-                rubricId: selectedRubricId === 'new' ? null : selectedRubricId,
+                rubricId: selectedRubricId === 'none' ? null : selectedRubricId,
              });
             setNewArenaName('');
             setNewArenaSpecialty('Any');
-            setSelectedRubricId('new');
+            setSelectedRubricId('none');
             toast({ title: 'Success', description: `Arena "${newArenaName.trim()}" added!` });
         } catch (error) {
              toast({ variant: 'destructive', title: 'Error', description: 'Could not add arena.' });
@@ -847,7 +847,7 @@ export default function SchedulePage() {
                                             <SelectValue placeholder="Assign Rubric" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="new">No Rubric</SelectItem>
+                                            <SelectItem value="none">No Rubric</SelectItem>
                                             {eventDetails?.rubrics && eventDetails.rubrics.map((rubric: any) => (
                                                 <SelectItem key={rubric.id} value={rubric.id}>{rubric.name}</SelectItem>
                                             ))}
@@ -1039,3 +1039,4 @@ export default function SchedulePage() {
     
 
     
+
