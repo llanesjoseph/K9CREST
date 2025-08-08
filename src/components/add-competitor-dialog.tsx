@@ -24,6 +24,7 @@ import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { Checkbox } from './ui/checkbox';
 import { Competitor } from '@/app/dashboard/events/[id]/schedule/page';
+import { useAuth } from './auth-provider';
 
 const specialtySchema = z.object({
   type: z.enum(["Bite Work", "Detection"]),
@@ -49,6 +50,7 @@ export function AddCompetitorDialog({ eventId }: { eventId: string }) {
   const [isOpen, setIsOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
+  const { isAdmin, loading: authLoading } = useAuth();
 
   const form = useForm<FormValues>({
     resolver: zodResolver(competitorSchema),
@@ -69,6 +71,16 @@ export function AddCompetitorDialog({ eventId }: { eventId: string }) {
         });
         return;
     }
+    
+    if (!isAdmin) {
+      toast({
+        variant: "destructive",
+        title: "Permission Denied",
+        description: "You do not have permission to add competitors.",
+      });
+      return;
+    }
+
     setIsSubmitting(true);
     try {
         const competitorsRef = collection(db, `events/${eventId}/competitors`);
@@ -182,8 +194,8 @@ export function AddCompetitorDialog({ eventId }: { eventId: string }) {
             </div>
             <DialogFooter>
                 <Button type="button" variant="ghost" onClick={() => setIsOpen(false)}>Cancel</Button>
-                <Button type="submit" disabled={isSubmitting}>
-                    {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                <Button type="submit" disabled={isSubmitting || authLoading}>
+                    {(isSubmitting || authLoading) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Save Competitor
                 </Button>
             </DialogFooter>
