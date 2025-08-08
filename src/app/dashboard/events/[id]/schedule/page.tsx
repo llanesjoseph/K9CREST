@@ -304,54 +304,53 @@ export default function SchedulePage() {
         };
         fetchEventDetails();
 
-        if (!isAdmin) {
-            setLoading({ event: false, arenas: false, schedule: false, competitors: false });
-            return;
-        }
-
-        const arenasUnsub = onSnapshot(collection(db, `events/${eventId}/arenas`), (snapshot) => {
-            const arenasData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Arena));
-            setArenas(arenasData);
-            setLoading(prev => ({...prev, arenas: false}));
-        }, (error) => {
-            console.error("Error fetching arenas:", error);
-            setLoading(prev => ({...prev, arenas: false}));
-        });
-        
-        const scheduleUnsub = onSnapshot(collection(db, `events/${eventId}/schedule`), (snapshot) => {
-            const scheduleData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ScheduledEvent));
-            setSchedule(scheduleData);
-            setLoading(prev => ({...prev, schedule: false}));
-        }, (error) => {
-            console.error("Error fetching schedule:", error);
-            setLoading(prev => ({...prev, schedule: false}));
-        });
-
-        const competitorsUnsub = onSnapshot(collection(db, `events/${eventId}/competitors`), (snapshot) => {
-            const competitorsData = snapshot.docs.map(doc => {
-                 const data = doc.data();
-                 return { 
-                     id: doc.id,
-                     name: data.name,
-                     dogName: data.dogName,
-                     agency: data.agency,
-                     specialties: data.specialties || []
-                 } as Competitor;
+        if (isAdmin) {
+            const arenasUnsub = onSnapshot(collection(db, `events/${eventId}/arenas`), (snapshot) => {
+                const arenasData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Arena));
+                setArenas(arenasData);
+                setLoading(prev => ({...prev, arenas: false}));
+            }, (error) => {
+                console.error("Error fetching arenas:", error);
+                setLoading(prev => ({...prev, arenas: false}));
             });
-            setCompetitors(competitorsData);
-            setLoading(prev => ({...prev, competitors: false}));
-        }, (error) => {
-            console.error("Error fetching competitors:", error);
-            setLoading(prev => ({...prev, competitors: false}));
-        });
+            
+            const scheduleUnsub = onSnapshot(collection(db, `events/${eventId}/schedule`), (snapshot) => {
+                const scheduleData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ScheduledEvent));
+                setSchedule(scheduleData);
+                setLoading(prev => ({...prev, schedule: false}));
+            }, (error) => {
+                console.error("Error fetching schedule:", error);
+                setLoading(prev => ({...prev, schedule: false}));
+            });
 
+            const competitorsUnsub = onSnapshot(collection(db, `events/${eventId}/competitors`), (snapshot) => {
+                const competitorsData = snapshot.docs.map(doc => {
+                     const data = doc.data();
+                     return { 
+                         id: doc.id,
+                         name: data.name,
+                         dogName: data.dogName,
+                         agency: data.agency,
+                         specialties: data.specialties || []
+                     } as Competitor;
+                });
+                setCompetitors(competitorsData);
+                setLoading(prev => ({...prev, competitors: false}));
+            }, (error) => {
+                console.error("Error fetching competitors:", error);
+                setLoading(prev => ({...prev, competitors: false}));
+            });
 
-        return () => {
-            arenasUnsub();
-            scheduleUnsub();
-            competitorsUnsub();
-        };
-
+            return () => {
+                arenasUnsub();
+                scheduleUnsub();
+                competitorsUnsub();
+            };
+        } else {
+            // If not admin, we don't need to fetch admin-specific data.
+            // We can just set loading to false for those parts.
+            setLoading({ event: false, arenas: false, schedule: false, competitors: false });
+        }
     }, [eventId, toast, isAdmin]);
     
     // --- Logic for competitor status and sorting ---
