@@ -1044,7 +1044,3 @@ export default function SchedulePage() {
         </TooltipProvider>
     );
 }
-
-    
-
-    

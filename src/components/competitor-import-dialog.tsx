@@ -112,6 +112,12 @@ export function CompetitorImportDialog({ eventId }: CompetitorImportDialogProps)
 
   const handleImport = async () => {
     if (!eventId || parsedData.length === 0) return;
+    
+    if (!isAdmin) {
+      setError("You do not have permission to import competitors. Please contact an administrator.");
+      setStep(ImportStep.Error);
+      return;
+    }
 
     setStep(ImportStep.Uploading);
     const batch = writeBatch(db);
@@ -138,9 +144,15 @@ export function CompetitorImportDialog({ eventId }: CompetitorImportDialogProps)
         title: 'Import Successful',
         description: `${parsedData.length} competitors have been imported.`,
       });
-    } catch (e) {
+    } catch (e: any) {
       console.error('Error importing competitors: ', e);
-      setError('An error occurred while saving the data to the database. You may not have the required permissions.');
+      
+      let errorMessage = 'An error occurred while saving the data to the database.';
+      if (e.code === 'permission-denied') {
+        errorMessage = 'Permission denied. You do not have access to import competitors for this event.';
+      }
+      
+      setError(errorMessage);
       setStep(ImportStep.Error);
       toast({
         variant: 'destructive',
@@ -296,7 +308,3 @@ export function CompetitorImportDialog({ eventId }: CompetitorImportDialogProps)
     </Dialog>
   );
 }
-
-    
-
-    

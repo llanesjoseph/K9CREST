@@ -16,12 +16,22 @@ const nextConfig: NextConfig = {
         port: '',
         pathname: '/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'res.cloudinary.com',
+        port: '',
+        pathname: '/**',
+      }
     ],
   },
-  experimental: {
-    // This is to allow cross-origin requests from the development environment
-    // to the Next.js server.
-    allowedDevOrigins: ['*'],
+  async rewrites() {
+    return [
+      {
+        source: '/google.ai.generativelanguage.v1beta.GenerativeService/:path*',
+        destination:
+          'https://generativelanguage.googleapis.com/v1beta/models/:path*',
+      },
+    ];
   },
 };
 
