@@ -1,32 +1,40 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // This function checks if the user's authentication token has a custom claim 'role' set to 'admin'.
-    // This is the secure, recommended way to handle roles.
+    // Helper function to check if the user is an admin by their UID.
+    // IMPORTANT: You must replace the placeholder UID below with the
+    // actual Firebase User ID (UID) of your admin account.
+    // You can find this in your Firebase Console under Authentication > Users.
     function isAdmin() {
-      return request.auth.token.role == 'admin';
+      // List of admin UIDs
+      let admin_uids = [
+        'REPLACE_WITH_YOUR_ADMIN_USER_ID'
+      ];
+      return request.auth != null && request.auth.uid in admin_uids;
     }
 
-    // Checks if the user is logged in.
+    // Helper function to check if a user is simply logged in.
     function isAuthenticated() {
       return request.auth != null;
     }
 
+    // Rules for the main 'events' collection documents
     match /events/{eventId} {
-      // Admins can read and write events.
-      // Any authenticated user can read event details.
+      // Any authenticated user can read the list of events.
+      // Only admins can create, update, or delete event documents.
       allow read: if isAuthenticated();
       allow write: if isAdmin();
 
-      // Rules for all subcollections within an event.
+      // Rules for ALL subcollections within an event (competitors, arenas, schedule, rubrics)
       match /{subcollection}/{docId} {
-         // Admins have full read/write access.
-        allow write: if isAdmin();
-        // Any authenticated user can read the data for viewing schedules, leaderboards, etc.
-        allow read: if isAuthenticated();
+        // Admins have full read and write access to all event subcollections.
+        allow read, write: if isAdmin();
+
+        // Allow non-admin authenticated users to READ data from specific subcollections.
+        // This is necessary for viewing schedules, leaderboards, etc.
+        allow read: if isAuthenticated() && !isAdmin();
       }
     }
   }

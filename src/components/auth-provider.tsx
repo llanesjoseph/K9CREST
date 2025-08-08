@@ -47,9 +47,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
            setTrueRole('admin');
         } else {
             // In a real app, you'd get the role from custom claims.
-            const idTokenResult = await user.getIdTokenResult(true);
-            const userRole = (idTokenResult.claims.role as UserRole) || 'spectator';
-            setTrueRole(userRole);
+            // For now, default other users to spectator.
+            setTrueRole('spectator');
         }
         setUser(user);
       } else {
