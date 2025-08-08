@@ -114,13 +114,10 @@ export function CompetitorImportDialog({ eventId }: CompetitorImportDialogProps)
     if (!eventId || parsedData.length === 0) return;
     
     if (!isAdmin) {
-      setError("You do not have permission to import competitors. Please contact an administrator.");
+      const msg = "Permission denied. You do not have access to import competitors for this event.";
+      setError(msg);
       setStep(ImportStep.Error);
-      toast({
-        variant: 'destructive',
-        title: 'Permission Denied',
-        description: "You are not authorized to import competitors.",
-      });
+      toast({ variant: 'destructive', title: 'Import Failed', description: msg });
       return;
     }
 
@@ -313,5 +310,3 @@ export function CompetitorImportDialog({ eventId }: CompetitorImportDialogProps)
     </Dialog>
   );
 }
-
-    
