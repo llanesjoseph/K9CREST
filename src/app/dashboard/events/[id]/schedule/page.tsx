@@ -100,7 +100,7 @@ interface DisplayCompetitor extends Competitor {
     runs: ScheduledEvent[];
 }
 
-const SortableCompetitorItem = ({ competitor, isDraggable }: { competitor: DisplayCompetitor, isDraggable: boolean }) => {
+const SortableCompetitorItem = ({ competitor, isDraggable, onRunClick }: { competitor: DisplayCompetitor, isDraggable: boolean, onRunClick: (run: ScheduledEvent) => void }) => {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: competitor.id });
     const style = {
         transform: CSS.Transform.toString(transform),
@@ -114,14 +114,14 @@ const SortableCompetitorItem = ({ competitor, isDraggable }: { competitor: Displ
 
     return (
         <div ref={setNodeRef} style={style}>
-            <CompetitorItem competitor={competitor} isDraggable={canDrag} dragHandle={canDrag ? {...attributes, ...listeners} : undefined} />
+            <CompetitorItem competitor={competitor} isDraggable={canDrag} dragHandle={canDrag ? {...attributes, ...listeners} : undefined} onRunClick={onRunClick} />
         </div>
     );
 };
 
 
 // --- CompetitorItem Component ---
-const CompetitorItem = ({ competitor, isDraggable, dragHandle }: { competitor: DisplayCompetitor, isDraggable: boolean, dragHandle?: any }) => {
+const CompetitorItem = ({ competitor, isDraggable, dragHandle, onRunClick }: { competitor: DisplayCompetitor, isDraggable: boolean, dragHandle?: any, onRunClick: (run: ScheduledEvent) => void }) => {
     
     const getSpecialtyDisplay = (specialties: Specialty[] = []) => {
         if (!specialties || specialties.length === 0) {
@@ -167,20 +167,23 @@ const CompetitorItem = ({ competitor, isDraggable, dragHandle }: { competitor: D
                 <span className="text-sm text-muted-foreground"> ({competitor.name})</span>
                  <div className="text-xs text-muted-foreground/80">{competitor.agency}</div>
                  <div className="text-xs text-muted-foreground/80 mt-1">{getSpecialtyDisplay(competitor.specialties)}</div>
+                 {competitor.runs.length > 0 && (
+                    <div className="w-full border-t border-dashed pt-2 mt-2 space-y-1">
+                        {competitor.runs.map(run => (
+                             <button 
+                                key={run.id}
+                                onClick={() => onRunClick(run)}
+                                className="flex items-center gap-2 text-xs text-muted-foreground hover:text-primary transition-colors w-full text-left rounded-sm p-1 -ml-1"
+                            >
+                                <Clock className="h-3 w-3" />
+                                 <span>
+                                    {format(parse(run.date, 'yyyy-MM-dd', new Date()), 'E, MMM dd')} @ {run.startTime}
+                                </span>
+                            </button>
+                        ))}
+                    </div>
+                )}
             </div>
-
-            {competitor.runs.length > 0 && (
-                <div className="w-full border-t border-dashed pt-2 mt-1 space-y-1">
-                    {competitor.runs.map(run => (
-                        <div key={run.id} className="flex items-center gap-2 text-xs text-muted-foreground">
-                            <Clock className="h-3 w-3" />
-                             <span>
-                                {format(parse(run.date, 'yyyy-MM-dd', new Date()), 'E, MMM dd')} @ {run.startTime}
-                            </span>
-                        </div>
-                    ))}
-                </div>
-            )}
         </div>
     );
 };
@@ -234,9 +237,11 @@ const TimeSlot = ({
 
     const eventCompetitor = scheduledEvent ? competitors.find(c => c.id === scheduledEvent.competitorId) : null;
     const canDragEvent = isDraggable && !!scheduledEvent;
+    const slotId = `slot-${arenaId}-${date}-${startTime}`;
 
     return (
         <div
+            id={slotId}
             className={`w-32 h-20 border border-dashed rounded-md flex items-center justify-center text-center text-sm transition-all duration-200 ease-in-out relative
                 ${scheduledEvent ? 'bg-green-100 dark:bg-green-900/30 border-green-500/50' : isDraggable ? 'bg-background hover:bg-muted/80' : 'bg-secondary/50'}
                 ${isOver ? 'border-primary ring-2 ring-primary' : ''}
@@ -575,6 +580,21 @@ export default function SchedulePage() {
         }
     };
 
+    const handleRunClick = (run: ScheduledEvent) => {
+        const slotId = `slot-${run.arenaId}-${run.date}-${run.startTime}`;
+        const element = document.getElementById(slotId);
+        if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+            // Add a temporary highlight effect
+            element.classList.add('ring-2', 'ring-offset-2', 'ring-primary', 'transition-shadow', 'duration-1000');
+            setTimeout(() => {
+                element.classList.remove('ring-2', 'ring-offset-2', 'ring-primary', 'transition-shadow', 'duration-1000');
+            }, 1500);
+        } else {
+             toast({ variant: 'destructive', title: 'Error', description: 'Could not find the corresponding time slot.' });
+        }
+    };
+
     const handleGeneratePdf = async () => {
         if (!eventDetails || !eventDays.length || !arenas.length || schedule.length === 0) return;
         setIsGeneratingPdf(true);
@@ -822,11 +842,11 @@ export default function SchedulePage() {
                                         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
                                             <SortableContext items={sortedCompetitors.map(c => c.id)} strategy={verticalListSortingStrategy}>
                                                 {sortedCompetitors.map(comp => (
-                                                    <SortableCompetitorItem key={comp.id} competitor={comp} isDraggable={isAdmin} />
+                                                    <SortableCompetitorItem key={comp.id} competitor={comp} isDraggable={isAdmin} onRunClick={handleRunClick} />
                                                 ))}
                                             </SortableContext>
                                              <DragOverlay>
-                                                {activeCompetitor ? <CompetitorItem competitor={activeCompetitor} isDraggable={isAdmin} /> : null}
+                                                {activeCompetitor ? <CompetitorItem competitor={activeCompetitor} isDraggable={isAdmin} onRunClick={() => {}} /> : null}
                                             </DragOverlay>
                                         </DndContext>
                                       )}
