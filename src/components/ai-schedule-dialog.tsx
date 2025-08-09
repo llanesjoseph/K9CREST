@@ -104,15 +104,25 @@ export function AiScheduleDialog({ eventId, arenas, competitors, eventDays, time
 
           const response = await fetch('/api/schedule', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
             body: JSON.stringify(payload),
           });
 
-          if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error || `Request failed with status ${response.status}`);
-          }
+          const contentType = response.headers.get('content-type');
 
+          if (!response.ok) {
+            let errorMsg = `Request failed with status ${response.status}`;
+            if (contentType && contentType.includes('application/json')) {
+              const errorData = await response.json();
+              errorMsg = errorData.error || errorMsg;
+            } else {
+              const textError = await response.text();
+              console.error("Non-JSON error response from server:", textError);
+              errorMsg = `An unexpected server error occurred.`;
+            }
+            throw new Error(errorMsg);
+          }
+          
           const result = await response.json();
           
           if(!result || !result.schedule) {
