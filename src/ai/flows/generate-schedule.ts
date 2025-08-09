@@ -77,7 +77,6 @@ function createRequiredRunsList(competitors: any[]) {
         // Create a separate required run for each specialty.
         competitor.specialties.forEach((specialty: any, index: number) => {
           let specialtyType = specialty.type;
-          // Handle cases where detection type might be part of the type string
           if (specialty.type === 'Detection' && specialty.detectionType) {
               specialtyType = `Detection (${specialty.detectionType})`;
           }
@@ -131,49 +130,30 @@ const prompt = ai.definePrompt({
     })
   },
   output: { schema: GenerateScheduleOutputSchema },
-  prompt: `You are an expert K9 trial scheduler. Your goal is to schedule as many of the required runs as possible given the constraints.
+  prompt: `You are an expert K9 trial scheduler. Your task is to create a schedule by assigning runs from the provided 'requiredRuns' list to available arena time slots.
 
-**PROVIDED DATA:**
-- Total runs that need to be scheduled: {{{totalRunsNeeded}}}
-- A detailed list of every required run: {{{json requiredRuns}}}
+**DATA:**
+- A list of all runs that need to be scheduled: {{{json requiredRuns}}}
 - Arenas and their specialties: {{{json arenas}}}
 - Event days: {{{json eventDays}}}
 - Available time slots per day: {{{json timeSlots}}}
 
-**YOUR TASK:**
-Create a schedule by assigning runs from the 'requiredRuns' list to available slots. It is acceptable if not all runs can be scheduled due to conflicts or lack of compatible arenas.
-
-**ALGORITHM TO FOLLOW:**
-1. Initialize an empty schedule grid to track occupancy: scheduleGrid[day][arenaId][timeSlot] = is_occupied (boolean).
-2. Initialize a competitor availability grid: competitorAvailability[day][competitorId][timeSlot] = is_busy (boolean).
-3. For each run in the 'requiredRuns' list:
-    a. Determine the compatible arena types based on the run's specialty (see RULES below).
-    b. Iterate through each eventDay.
-    c. Iterate through each timeSlot from the provided list.
-    d. Iterate through each compatible arena.
-    e. **CHECK FOR CONFLICTS**:
-        i. Is the arena slot already occupied in 'scheduleGrid'?
-        ii. Is the competitor already busy at this day and time in 'competitorAvailability'?
-    f. **IF NO CONFLICTS**:
-        i. This is a valid slot. Assign the run.
-        ii. Mark the arena slot as occupied in 'scheduleGrid'.
-        iii. Mark the competitor as busy for that time slot in 'competitorAvailability'.
-        iv. Create the schedule entry and add it to your output list.
-        v. Break the inner loops and move to the NEXT run in 'requiredRuns'.
-4. Continue until you have attempted to schedule every run in the 'requiredRuns' list.
+**TASK:**
+Iterate through the 'requiredRuns' list and assign each run to a valid time slot in a compatible arena. Create a schedule that places as many runs as possible without violating any rules.
 
 **RULES:**
-- A competitor cannot be in two places at the same time.
-- The end time for a run is 30 minutes after the start time.
-- **Arena Compatibility (VERY IMPORTANT):**
-  - A run with specialty 'Bite Work' can be placed in an arena of type 'Bite Work' OR 'Any'.
-  - A run with specialty 'Detection (Narcotics)' can be placed in an arena of type 'Detection (Narcotics)' OR 'Any'.
-  - A run with specialty 'Detection (Explosives)' can be placed in an arena of type 'Detection (Explosives)' OR 'Any'.
-  - A run with specialty 'Any' (meaning the competitor has no listed specialties) can ONLY be placed in an arena of type 'Any'.
-- **CRITICAL**: You MUST only use the 'startTime' values from the provided 'timeSlots' list. Do NOT invent, assume, or use any other time.
+1.  **No Double Booking (Competitors):** A competitor can only be in one place at a time. Do not schedule a competitor for two different runs in the same time slot on the same day.
+2.  **No Double Booking (Arenas):** An arena time slot can only have one run scheduled in it.
+3.  **Arena Compatibility (VERY IMPORTANT):**
+    *   A 'Bite Work' run can be placed in a 'Bite Work' arena OR an 'Any' arena.
+    *   A 'Detection (Narcotics)' run can be placed in a 'Detection (Narcotics)' arena OR an 'Any' arena.
+    *   A 'Detection (Explosives)' run can be placed in a 'Detection (Explosives)' arena OR an 'Any' arena.
+    *   A run for a competitor with 'Any' specialty (meaning no listed specialties) can ONLY be placed in an 'Any' arena.
+4.  **Run Duration:** Each run occupies one time slot. The end time is 30 minutes after the start time.
+5.  **Use Provided Times Only:** You MUST only use the 'startTime' values from the provided 'timeSlots' list. Do not invent, assume, or use any other times.
 
-**OUTPUT REQUIREMENT:**
-Return a 'schedule' array containing only the runs you were successfully able to place without conflicts. Do not include unscheduled runs.`,
+**OUTPUT:**
+Return a 'schedule' array containing only the runs you were successfully able to place. It is acceptable if not all runs can be scheduled. Do not include unscheduled runs in the output. Prioritize scheduling as many runs as possible while strictly following all rules.`,
 });
 
 const generateScheduleFlow = ai.defineFlow(
