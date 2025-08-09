@@ -187,4 +187,3 @@ const generateScheduleFlow = ai.defineFlow(
     return output!;
   }
 );
-
