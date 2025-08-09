@@ -70,8 +70,17 @@ export function AiScheduleDialog({ eventId, arenas, competitors, eventDays, time
       try {
           const formattedEventDays = eventDays.map(day => format(day, 'yyyy-MM-dd'));
           
+          // Create a clean, serializable version of the competitors data
+          const sanitizedCompetitors = competitors.map(c => ({
+            id: c.id,
+            name: c.name,
+            dogName: c.dogName,
+            agency: c.agency,
+            specialties: c.specialties
+          }));
+
           const input = {
-              competitors,
+              competitors: sanitizedCompetitors,
               arenas,
               eventDays: formattedEventDays,
               timeSlots
