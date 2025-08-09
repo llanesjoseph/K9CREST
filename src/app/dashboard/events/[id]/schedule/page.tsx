@@ -272,6 +272,7 @@ export default function SchedulePage() {
     const [loading, setLoading] = useState({ event: true, arenas: true, schedule: true, competitors: true, rubrics: true });
     
     const [eventDays, setEventDays] = useState<Date[]>([]);
+    const [hiddenArenas, setHiddenArenas] = useState<Record<string, Set<string>>>({}); // { [date]: Set<arenaId> }
     
     const [newArenaName, setNewArenaName] = useState('');
     const [newArenaSpecialty, setNewArenaSpecialty] = useState<ArenaSpecialty>('Any');
@@ -435,31 +436,37 @@ export default function SchedulePage() {
     const removeArenaForDay = async (arena: Arena, date: string) => {
         if (!eventId) return;
         try {
-            const batch = writeBatch(db);
-
-            // Query for runs in that specific arena on that specific day
             const scheduleQuery = query(
-                collection(db, `events/${eventId}/schedule`), 
+                collection(db, `events/${eventId}/schedule`),
                 where("arenaId", "==", arena.id),
                 where("date", "==", date)
             );
             const scheduleSnapshot = await getDocs(scheduleQuery);
-
+    
             if (scheduleSnapshot.empty) {
-                toast({ variant: 'destructive', title: 'No runs', description: `No runs to remove for ${arena.name} on this day.` });
+                setHiddenArenas(prev => {
+                    const newHidden = { ...prev };
+                    if (!newHidden[date]) {
+                        newHidden[date] = new Set();
+                    }
+                    newHidden[date].add(arena.id);
+                    return newHidden;
+                });
+                toast({ title: 'Arena Hidden', description: `"${arena.name}" is now hidden for this day.` });
                 return;
             }
-
+    
+            const batch = writeBatch(db);
             scheduleSnapshot.forEach(doc => {
-                 batch.delete(doc.ref);
+                batch.delete(doc.ref);
             });
             
             await batch.commit();
-
+    
             toast({ title: 'Success', description: `Runs in "${arena.name}" for ${format(parse(date, 'yyyy-MM-dd', new Date()), 'MMM dd')} have been cleared.` });
         } catch (error) {
             console.error(error);
-            toast({ variant: 'destructive', title: 'Error', description: 'Could not remove the runs for this arena and day.' });
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not perform this action.' });
         }
     };
 
@@ -975,10 +982,11 @@ export default function SchedulePage() {
                                 <div className="space-y-8">
                                     {eventDays.map(day => {
                                         const formattedDate = format(day, 'yyyy-MM-dd');
+                                        const dayArenas = arenas.filter(arena => !hiddenArenas[formattedDate]?.has(arena.id));
                                         return (
                                             <div key={day.toISOString()}>
                                                 <h3 className="text-lg font-semibold mb-3 sticky top-0 bg-card py-2 z-20">{format(day, 'EEEE, MMM dd')}</h3>
-                                                {arenas.length === 0 ? (
+                                                {dayArenas.length === 0 ? (
                                                     <div className="text-center text-muted-foreground py-12 border-2 border-dashed rounded-lg h-96 flex flex-col justify-center items-center mt-4">
                                                         <AlertTriangle className="mx-auto h-8 w-8 text-muted-foreground" />
                                                         <p className="mt-4 font-semibold">No Arenas Found</p>
@@ -999,7 +1007,7 @@ export default function SchedulePage() {
                                                         </div>
 
                                                         {/* Arena Rows */}
-                                                        {arenas.map(arena => {
+                                                        {dayArenas.map(arena => {
                                                             return (
                                                                 <div key={arena.id} className="grid grid-flow-col auto-cols-fr gap-2 items-center border-b py-2">
                                                                     <div className="w-48 font-medium text-card-foreground flex items-center pr-2">
@@ -1075,3 +1083,6 @@ export default function SchedulePage() {
 
     
 
+
+
+    
