@@ -209,6 +209,8 @@ export default function ManageRubricsPage() {
 function RubricEditor({ rubric }: { rubric: Rubric }) {
     const { toast } = useToast();
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [openAccordionItems, setOpenAccordionItems] = useState<string[]>([]);
+
 
     const form = useForm<Rubric>({
         resolver: zodResolver(rubricSchema),
@@ -217,6 +219,8 @@ function RubricEditor({ rubric }: { rubric: Rubric }) {
     
      useEffect(() => {
         form.reset(rubric);
+        // Expand all phases when a new rubric is selected
+        setOpenAccordionItems(rubric.phases.map((_, index) => `item-${index}`) || []);
     }, [rubric, form]);
 
 
@@ -235,6 +239,8 @@ function RubricEditor({ rubric }: { rubric: Rubric }) {
                 title: "Rubric Saved!",
                 description: "The scoring rubric has been successfully updated.",
             });
+            // Collapse all accordions on successful save
+            setOpenAccordionItems([]);
         } catch (error) {
             console.error(error);
             toast({
@@ -270,7 +276,7 @@ function RubricEditor({ rubric }: { rubric: Rubric }) {
                                 </FormItem>
                             )}
                         />
-                        <Accordion type="multiple" className="w-full space-y-4" defaultValue={fields.map((_, index) => `item-${index}`)}>
+                        <Accordion type="multiple" className="w-full space-y-4" value={openAccordionItems} onValueChange={setOpenAccordionItems}>
                             {fields.map((phase, phaseIndex) => (
                                 <AccordionItem key={phase.id || phaseIndex} value={`item-${phaseIndex}`} className="border rounded-lg bg-background">
                                     <AccordionTrigger className="p-4 hover:no-underline">
