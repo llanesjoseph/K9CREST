@@ -4,7 +4,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { CalendarIcon, Upload, Loader2 } from "lucide-react";
+import { CalendarIcon, Upload, Loader2, Clock } from "lucide-react";
 import { format } from "date-fns";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -35,6 +35,13 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { useToast } from "@/hooks/use-toast";
@@ -52,6 +59,16 @@ const formSchema = z.object({
   location: z.string().min(2, "Location is required."),
   description: z.string().optional(),
   bannerImage: z.any().optional(),
+  scheduleBlockDuration: z.coerce.number().default(30),
+  lunchBreakStart: z.string().optional(),
+  lunchBreakEnd: z.string().optional(),
+}).refine(data => {
+    if (data.lunchBreakStart && !data.lunchBreakEnd) return false;
+    if (!data.lunchBreakStart && data.lunchBreakEnd) return false;
+    return true;
+}, {
+    message: "Both lunch break start and end times are required.",
+    path: ['lunchBreakEnd'],
 });
 
 export default function CreateEventPage() {
@@ -64,6 +81,7 @@ export default function CreateEventPage() {
       eventName: "",
       location: "",
       description: "",
+      scheduleBlockDuration: 30,
     },
   });
 
@@ -77,6 +95,10 @@ export default function CreateEventPage() {
         endDate: values.date.to,
         location: values.location,
         description: values.description,
+        scheduleBlockDuration: values.scheduleBlockDuration,
+        lunchBreak: (values.lunchBreakStart && values.lunchBreakEnd) 
+            ? { start: values.lunchBreakStart, end: values.lunchBreakEnd }
+            : null,
         status: "Upcoming", // Default status
         createdAt: new Date(),
       };
@@ -191,6 +213,28 @@ export default function CreateEventPage() {
                     </FormItem>
                   )}
                 />
+                 <FormField
+                  control={form.control}
+                  name="scheduleBlockDuration"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Schedule Block Duration</FormLabel>
+                       <Select onValueChange={(value) => field.onChange(parseInt(value))} defaultValue={String(field.value)}>
+                         <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a duration" />
+                          </SelectTrigger>
+                         </FormControl>
+                        <SelectContent>
+                          <SelectItem value="15">15 minutes</SelectItem>
+                          <SelectItem value="20">20 minutes</SelectItem>
+                          <SelectItem value="30">30 minutes</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </div>
               <div className="space-y-8 flex flex-col">
                 <FormField
@@ -210,6 +254,36 @@ export default function CreateEventPage() {
                     </FormItem>
                   )}
                 />
+                <div className="space-y-2">
+                    <FormLabel>Lunch Break (Optional)</FormLabel>
+                    <div className="grid grid-cols-2 gap-4">
+                        <FormField
+                            control={form.control}
+                            name="lunchBreakStart"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormControl>
+                                        <Input type="time" {...field} />
+                                    </FormControl>
+                                    <FormLabel className="text-xs text-muted-foreground font-normal">Start Time</FormLabel>
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="lunchBreakEnd"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormControl>
+                                        <Input type="time" {...field} />
+                                    </FormControl>
+                                     <FormLabel className="text-xs text-muted-foreground font-normal">End Time</FormLabel>
+                                </FormItem>
+                            )}
+                        />
+                    </div>
+                     <FormMessage />
+                </div>
                  <FormField
                     control={form.control}
                     name="bannerImage"

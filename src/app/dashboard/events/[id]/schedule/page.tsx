@@ -84,6 +84,8 @@ interface EventDetails {
     startDate: Timestamp;
     endDate?: Timestamp;
     rubrics?: { id: string; name: string }[];
+    scheduleBlockDuration?: number;
+    lunchBreak?: { start: string; end: string };
 }
 
 type SchedulingStatus = 'unscheduled' | 'partiallyScheduled' | 'fullyScheduled';
@@ -289,7 +291,10 @@ export default function SchedulePage() {
     const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
     const scheduleContainerRef = useRef<HTMLDivElement>(null);
 
-    const timeSlots = generateTimeSlots();
+    const timeSlots = useMemo(() => generateTimeSlots({
+        duration: eventDetails?.scheduleBlockDuration,
+        lunchBreak: eventDetails?.lunchBreak,
+    }), [eventDetails]);
 
     // --- Firestore Data Fetching ---
     useEffect(() => {
@@ -496,7 +501,8 @@ export default function SchedulePage() {
         }
 
         // Create new schedule data
-        const endTime = new Date(new Date(`2000/01/01 ${startTime}`).getTime() + 30 * 60 * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+        const duration = eventDetails?.scheduleBlockDuration || 30;
+        const endTime = new Date(new Date(`2000/01/01 ${startTime}`).getTime() + duration * 60 * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
         const newScheduleData = { competitorId, arenaId, startTime, endTime, date };
 
         try {
@@ -1035,8 +1041,3 @@ export default function SchedulePage() {
         </TooltipProvider>
     );
 }
-
-    
-
-    
-
