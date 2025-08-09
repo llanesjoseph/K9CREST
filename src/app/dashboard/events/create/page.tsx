@@ -65,11 +65,18 @@ const formSchema = z.object({
 }).refine(data => {
     if (data.lunchBreakStart && !data.lunchBreakEnd) return false;
     if (!data.lunchBreakStart && data.lunchBreakEnd) return false;
+    if (data.lunchBreakStart && data.lunchBreakEnd && data.lunchBreakStart >= data.lunchBreakEnd) {
+      return false;
+    }
     return true;
 }, {
-    message: "Both lunch break start and end times are required.",
+    message: "End time must be after start time.",
     path: ['lunchBreakEnd'],
 });
+
+const lunchTimeSlots = [
+  '11:00', '11:30', '12:00', '12:30', '13:00', '13:30', '14:00'
+];
 
 export default function CreateEventPage() {
   const { toast } = useToast();
@@ -257,32 +264,44 @@ export default function CreateEventPage() {
                 <div className="space-y-2">
                     <FormLabel>Lunch Break (Optional)</FormLabel>
                     <div className="grid grid-cols-2 gap-4">
-                        <FormField
-                            control={form.control}
-                            name="lunchBreakStart"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormControl>
-                                        <Input type="time" {...field} />
-                                    </FormControl>
-                                    <FormLabel className="text-xs text-muted-foreground font-normal">Start Time</FormLabel>
-                                </FormItem>
-                            )}
+                       <FormField
+                          control={form.control}
+                          name="lunchBreakStart"
+                          render={({ field }) => (
+                            <FormItem>
+                              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Start time" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {lunchTimeSlots.map(time => <SelectItem key={`start-${time}`} value={time}>{time}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
+                            </FormItem>
+                          )}
                         />
-                        <FormField
-                            control={form.control}
-                            name="lunchBreakEnd"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormControl>
-                                        <Input type="time" {...field} />
-                                    </FormControl>
-                                     <FormLabel className="text-xs text-muted-foreground font-normal">End Time</FormLabel>
-                                </FormItem>
-                            )}
+                       <FormField
+                          control={form.control}
+                          name="lunchBreakEnd"
+                          render={({ field }) => (
+                            <FormItem>
+                               <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="End time" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {lunchTimeSlots.map(time => <SelectItem key={`end-${time}`} value={time}>{time}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
+                            </FormItem>
+                          )}
                         />
                     </div>
-                     <FormMessage />
+                     <FormMessage>{form.formState.errors.lunchBreakEnd?.message}</FormMessage>
                 </div>
                  <FormField
                     control={form.control}
@@ -293,7 +312,7 @@ export default function CreateEventPage() {
                         <FormControl>
                           <div className="relative flex items-center justify-center w-full h-32 border-2 border-dashed rounded-lg">
                             <Upload className="h-8 w-8 text-muted-foreground" />
-                            <Input type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" {...field} />
+                            <Input type="file" className="absolute inset-0 w-full h-32 opacity-0 cursor-pointer" {...field} />
                           </div>
                         </FormControl>
                         <FormMessage />
@@ -315,3 +334,5 @@ export default function CreateEventPage() {
     </Card>
   );
 }
+
+    
