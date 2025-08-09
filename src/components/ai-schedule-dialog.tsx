@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Wand2, Loader2, AlertTriangle, FileCheck2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { collection, writeBatch, doc } from 'firebase/firestore';
@@ -18,8 +18,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
-import { Arena, Competitor, ScheduledEvent, ArenaSpecialty } from '@/app/dashboard/events/[id]/schedule/page';
-import { generateSchedule } from '@/ai/flows/generate-schedule';
+import { Arena, Competitor, ScheduledEvent } from '@/app/dashboard/events/[id]/schedule/page';
 
 
 interface AiScheduleDialogProps {
@@ -45,6 +44,21 @@ export function AiScheduleDialog({ eventId, arenas, competitors, eventDays, time
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
 
+  useEffect(() => {
+    const appRoot = document.querySelector('body');
+    if (!appRoot) return;
+
+    if (isOpen) {
+      appRoot.setAttribute('inert', '');
+    } else {
+      appRoot.removeAttribute('inert');
+    }
+
+    return () => {
+      appRoot.removeAttribute('inert');
+    };
+  }, [isOpen]);
+
   const handleOpen = () => {
     if (currentSchedule.length > 0) {
       setStep(ScheduleStep.Confirm);
@@ -56,7 +70,6 @@ export function AiScheduleDialog({ eventId, arenas, competitors, eventDays, time
 
   const handleClose = () => {
     setIsOpen(false);
-    // Reset state after a delay to allow for closing animation
     setTimeout(() => {
         setStep(ScheduleStep.Idle);
         setError(null);
@@ -70,40 +83,47 @@ export function AiScheduleDialog({ eventId, arenas, competitors, eventDays, time
       try {
           const formattedEventDays = eventDays.map(day => format(day, 'yyyy-MM-dd'));
           
-          // Create a clean, serializable version of the competitors data
           const sanitizedCompetitors = competitors.map(c => ({
             id: c.id,
             name: c.name,
             dogName: c.dogName,
             agency: c.agency,
-            specialties: c.specialties
+            specialties: c.specialties || []
           }));
 
-          const input = {
+          const payload = {
               competitors: sanitizedCompetitors,
               arenas,
               eventDays: formattedEventDays,
               timeSlots
           };
 
-          const result = await generateSchedule(input);
+          const response = await fetch('/api/schedule', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || `Request failed with status ${response.status}`);
+          }
+
+          const result = await response.json();
           
           if(!result || !result.schedule) {
                throw new Error("The AI did not return a valid schedule. Please try again.");
           }
 
-          // Save the new schedule to Firestore
           const batch = writeBatch(db);
           const scheduleCollection = collection(db, `events/${eventId}/schedule`);
           
-          // First, delete existing schedule if any
           currentSchedule.forEach(run => {
               const docRef = doc(scheduleCollection, run.id);
               batch.delete(docRef);
           });
           
-          // Then, add the new schedule
-          result.schedule.forEach(run => {
+          result.schedule.forEach((run: any) => {
               const docRef = doc(scheduleCollection);
               batch.set(docRef, { ...run, id: docRef.id });
           });
@@ -132,7 +152,7 @@ export function AiScheduleDialog({ eventId, arenas, competitors, eventDays, time
             AI Assistant
         </Button>
 
-        <Dialog open={isOpen} onOpenChange={handleClose}>
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>AI Scheduling Assistant</DialogTitle>

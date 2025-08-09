@@ -86,3 +86,11 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+@media (forced-colors: active) {
+  .btn {
+    border: 1px solid CanvasText;
+    color: ButtonText;
+    background: ButtonFace;
+  }
+}
