@@ -45,39 +45,12 @@ import { useParams } from 'next/navigation';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { AiScheduleDialog } from '@/components/ai-schedule-dialog';
-
+import type { Arena, Competitor, ScheduledEvent, ArenaSpecialty } from '@/lib/schedule-types';
 
 // --- State Structures ---
 interface Specialty {
     type: 'Bite Work' | 'Detection';
     detectionType?: 'Narcotics' | 'Explosives';
-}
-
-export interface Competitor {
-    id: string;
-    name: string;
-    dogName: string;
-    agency: string;
-    specialties: Specialty[];
-}
-
-export type ArenaSpecialty = 'Any' | 'Bite Work' | 'Detection (Narcotics)' | 'Detection (Explosives)';
-
-export interface Arena {
-    id: string;
-    name: string;
-    specialtyType: ArenaSpecialty;
-    rubricId?: string;
-    rubricName?: string;
-}
-
-export interface ScheduledEvent {
-    id: string;
-    competitorId: string;
-    arenaId: string;
-    startTime: string;
-    endTime: string;
-    date: string; // YYYY-MM-DD format
 }
 
 interface EventDetails {

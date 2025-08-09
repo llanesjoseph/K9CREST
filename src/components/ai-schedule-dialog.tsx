@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Wand2, Loader2, AlertTriangle, FileCheck2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { collection, writeBatch, doc } from 'firebase/firestore';
@@ -18,7 +18,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
-import { Arena, Competitor, ScheduledEvent } from '@/app/dashboard/events/[id]/schedule/page';
+import type { Arena, Competitor, ScheduledEvent } from '@/lib/schedule-types';
 
 
 interface AiScheduleDialogProps {
@@ -74,20 +74,12 @@ export function AiScheduleDialog({ eventId, arenas, competitors, eventDays, time
   const [step, setStep] = useState<ScheduleStep>(ScheduleStep.Idle);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
+  const contentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const appRoot = document.getElementById('app-container');
-    if (!appRoot) return;
-
     if (isOpen) {
-      appRoot.setAttribute('inert', '');
-    } else {
-      appRoot.removeAttribute('inert');
+      setTimeout(() => contentRef.current?.focus(), 0);
     }
-
-    return () => {
-      appRoot.removeAttribute('inert');
-    };
   }, [isOpen]);
 
   const handleOpenChange = (open: boolean) => {
@@ -133,18 +125,26 @@ export function AiScheduleDialog({ eventId, arenas, competitors, eventDays, time
               timeSlots
           };
 
-          const result = await postJSONWithRetry<{schedule: any[]}>('/api/schedule', payload);
+          const result = await postJSONWithRetry<{schedule: any[], diagnostics?: any}>('/api/schedule', payload);
           
           if(!result || !result.schedule) {
-               throw new Error("The AI did not return a valid schedule. Please try again.");
+               throw new Error("The API did not return a valid schedule. Please try again.");
+          }
+          
+          if (result.schedule.length === 0 && result.diagnostics?.unplacedRuns?.length > 0) {
+              const { unplacedRuns, requiredRuns } = result.diagnostics;
+              setError(`Could not create a full schedule. ${unplacedRuns.length} of ${requiredRuns} runs could not be placed. Common reason: Not enough compatible arena time slots available.`);
+              setStep(ScheduleStep.Error);
+              return;
           }
 
           const batch = writeBatch(db);
           const scheduleCollection = collection(db, `events/${eventId}/schedule`);
           
-          currentSchedule.forEach(run => {
-              const docRef = doc(scheduleCollection, run.id);
-              batch.delete(docRef);
+          // Clear existing schedule
+          const scheduleSnapshot = await getDocs(scheduleCollection);
+          scheduleSnapshot.forEach(doc => {
+              batch.delete(doc.ref);
           });
           
           result.schedule.forEach((run: any) => {
@@ -161,10 +161,10 @@ export function AiScheduleDialog({ eventId, arenas, competitors, eventDays, time
           });
 
       } catch (e: any) {
-          console.error("Error generating AI schedule:", e);
+          console.error("Error generating schedule:", e);
           let errorMessage = e.message || "An unknown error occurred while generating the schedule.";
-          if (/HTTP 429/.test(errorMessage)) {
-            errorMessage = "The scheduling service is experiencing high demand. Please try again in a moment.";
+          if (errorMessage.includes('400')) {
+             errorMessage = "The server received a bad request. Please check your data."
           }
           setError(errorMessage);
           setStep(ScheduleStep.Error);
@@ -178,20 +178,20 @@ export function AiScheduleDialog({ eventId, arenas, competitors, eventDays, time
           <DialogTrigger asChild>
               <Button disabled={!isReady || step === ScheduleStep.Generating}>
                   {step === ScheduleStep.Generating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
-                  AI Assistant
+                  Generate Schedule
               </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent ref={contentRef} tabIndex={-1}>
             <DialogHeader>
-              <DialogTitle>AI Scheduling Assistant</DialogTitle>
+              <DialogTitle>Automatic Scheduler</DialogTitle>
               <DialogDescription>
-                Let the AI automatically generate a schedule for your event.
+                Automatically generate a valid schedule for your event.
               </DialogDescription>
             </DialogHeader>
             
             {step === ScheduleStep.Idle && (
                 <div>
-                    <p className="mb-4">The assistant will attempt to create a valid schedule by assigning all competitors to their required runs based on their specialties, distributing them across the available days and time slots.</p>
+                    <p className="mb-4">The scheduler will attempt to create a valid schedule by assigning all competitors to their required runs based on their specialties, distributing them across the available days and time slots.</p>
                     <p className="text-sm text-muted-foreground">This works best as a starting point. You can always manually adjust the schedule after it's generated.</p>
                 </div>
             )}
@@ -249,3 +249,4 @@ export function AiScheduleDialog({ eventId, arenas, competitors, eventDays, time
         </Dialog>
   );
 }
+
