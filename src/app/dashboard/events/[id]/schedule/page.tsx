@@ -280,10 +280,10 @@ export default function SchedulePage() {
     const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
     const scheduleContainerRef = useRef<HTMLDivElement>(null);
 
-    const timeSlots = useMemo(() => generateTimeSlots({
+    const timeSlots = generateTimeSlots({
         duration: eventDetails?.scheduleBlockDuration,
         lunchBreak: eventDetails?.lunchBreak,
-    }), [eventDetails]);
+    });
 
     // --- Firestore Data Fetching ---
     useEffect(() => {

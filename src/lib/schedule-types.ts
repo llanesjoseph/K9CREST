@@ -26,6 +26,8 @@ export const ArenaSchema = z.object({
   id: z.string(),
   name: z.string(),
   specialtyType: SpecialtyLabel,
+  rubricId: z.string().nullable().optional(),
+  rubricName: z.string().nullable().optional(),
 });
 
 export const InputSchema = z.object({
