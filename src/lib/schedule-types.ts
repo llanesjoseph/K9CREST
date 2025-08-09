@@ -20,6 +20,7 @@ export const CompetitorSchema = z.object({
   dogName: z.string(),
   agency: z.string(),
   specialties: z.array(SpecialtySchema),
+  bibNumber: z.string().optional(),
 });
 
 export const ArenaSchema = z.object({

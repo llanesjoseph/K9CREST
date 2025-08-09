@@ -4,7 +4,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { collection, onSnapshot, doc, setDoc, deleteDoc, writeBatch, query, getDocs, getDoc, Timestamp, updateDoc, where } from 'firebase/firestore';
 import { generateTimeSlots } from '@/lib/schedule-helpers';
-import { Trash2, AlertTriangle, PlusCircle, Users, X, Eraser, Wand2, Clock, Loader2, FileDown, GripVertical, Upload, ListChecks } from 'lucide-react';
+import { Trash2, AlertTriangle, PlusCircle, Users, X, Eraser, Wand2, Clock, Loader2, FileDown, GripVertical, Upload, ListChecks, Hash } from 'lucide-react';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragOverlay, DragStartEvent, DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -45,6 +45,7 @@ import { useParams } from 'next/navigation';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { AiScheduleDialog } from '@/components/ai-schedule-dialog';
+import { EditCompetitorDialog } from '@/components/edit-competitor-dialog';
 import type { Arena, Competitor, ScheduledEvent, ArenaSpecialty } from '@/lib/schedule-types';
 
 // --- State Structures ---
@@ -130,7 +131,7 @@ const CompetitorItem = ({ competitor, isDraggable, dragHandle, onRunClick }: { c
 
     return (
         <div
-            className={`border rounded-md p-3 mb-2 flex items-start gap-2 shadow-sm ${isDraggable ? 'hover:shadow-md transition-all duration-200 ease-in-out transform hover:-translate-y-px' : ''} ${statusClasses[competitor.status]}`}
+            className={`border rounded-md p-3 mb-2 flex items-start gap-2 shadow-sm relative group ${isDraggable ? 'hover:shadow-md transition-all duration-200 ease-in-out transform hover:-translate-y-px' : ''} ${statusClasses[competitor.status]}`}
             draggable={isDraggable}
             onDragStart={handleDragStart}
         >
@@ -140,8 +141,14 @@ const CompetitorItem = ({ competitor, isDraggable, dragHandle, onRunClick }: { c
                 </button>
             )}
             <div className="w-full">
-                <span className="font-semibold text-primary">{competitor.dogName}</span>
-                <span className="text-sm text-muted-foreground"> ({competitor.name})</span>
+                <div className="flex items-center gap-2">
+                     {competitor.bibNumber && <span className="font-bold text-lg text-primary/80 w-8 text-center">#{competitor.bibNumber}</span>}
+                    <div>
+                        <span className="font-semibold text-primary">{competitor.dogName}</span>
+                        <span className="text-sm text-muted-foreground"> ({competitor.name})</span>
+                    </div>
+                </div>
+
                  <div className="text-xs text-muted-foreground/80">{competitor.agency}</div>
                  <div className="text-xs text-muted-foreground/80 mt-1">{getSpecialtyDisplay(competitor.specialties)}</div>
                  {competitor.runs.length > 0 && (
@@ -161,6 +168,9 @@ const CompetitorItem = ({ competitor, isDraggable, dragHandle, onRunClick }: { c
                         ))}
                     </div>
                 )}
+            </div>
+             <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                <EditCompetitorDialog competitor={competitor} eventId={competitor.eventId} />
             </div>
         </div>
     );
@@ -330,7 +340,7 @@ export default function SchedulePage() {
         });
 
         const competitorsUnsub = onSnapshot(collection(db, `events/${eventId}/competitors`), (snapshot) => {
-            const competitorsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Competitor));
+            const competitorsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), eventId } as Competitor));
             setCompetitors(competitorsData);
             setLoading(prev => ({ ...prev, competitors: false }));
         }, (error) => {
@@ -578,6 +588,54 @@ export default function SchedulePage() {
         } catch (error) {
             console.error(error);
             toast({ variant: 'destructive', title: 'Error', description: 'Could not clear the schedule.' });
+        }
+    };
+
+     const handleAssignBibs = async () => {
+        if (!eventId || competitors.length === 0) return;
+
+        try {
+            const batch = writeBatch(db);
+            let nextBib = 1;
+
+            // Find the highest existing bib number to avoid duplicates
+            competitors.forEach(c => {
+                if (c.bibNumber) {
+                    const num = parseInt(c.bibNumber, 10);
+                    if (!isNaN(num) && num >= nextBib) {
+                        nextBib = num + 1;
+                    }
+                }
+            });
+
+            // Assign new bib numbers to competitors who don't have one
+            let assignedCount = 0;
+            competitors.forEach(competitor => {
+                if (!competitor.bibNumber) {
+                    const competitorRef = doc(db, `events/${eventId}/competitors`, competitor.id);
+                    batch.update(competitorRef, { bibNumber: String(nextBib++) });
+                    assignedCount++;
+                }
+            });
+
+            if (assignedCount === 0) {
+                 toast({ title: "All Set!", description: "All competitors already have BIB numbers." });
+                 return;
+            }
+
+            await batch.commit();
+
+            toast({
+                title: "BIBs Assigned!",
+                description: `Successfully assigned ${assignedCount} new BIB numbers.`
+            });
+        } catch (error) {
+            console.error("Error assigning BIB numbers:", error);
+            toast({
+                variant: "destructive",
+                title: "Error",
+                description: "Could not assign BIB numbers. Please try again."
+            });
         }
     };
 
@@ -925,6 +983,12 @@ export default function SchedulePage() {
                             </div>
                             <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                                {isAdmin && (
+                                    <Button onClick={handleAssignBibs} variant="outline" disabled={competitors.length === 0}>
+                                        <Hash className="mr-2 h-4 w-4"/>
+                                        Assign BIBs
+                                    </Button>
+                                )}
+                               {isAdmin && (
                                      <AiScheduleDialog 
                                         eventId={eventId}
                                         arenas={arenas}
@@ -1080,9 +1144,3 @@ export default function SchedulePage() {
         </TooltipProvider>
     );
 }
-
-    
-
-
-
-    
