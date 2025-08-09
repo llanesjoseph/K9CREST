@@ -142,7 +142,7 @@ Create exactly {{{totalRunsNeeded}}} schedule entries, one for each run in the r
 3. For each run in the requiredRuns list:
     a. Find compatible arenas for the run's specialty.
     b. Iterate through each eventDay.
-    c. Iterate through each timeSlot.
+    c. Iterate through each timeSlot from the provided list.
     d. Iterate through each compatible arena.
     e. If the arena slot is NOT occupied in the schedule grid AND the competitor is NOT busy in the competitor availability grid:
         i. Assign the run. Mark the arena slot as occupied. Mark the competitor as busy.
@@ -158,6 +158,7 @@ Create exactly {{{totalRunsNeeded}}} schedule entries, one for each run in the r
   - "Detection" + "Narcotics" → "Detection (Narcotics)" or "Any" arenas
   - "Detection" + "Explosives" → "Detection (Explosives)" or "Any" arenas
   - "Any" specialty (for competitors with no specialty) -> "Any" arenas
+- **CRITICAL**: You MUST only use the 'startTime' values from the provided 'timeSlots' list. Do NOT invent or use any other time.
 
 **OUTPUT REQUIREMENT:**
 Your final 'schedule' array MUST contain EXACTLY {{{totalRunsNeeded}}} entries. No more, no less. This is the most important rule.`,
