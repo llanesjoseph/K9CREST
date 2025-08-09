@@ -158,11 +158,11 @@ Create a schedule by assigning runs from the 'requiredRuns' list to available sl
 **RULES:**
 - A competitor cannot be in two places at the same time.
 - The end time for a run is 30 minutes after the start time.
-- **Arena Compatibility:**
-  - "Bite Work" specialty can go in "Bite Work" or "Any" arenas.
-  - "Detection (Narcotics)" specialty can go in "Detection (Narcotics)" or "Any" arenas.
-  - "Detection (Explosives)" specialty can go in "Detection (Explosives)" or "Any" arenas.
-  - A competitor with no listed specialty ('Any') can only go in "Any" arenas.
+- **Arena Compatibility (VERY IMPORTANT):**
+  - A run with specialty 'Bite Work' can be placed in an arena of type 'Bite Work' OR 'Any'.
+  - A run with specialty 'Detection (Narcotics)' can be placed in an arena of type 'Detection (Narcotics)' OR 'Any'.
+  - A run with specialty 'Detection (Explosives)' can be placed in an arena of type 'Detection (Explosives)' OR 'Any'.
+  - A run with no listed specialty (type 'Any') can ONLY be placed in an arena of type 'Any'.
 - **CRITICAL**: You MUST only use the 'startTime' values from the provided 'timeSlots' list. Do NOT invent, assume, or use any other time.
 
 **OUTPUT REQUIREMENT:**
