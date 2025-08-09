@@ -124,44 +124,49 @@ const prompt = ai.definePrompt({
     })
   },
   output: { schema: GenerateScheduleOutputSchema },
-  prompt: `You are a K9 trial scheduler. You MUST schedule ALL {{{totalRunsNeeded}}} runs.
+  prompt: `You are an expert K9 trial scheduler. Your goal is to schedule as many of the required runs as possible given the constraints.
 
 **PROVIDED DATA:**
-- Total runs that MUST be scheduled: {{{totalRunsNeeded}}}
-- Required runs list with details: {{{json requiredRuns}}}
-- Arenas: {{{json arenas}}}
+- Total runs that need to be scheduled: {{{totalRunsNeeded}}}
+- A detailed list of every required run: {{{json requiredRuns}}}
+- Arenas and their specialties: {{{json arenas}}}
 - Event days: {{{json eventDays}}}
-- Time slots: {{{json timeSlots}}}
+- Available time slots per day: {{{json timeSlots}}}
 
 **YOUR TASK:**
-Create exactly {{{totalRunsNeeded}}} schedule entries, one for each run in the requiredRuns list.
+Create a schedule by assigning runs from the 'requiredRuns' list to available slots. It is acceptable if not all runs can be scheduled due to conflicts or lack of compatible arenas.
 
 **ALGORITHM TO FOLLOW:**
-1. Create a schedule grid to track occupancy: [day][arena][timeSlot] = is_occupied (boolean)
-2. Create a competitor availability grid: [day][timeSlot] = occupied_by_competitor_id (string)
-3. For each run in the requiredRuns list:
-    a. Find compatible arenas for the run's specialty.
+1. Initialize an empty schedule grid to track occupancy: scheduleGrid[day][arenaId][timeSlot] = is_occupied (boolean).
+2. Initialize a competitor availability grid: competitorAvailability[day][competitorId][timeSlot] = is_busy (boolean).
+3. For each run in the 'requiredRuns' list:
+    a. Determine the compatible arena types based on the run's specialty (see RULES below).
     b. Iterate through each eventDay.
     c. Iterate through each timeSlot from the provided list.
     d. Iterate through each compatible arena.
-    e. If the arena slot is NOT occupied in the schedule grid AND the competitor is NOT busy in the competitor availability grid:
-        i. Assign the run. Mark the arena slot as occupied. Mark the competitor as busy.
-        ii. Create the schedule entry and add it to your output list.
-        iii. Break the inner loops and move to the NEXT run in requiredRuns.
-4. Continue until ALL {{{totalRunsNeeded}}} runs are scheduled.
+    e. **CHECK FOR CONFLICTS**:
+        i. Is the arena slot already occupied in 'scheduleGrid'?
+        ii. Is the competitor already busy at this day and time in 'competitorAvailability'?
+    f. **IF NO CONFLICTS**:
+        i. This is a valid slot. Assign the run.
+        ii. Mark the arena slot as occupied in 'scheduleGrid'.
+        iii. Mark the competitor as busy for that time slot in 'competitorAvailability'.
+        iv. Create the schedule entry and add it to your output list.
+        v. Break the inner loops and move to the NEXT run in 'requiredRuns'.
+4. Continue until you have attempted to schedule every run in the 'requiredRuns' list.
 
 **RULES:**
 - A competitor cannot be in two places at the same time.
-- End time = start time + 30 minutes.
-- Compatible arenas:
-  - "Bite Work" specialty → "Bite Work" or "Any" arenas
-  - "Detection" + "Narcotics" → "Detection (Narcotics)" or "Any" arenas
-  - "Detection" + "Explosives" → "Detection (Explosives)" or "Any" arenas
-  - "Any" specialty (for competitors with no specialty) -> "Any" arenas
-- **CRITICAL**: You MUST only use the 'startTime' values from the provided 'timeSlots' list. Do NOT invent or use any other time.
+- The end time for a run is 30 minutes after the start time.
+- **Arena Compatibility:**
+  - "Bite Work" specialty can go in "Bite Work" or "Any" arenas.
+  - "Detection (Narcotics)" specialty can go in "Detection (Narcotics)" or "Any" arenas.
+  - "Detection (Explosives)" specialty can go in "Detection (Explosives)" or "Any" arenas.
+  - A competitor with no listed specialty ('Any') can only go in "Any" arenas.
+- **CRITICAL**: You MUST only use the 'startTime' values from the provided 'timeSlots' list. Do NOT invent, assume, or use any other time.
 
 **OUTPUT REQUIREMENT:**
-Your final 'schedule' array MUST contain EXACTLY {{{totalRunsNeeded}}} entries. No more, no less. This is the most important rule.`,
+Return a 'schedule' array containing only the runs you were successfully able to place without conflicts. Do not include unscheduled runs.`,
 });
 
 const generateScheduleFlow = ai.defineFlow(
