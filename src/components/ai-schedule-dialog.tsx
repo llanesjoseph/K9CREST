@@ -4,7 +4,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Wand2, Loader2, AlertTriangle, FileCheck2 } from 'lucide-react';
 import { format } from 'date-fns';
-import { collection, writeBatch, doc, getDocs } from 'firebase/firestore';
+import { collection, writeBatch, doc } from 'firebase/firestore';
 
 import {
   Dialog,
@@ -19,6 +19,8 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import type { Arena, Competitor, ScheduledEvent } from '@/lib/schedule-types';
+import { postJSONWithRetry } from '@/lib/schedule-service';
+import { generateTimeSlots } from '@/lib/schedule-helpers';
 
 
 interface AiScheduleDialogProps {
@@ -26,7 +28,6 @@ interface AiScheduleDialogProps {
   arenas: Arena[];
   competitors: Competitor[];
   eventDays: Date[];
-  timeSlots: string[];
   currentSchedule: ScheduledEvent[];
 }
 
@@ -38,38 +39,9 @@ enum ScheduleStep {
   Error,
 }
 
-async function postJSONWithRetry<T>(url: string, body: unknown, tries = 3): Promise<T> {
-  let lastErr: any;
-  for (let i = 0; i < tries; i++) {
-    try {
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: JSON.stringify(body),
-      });
-      const text = await res.text();
-      if (!res.ok) throw new Error(`HTTP ${res.status}: ${text.slice(0, 400)}`);
-      if (!/application\/json/.test(res.headers.get('content-type') || '')) {
-        throw new Error(`Non-JSON from server`);
-      }
-      return JSON.parse(text);
-    } catch (e: any) {
-      lastErr = e;
-      const msg = String(e.message || '');
-      const is429 = /HTTP 429/.test(msg) || /Quota|rate limit/i.test(msg);
-      const is5xx = /HTTP 5\d{2}/.test(msg);
-      if (i < tries - 1 && (is429 || is5xx)) {
-        await new Promise(r => setTimeout(r, 600 * (i + 1))); // 600ms, 1200ms
-        continue;
-      }
-      throw e;
-    }
-  }
-  throw lastErr;
-}
 
 
-export function AiScheduleDialog({ eventId, arenas, competitors, eventDays, timeSlots, currentSchedule }: AiScheduleDialogProps) {
+export function AiScheduleDialog({ eventId, arenas, competitors, eventDays, currentSchedule }: AiScheduleDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [step, setStep] = useState<ScheduleStep>(ScheduleStep.Idle);
   const [error, setError] = useState<string | null>(null);
@@ -115,8 +87,11 @@ export function AiScheduleDialog({ eventId, arenas, competitors, eventDays, time
             name: c.name,
             dogName: c.dogName,
             agency: c.agency,
-            specialties: c.specialties || []
+            specialties: c.specialties || [],
+            bibNumber: c.bibNumber,
           }));
+          
+          const timeSlots = generateTimeSlots();
 
           const payload = {
               competitors: sanitizedCompetitors,
@@ -176,7 +151,7 @@ export function AiScheduleDialog({ eventId, arenas, competitors, eventDays, time
   return (
         <Dialog open={isOpen} onOpenChange={handleOpenChange}>
           <DialogTrigger asChild>
-              <Button disabled={!isReady || step === ScheduleStep.Generating}>
+              <Button disabled={!isReady || step === ScheduleStep.Generating} size="sm">
                   {step === ScheduleStep.Generating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
                   Generate Schedule
               </Button>

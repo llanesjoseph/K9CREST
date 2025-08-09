@@ -291,11 +291,6 @@ export default function SchedulePage() {
     const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
     const scheduleContainerRef = useRef<HTMLDivElement>(null);
 
-    const timeSlots = generateTimeSlots({
-        duration: eventDetails?.scheduleBlockDuration,
-        lunchBreak: eventDetails?.lunchBreak,
-    });
-
     // --- Firestore Data Fetching ---
     useEffect(() => {
         if (!eventId || authLoading) return;
@@ -976,38 +971,38 @@ export default function SchedulePage() {
                 {/* Right Panel: Scheduler */}
                 <div className="xl:col-span-2 flex flex-col gap-4">
                     <Card className="flex-grow">
-                        <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                         <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                             <div>
                                 <CardTitle>Event Schedule: {eventDetails?.name || <Skeleton className="h-6 w-48 inline-block" />}</CardTitle>
                                 <CardDescription>Drop competitors into time slots, or use the AI assistant.</CardDescription>
                             </div>
-                            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                            <div className="flex w-full sm:w-auto items-center justify-end gap-2">
                                {isAdmin && (
-                                    <Button onClick={handleAssignBibs} variant="outline" disabled={competitors.length === 0}>
-                                        <Hash className="mr-2 h-4 w-4"/>
-                                        Assign BIBs
-                                    </Button>
-                                )}
-                               {isAdmin && (
+                                <div className="flex-grow sm:flex-grow-0 flex items-center gap-2">
                                      <AiScheduleDialog 
                                         eventId={eventId}
                                         arenas={arenas}
                                         competitors={sortedCompetitors}
                                         eventDays={eventDays}
-                                        timeSlots={timeSlots}
                                         currentSchedule={schedule}
                                      />
+                                     <Button onClick={handleAssignBibs} variant="outline" disabled={competitors.length === 0} size="sm">
+                                        <Hash className="mr-2 h-4 w-4"/>
+                                        Assign BIBs
+                                    </Button>
+                                </div>
                                 )}
-                                <Button onClick={handleGeneratePdf} variant="outline" className="w-full" disabled={isGeneratingPdf || schedule.length === 0}>
+                                <div className="flex items-center gap-2">
+                                <Button onClick={handleGeneratePdf} variant="outline" size="sm" className="w-full" disabled={isGeneratingPdf || schedule.length === 0}>
                                     {isGeneratingPdf ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <FileDown className="mr-2 h-4 w-4"/>}
-                                    Download as PDF
+                                    Download PDF
                                 </Button>
                                 {isAdmin && (
                                      <AlertDialog>
                                         <AlertDialogTrigger asChild>
-                                             <Button variant="destructive" className="w-full" disabled={schedule.length === 0}>
+                                             <Button variant="destructive" size="sm" className="w-full" disabled={schedule.length === 0}>
                                                 <Eraser className="mr-2 h-4 w-4"/>
-                                                Clear Schedule
+                                                Clear
                                             </Button>
                                         </AlertDialogTrigger>
                                         <AlertDialogContent>
@@ -1026,6 +1021,7 @@ export default function SchedulePage() {
                                         </AlertDialogContent>
                                     </AlertDialog>
                                 )}
+                                </div>
                             </div>
                         </CardHeader>
                         <CardContent>
@@ -1047,6 +1043,7 @@ export default function SchedulePage() {
                                     {eventDays.map(day => {
                                         const formattedDate = format(day, 'yyyy-MM-dd');
                                         const dayArenas = arenas.filter(arena => !hiddenArenas[formattedDate]?.has(arena.id));
+                                        const timeSlots = generateTimeSlots({ duration: eventDetails?.scheduleBlockDuration, lunchBreak: eventDetails?.lunchBreak });
                                         return (
                                             <div key={day.toISOString()}>
                                                 <h3 className="text-lg font-semibold mb-3 sticky top-0 bg-card py-2 z-20">{format(day, 'EEEE, MMM dd')}</h3>
