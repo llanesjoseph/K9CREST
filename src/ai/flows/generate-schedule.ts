@@ -260,7 +260,7 @@ function validateAndDiff(out: GenerateScheduleOutput, ctx: {
 
   const unplaced = ctx.runAllowlist
     .filter(r => !placedRunKeys.has(r.runKey))
-    .map(r => ({ competitorId: r.competitorId, specialtyType: r.specialtyType, allowedSlotIds: r.allowedSlotIds }));
+    .map(r => ({ runKey: r.runKey, competitorId: r.competitorId, specialtyType: r.specialtyType, allowedSlotIds: r.allowedSlotIds }));
 
   const openSlots = ctx.allSlots.filter(s => !usedSlots.has(s.slotId)).map(s => ({
     slotId: s.slotId, date: s.date, startTime: s.startTime, endTime: s.endTime, arenaId: s.arenaId
@@ -292,40 +292,53 @@ async function generateScheduleFlow(input: any) {
     const repairPrompt = ai.definePrompt({
       name: 'repairSchedule',
       input: { schema: z.object({
-        current: GenerateScheduleOutputSchema,
-        unplaced: z.array(z.any()),
+        currentSchedule: GenerateScheduleOutputSchema,
+        unplacedRuns: z.array(z.any()),
         openSlots: z.array(z.any()),
+        allSlots: z.array(z.any()),
         totalRunsNeeded: z.number()
       })},
       output: { schema: GenerateScheduleOutputSchema },
       prompt: `
-You are a schedule repair assistant. Your task is to fix an invalid schedule.
+You are a schedule repair assistant. Your task is to fix an invalid schedule by adding the 'unplacedRuns' into the 'openSlots'.
 
 RULES:
-- You must add all the 'unplaced' runs to the schedule.
-- You can only use slots from the 'openSlots' list.
-- Do not remove or change any of the valid runs in the 'current' schedule.
+- You must add all the 'unplacedRuns' to the schedule.
+- For each unplaced run, you can ONLY use a slotId from its 'allowedSlotIds' list.
+- The chosen slotId must exist in the 'openSlots' list.
+- Do not remove or change any of the valid runs in the 'currentSchedule'.
 - The final schedule must have exactly {{totalRunsNeeded}} items.
 
 DATA:
-- Current valid schedule items (DO NOT CHANGE THESE): {{{json current.schedule}}}
-- Runs that still need to be scheduled: {{{json unplaced}}}
+- Current valid schedule items (DO NOT CHANGE THESE): {{{json currentSchedule.schedule}}}
+- Runs that still need to be scheduled: {{{json unplacedRuns}}}
 - Available empty slots to place them in: {{{json openSlots}}}
+- All Slots (for lookup): {{{json allSlots}}}
 
 Return only the complete, fixed JSON schedule object.
 `
     });
 
+    // We filter the schedule to only include valid runs, giving the AI a clean slate to add to.
+    const validRuns = result.schedule.filter(run => {
+        const slotId = `${run.date}|${run.startTime}|${run.arenaId}`;
+        return !diff.errors.some(e => e.includes(slotId));
+    });
+
+
     const { output: repaired } = await repairPrompt({
-      current: { schedule: result.schedule.filter(run => !diff.errors.some(e => e.includes(run.competitorId))) }, // Provide only valid runs
-      unplaced: diff.unplaced,
+      currentSchedule: { schedule: validRuns },
+      unplacedRuns: diff.unplaced,
       openSlots: diff.openSlots,
+      allSlots: input.allSlots,
       totalRunsNeeded: input.totalRunsNeeded
     });
     
     if (!repaired) {
         console.error("Repair prompt failed to return an output.");
-        break; // Exit loop if repair fails
+        // If repair fails, we should stop and return the best we have, even if broken.
+        // Or we could throw an error. Let's return the broken one for now.
+        break; 
     }
 
     result = repaired;
@@ -363,3 +376,5 @@ export async function generateSchedule(
   
   return generateScheduleFlow(enhancedInput);
 }
+
+    
