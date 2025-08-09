@@ -59,21 +59,25 @@ export function AiScheduleDialog({ eventId, arenas, competitors, eventDays, time
     };
   }, [isOpen]);
 
-  const handleOpen = () => {
-    if (currentSchedule.length > 0) {
-      setStep(ScheduleStep.Confirm);
-    } else {
-      setStep(ScheduleStep.Idle);
-    }
-    setIsOpen(true);
-  };
+  const handleOpenChange = (open: boolean) => {
+      setIsOpen(open);
+      if (open) {
+          if (currentSchedule.length > 0) {
+              setStep(ScheduleStep.Confirm);
+          } else {
+              setStep(ScheduleStep.Idle);
+          }
+      } else {
+          // Reset state when closing
+          setTimeout(() => {
+            setStep(ScheduleStep.Idle);
+            setError(null);
+          }, 300);
+      }
+  }
 
   const handleClose = () => {
-    setIsOpen(false);
-    setTimeout(() => {
-        setStep(ScheduleStep.Idle);
-        setError(null);
-    }, 300);
+    handleOpenChange(false);
   };
   
   const handleGenerateSchedule = async () => {
@@ -146,13 +150,13 @@ export function AiScheduleDialog({ eventId, arenas, competitors, eventDays, time
   const isReady = arenas.length > 0 && competitors.length > 0 && eventDays.length > 0;
 
   return (
-    <>
-        <Button onClick={handleOpen} disabled={!isReady}>
-            <Wand2 className="mr-2 h-4 w-4" />
-            AI Assistant
-        </Button>
-
-        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+        <Dialog open={isOpen} onOpenChange={handleOpenChange}>
+            <DialogTrigger asChild>
+                <Button disabled={!isReady}>
+                    <Wand2 className="mr-2 h-4 w-4" />
+                    AI Assistant
+                </Button>
+            </DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>AI Scheduling Assistant</DialogTitle>
@@ -219,6 +223,5 @@ export function AiScheduleDialog({ eventId, arenas, competitors, eventDays, time
             </DialogFooter>
           </DialogContent>
         </Dialog>
-    </>
   );
 }
