@@ -38,29 +38,34 @@ enum ScheduleStep {
   Error,
 }
 
-async function postJSON<T>(url: string, body: unknown): Promise<T> {
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  const ct = res.headers.get('content-type') || '';
-  const text = await res.text();
-
-  if (!res.ok) {
-    // Log HTML error pages instead of JSON.parse bombing
-    throw new Error(`HTTP ${res.status}: ${text.slice(0, 500)}`);
+async function postJSONWithRetry<T>(url: string, body: unknown, tries = 3): Promise<T> {
+  let lastErr: any;
+  for (let i = 0; i < tries; i++) {
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const text = await res.text();
+      if (!res.ok) throw new Error(`HTTP ${res.status}: ${text.slice(0, 400)}`);
+      if (!/application\/json/.test(res.headers.get('content-type') || '')) {
+        throw new Error(`Non-JSON from server`);
+      }
+      return JSON.parse(text);
+    } catch (e: any) {
+      lastErr = e;
+      const msg = String(e.message || '');
+      const is429 = /HTTP 429/.test(msg) || /Quota|rate limit/i.test(msg);
+      const is5xx = /HTTP 5\d{2}/.test(msg);
+      if (i < tries - 1 && (is429 || is5xx)) {
+        await new Promise(r => setTimeout(r, 600 * (i + 1))); // 600ms, 1200ms
+        continue;
+      }
+      throw e;
+    }
   }
-
-  if (!ct.includes('application/json')) {
-    throw new Error(`Expected JSON. Got content-type: ${ct}. Body: ${text.slice(0, 500)}`);
-  }
-
-  try {
-    return JSON.parse(text);
-  } catch {
-    throw new Error(`Invalid JSON from server: ${text.slice(0, 500)}`);
-  }
+  throw lastErr;
 }
 
 
@@ -128,7 +133,7 @@ export function AiScheduleDialog({ eventId, arenas, competitors, eventDays, time
               timeSlots
           };
 
-          const result = await postJSON<{schedule: any[]}>('/api/schedule', payload);
+          const result = await postJSONWithRetry<{schedule: any[]}>('/api/schedule', payload);
           
           if(!result || !result.schedule) {
                throw new Error("The AI did not return a valid schedule. Please try again.");
@@ -157,7 +162,11 @@ export function AiScheduleDialog({ eventId, arenas, competitors, eventDays, time
 
       } catch (e: any) {
           console.error("Error generating AI schedule:", e);
-          setError(e.message || "An unknown error occurred while generating the schedule.");
+          let errorMessage = e.message || "An unknown error occurred while generating the schedule.";
+          if (/HTTP 429/.test(errorMessage)) {
+            errorMessage = "The scheduling service is experiencing high demand. Please try again in a moment.";
+          }
+          setError(errorMessage);
           setStep(ScheduleStep.Error);
       }
   };
@@ -167,8 +176,8 @@ export function AiScheduleDialog({ eventId, arenas, competitors, eventDays, time
   return (
         <Dialog open={isOpen} onOpenChange={handleOpenChange}>
           <DialogTrigger asChild>
-              <Button disabled={!isReady}>
-                  <Wand2 className="mr-2 h-4 w-4" />
+              <Button disabled={!isReady || step === ScheduleStep.Generating}>
+                  {step === ScheduleStep.Generating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
                   AI Assistant
               </Button>
           </DialogTrigger>

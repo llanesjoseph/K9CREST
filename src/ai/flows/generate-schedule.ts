@@ -16,9 +16,9 @@ const OutputSchema = z.object({
     z.object({
       competitorId: z.string(),
       arenaId: z.string(),
-      startTime: z.string().regex(/^\d{2}:\d{2}$/, "HH:mm"),
-      endTime: z.string().regex(/^\d{2}:\d{2}$/, "HH:mm"),
-      date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "YYYY-MM-DD"),
+      startTime: z.string().regex(/^\d{2}:\d{2}$/),
+      endTime: z.string().regex(/^\d{2}:\d{2}$/),
+      date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
     }).strict()
   )
 }).strict();
