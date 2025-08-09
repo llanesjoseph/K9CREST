@@ -64,6 +64,7 @@ function createRequiredRunsList(competitors: any[]) {
   
   competitors.forEach(competitor => {
     if (competitor.specialties.length === 0) {
+        // If a competitor has no specialties, they have one run in an 'Any' arena.
         runs.push({
             competitorId: competitor.id,
             competitorName: competitor.name,
@@ -73,11 +74,17 @@ function createRequiredRunsList(competitors: any[]) {
             totalRuns: 1,
         });
     } else {
+        // Create a separate required run for each specialty.
         competitor.specialties.forEach((specialty: any, index: number) => {
+          let specialtyType = specialty.type;
+          // Handle cases where detection type might be part of the type string
+          if (specialty.type === 'Detection' && specialty.detectionType) {
+              specialtyType = `Detection (${specialty.detectionType})`;
+          }
           runs.push({
             competitorId: competitor.id,
             competitorName: competitor.name,
-            specialtyType: specialty.type,
+            specialtyType: specialtyType,
             detectionType: specialty.detectionType,
             runIndex: index,
             totalRuns: competitor.specialties.length
@@ -162,7 +169,7 @@ Create a schedule by assigning runs from the 'requiredRuns' list to available sl
   - A run with specialty 'Bite Work' can be placed in an arena of type 'Bite Work' OR 'Any'.
   - A run with specialty 'Detection (Narcotics)' can be placed in an arena of type 'Detection (Narcotics)' OR 'Any'.
   - A run with specialty 'Detection (Explosives)' can be placed in an arena of type 'Detection (Explosives)' OR 'Any'.
-  - A run with no listed specialty (type 'Any') can ONLY be placed in an arena of type 'Any'.
+  - A run with specialty 'Any' (meaning the competitor has no listed specialties) can ONLY be placed in an arena of type 'Any'.
 - **CRITICAL**: You MUST only use the 'startTime' values from the provided 'timeSlots' list. Do NOT invent, assume, or use any other time.
 
 **OUTPUT REQUIREMENT:**
