@@ -38,6 +38,32 @@ enum ScheduleStep {
   Error,
 }
 
+async function postJSON<T>(url: string, body: unknown): Promise<T> {
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const ct = res.headers.get('content-type') || '';
+  const text = await res.text();
+
+  if (!res.ok) {
+    // Log HTML error pages instead of JSON.parse bombing
+    throw new Error(`HTTP ${res.status}: ${text.slice(0, 500)}`);
+  }
+
+  if (!ct.includes('application/json')) {
+    throw new Error(`Expected JSON. Got content-type: ${ct}. Body: ${text.slice(0, 500)}`);
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error(`Invalid JSON from server: ${text.slice(0, 500)}`);
+  }
+}
+
+
 export function AiScheduleDialog({ eventId, arenas, competitors, eventDays, timeSlots, currentSchedule }: AiScheduleDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [step, setStep] = useState<ScheduleStep>(ScheduleStep.Idle);
@@ -102,28 +128,7 @@ export function AiScheduleDialog({ eventId, arenas, competitors, eventDays, time
               timeSlots
           };
 
-          const response = await fetch('/api/schedule', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-            body: JSON.stringify(payload),
-          });
-
-          const contentType = response.headers.get('content-type');
-
-          if (!response.ok) {
-            let errorMsg = `Request failed with status ${response.status}`;
-            if (contentType && contentType.includes('application/json')) {
-              const errorData = await response.json();
-              errorMsg = errorData.error || errorMsg;
-            } else {
-              const textError = await response.text();
-              console.error("Non-JSON error response from server:", textError);
-              errorMsg = `An unexpected server error occurred.`;
-            }
-            throw new Error(errorMsg);
-          }
-          
-          const result = await response.json();
+          const result = await postJSON<{schedule: any[]}>('/api/schedule', payload);
           
           if(!result || !result.schedule) {
                throw new Error("The AI did not return a valid schedule. Please try again.");
@@ -147,7 +152,7 @@ export function AiScheduleDialog({ eventId, arenas, competitors, eventDays, time
           setStep(ScheduleStep.Complete);
           toast({
               title: "Schedule Generated!",
-              description: `The AI has successfully created a new schedule with ${result.schedule.length} runs.`
+              description: `A new schedule has been created with ${result.schedule.length} runs.`
           });
 
       } catch (e: any) {
@@ -177,7 +182,7 @@ export function AiScheduleDialog({ eventId, arenas, competitors, eventDays, time
             
             {step === ScheduleStep.Idle && (
                 <div>
-                    <p className="mb-4">The AI will attempt to create a valid schedule by assigning all competitors to their required runs based on their specialties, distributing them across the available days and time slots.</p>
+                    <p className="mb-4">The assistant will attempt to create a valid schedule by assigning all competitors to their required runs based on their specialties, distributing them across the available days and time slots.</p>
                     <p className="text-sm text-muted-foreground">This works best as a starting point. You can always manually adjust the schedule after it's generated.</p>
                 </div>
             )}

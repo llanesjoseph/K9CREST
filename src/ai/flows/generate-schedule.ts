@@ -8,154 +8,38 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
+import { Arena, Competitor, GenerateScheduleInput, GenerateScheduleOutput } from '@/lib/schedule-types';
+import { Slot, allowlist, buildAllSlots } from '@/lib/schedule-solver';
 
-const SpecialtySchema = z.object({
-  type: z.enum(['Bite Work', 'Detection']),
-  detectionType: z.enum(['Narcotics', 'Explosives']).optional(),
-});
+export async function generateScheduleAI(
+  input: GenerateScheduleInput & { requiredRuns: any[], totalRunsNeeded: number, allSlots: Slot[], runAllowlist: any[] }
+): Promise<GenerateScheduleOutput> {
+  console.log('Starting AI schedule generation...');
+  const { output } = await prompt(input);
 
-const CompetitorSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  dogName: z.string(),
-  agency: z.string(),
-  specialties: z.array(SpecialtySchema),
-});
-
-const ArenaSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  specialtyType: z.enum([
-    'Any',
-    'Bite Work',
-    'Detection (Narcotics)',
-    'Detection (Explosives)',
-  ]),
-});
-export type Arena = z.infer<typeof ArenaSchema>;
-
-
-const GenerateScheduleInputSchema = z.object({
-  competitors: z.array(CompetitorSchema),
-  arenas: z.array(ArenaSchema),
-  eventDays: z
-    .array(z.string())
-    .describe("An array of dates for the event in 'YYYY-MM-DD' format."),
-  timeSlots: z
-    .array(z.string())
-    .describe("An array of available time slots in 'HH:mm' format."),
-});
-export type GenerateScheduleInput = z.infer<typeof GenerateScheduleInputSchema>;
-
-const ScheduledRunSchema = z.object({
-  competitorId: z.string(),
-  arenaId: z.string(),
-  startTime: z.string(),
-  endTime: z.string(),
-  date: z.string().describe("The date of the run in 'YYYY-MM-DD' format."),
-});
-
-const GenerateScheduleOutputSchema = z.object({
-  schedule: z.array(ScheduledRunSchema),
-});
-export type GenerateScheduleOutput = z.infer<
-  typeof GenerateScheduleOutputSchema
->;
-
-// ##################################################################
-// # 1) Precompute all valid slots and create allowlists per run
-// ##################################################################
-
-type Slot = {
-  slotId: string;        // e.g. "2024-09-28|09:00|arena_X"
-  date: string;          // "YYYY-MM-DD"
-  startTime: string;     // "HH:mm"
-  endTime: string;       // start + 30 min
-  arenaId: string;
-  arenaSpecialty: Arena['specialtyType']; // "Any" | "Bite Work" | "Detection (Narcotics)" | "Detection (Explosives)"
-};
-
-function add30(start: string) {
-  const [h, m] = start.split(':').map(Number);
-  const d = new Date(2000, 0, 1, h, m + 30);
-  const hh = String(d.getHours()).padStart(2, '0');
-  const mm = String(d.getMinutes()).padStart(2, '0');
-  return `${hh}:${mm}`;
-}
-
-function buildAllSlots(arenas: Arena[], days: string[], timeSlots: string[]): Slot[] {
-  const out: Slot[] = [];
-  for (const date of days) {
-    for (const t of timeSlots) {
-      for (const a of arenas) {
-        const end = add30(t);
-        out.push({
-          slotId: `${date}|${t}|${a.id}`,
-          date, startTime: t, endTime: end,
-          arenaId: a.id,
-          arenaSpecialty: a.specialtyType,
-        });
-      }
-    }
+  if (!output) {
+      console.error("AI prompt failed to return an output.");
+      return { schedule: [] };
   }
-  return out;
-}
-
-function createRequiredRunsList(competitors: any[]) {
-  const runs: any[] = [];
   
-  competitors.forEach(competitor => {
-    if (competitor.specialties.length === 0) {
-        runs.push({
-            competitorId: competitor.id,
-            competitorName: competitor.name,
-            specialtyType: 'Any',
-        });
-    } else {
-        competitor.specialties.forEach((specialty: any) => {
-          let specialtyType = specialty.type;
-          if (specialty.type === 'Detection' && specialty.detectionType) {
-              specialtyType = `Detection (${specialty.detectionType})`;
-          }
-          runs.push({
-            competitorId: competitor.id,
-            competitorName: competitor.name,
-            specialtyType: specialtyType,
-          });
-        });
-    }
-  });
-  
-  return runs;
+  const finalCount = output?.schedule?.length ?? 0;
+  const neededCount = input.totalRunsNeeded;
+  console.log(`AI Scheduled ${finalCount}/${neededCount} runs.`);
+
+  if (finalCount < neededCount) {
+    console.warn("AI WARNING: Final schedule is incomplete.");
+  }
+
+  return output;
 }
 
-function compat(runSpec: string, arenaSpec: Slot['arenaSpecialty']) {
-  if (runSpec === 'Any') return arenaSpec === 'Any';
-  if (runSpec === 'Bite Work') return arenaSpec === 'Bite Work' || arenaSpec === 'Any';
-  if (runSpec === 'Detection (Narcotics)') return arenaSpec === 'Detection (Narcotics)' || arenaSpec === 'Any';
-  if (runSpec === 'Detection (Explosives)') return arenaSpec === 'Detection (Explosives)' || arenaSpec === 'Any';
-  return false;
-}
-
-function allowedSlotsForRuns(requiredRuns: any[], allSlots: Slot[]) {
-  return requiredRuns.map(r => ({
-    runKey: `${r.competitorId}|${r.specialtyType}`,
-    competitorId: r.competitorId,
-    specialtyType: r.specialtyType,
-    allowedSlotIds: allSlots.filter(s => compat(r.specialtyType, s.arenaSpecialty)).map(s => s.slotId),
-  }));
-}
-
-// ##################################################################
-// # 2) Stricter prompt requiring choices from allowlist
-// ##################################################################
 
 const prompt = ai.definePrompt({
   name: 'generateSchedulePrompt',
   input: { 
     schema: z.object({
-      competitors: z.array(CompetitorSchema),
-      arenas: z.array(ArenaSchema),
+      competitors: z.array(z.any()),
+      arenas: z.array(z.any()),
       eventDays: z.array(z.string()),
       timeSlots: z.array(z.string()),
       requiredRuns: z.array(z.any()),
@@ -169,7 +53,7 @@ const prompt = ai.definePrompt({
       })),
     })
   },
-  output: { schema: GenerateScheduleOutputSchema },
+  output: { schema: z.object({ schedule: z.array(z.any()) }) },
   prompt: `
 You are an expert event scheduler. Your goal is to assign every required run to a unique slot from its own list of allowed slots.
 
@@ -198,183 +82,79 @@ SELECTION PROCEDURE:
 });
 
 
-// ##################################################################
-// # 3) Validate and Repair Loop
-// ##################################################################
-
-function validateAndDiff(out: GenerateScheduleOutput, ctx: {
-  totalRunsNeeded: number,
-  allSlots: Slot[],
-  runAllowlist: { competitorId: string; specialtyType: string; allowedSlotIds: string[], runKey: string }[]
-}) {
-  const slotById = new Map(ctx.allSlots.map(s => [s.slotId, s]));
-  const allowedByRun = new Map(
-    ctx.runAllowlist.map(r => [r.runKey, new Set(r.allowedSlotIds)])
-  );
-
-  const errors: string[] = [];
-  const usedSlots = new Set<string>();
-  const compAtTime = new Set<string>();
-  const placedRunKeys = new Set<string>();
-
-  for (const r of out.schedule) {
-    const slotId = `${r.date}|${r.startTime}|${r.arenaId}`;
-    const slot = slotById.get(slotId);
-    if (!slot) { errors.push(`Invalid slot ${slotId}`); continue; }
-
-    const runKeysForCompetitor = ctx.runAllowlist
-        .filter(x => x.competitorId === r.competitorId)
-        .map(x => x.runKey);
-
-    let assignedRunKey: string | null = null;
-
-    for (const key of runKeysForCompetitor) {
-        if (placedRunKeys.has(key)) continue; // Already assigned this run for this competitor
-        
-        const allowedSlotsForThisRun = allowedByRun.get(key);
-        if (allowedSlotsForThisRun && allowedSlotsForThisRun.has(slotId)) {
-            assignedRunKey = key;
-            break;
-        }
-    }
-
-    if (!assignedRunKey) {
-        errors.push(`Slot ${slotId} is not allowed for any unplaced run of competitor ${r.competitorId}`);
-        continue;
-    }
-
-    if (usedSlots.has(slotId)) errors.push(`Duplicate slot ${slotId}`);
-    usedSlots.add(slotId);
-
-    const tKey = `${r.competitorId}|${r.date}|${r.startTime}`;
-    if (compAtTime.has(tKey)) errors.push(`Competitor conflict ${tKey}`);
-    compAtTime.add(tKey);
+export function repairIfNeeded(
+    out: GenerateScheduleOutput,
+    ctx: { allSlots: Slot[]; runAllowlist: any[]; totalRunsNeeded: number }
+): GenerateScheduleOutput {
+    // For now, this is a placeholder. A full repair loop could be added back if needed,
+    // but the deterministic solver should handle most cases.
+    // The main goal here is to validate the output from the AI.
     
-    placedRunKeys.add(assignedRunKey);
-  }
-
-  const expected = ctx.runAllowlist.length;
-  if (out.schedule.length !== expected) {
-    errors.push(`Count mismatch, expected ${expected}, got ${out.schedule.length}`);
-  }
-
-  const unplaced = ctx.runAllowlist
-    .filter(r => !placedRunKeys.has(r.runKey))
-    .map(r => ({ runKey: r.runKey, competitorId: r.competitorId, specialtyType: r.specialtyType, allowedSlotIds: r.allowedSlotIds }));
-
-  const openSlots = ctx.allSlots.filter(s => !usedSlots.has(s.slotId)).map(s => ({
-    slotId: s.slotId, date: s.date, startTime: s.startTime, endTime: s.endTime, arenaId: s.arenaId
-  }));
-
-  return { errors, unplaced, openSlots };
-}
-
-
-async function generateScheduleFlow(input: any) {
-  console.log('Starting schedule generation...');
-  const { output } = await prompt(input);
-
-  let result = output!;
-  let attempts = 1;
-
-  while (attempts <= 3) {
-    console.log(`Validation attempt #${attempts}`);
-    const diff = validateAndDiff(result, input);
-    
-    if (diff.errors.length === 0 && diff.unplaced.length === 0) {
-      console.log("Validation successful. No errors found.");
-      break;
-    }
-    
-    console.warn(`Validation failed with ${diff.errors.length} errors and ${diff.unplaced.length} unplaced runs.`);
-    console.warn("Errors:", diff.errors);
-
-    const repairPrompt = ai.definePrompt({
-      name: 'repairSchedule',
-      input: { schema: z.object({
-        currentSchedule: GenerateScheduleOutputSchema,
-        unplacedRuns: z.array(z.any()),
-        openSlots: z.array(z.any()),
-        allSlots: z.array(z.any()),
-        totalRunsNeeded: z.number()
-      })},
-      output: { schema: GenerateScheduleOutputSchema },
-      prompt: `
-You are a schedule repair assistant. Your task is to fix an invalid schedule by adding the 'unplacedRuns' into the 'openSlots'.
-
-RULES:
-- You must add all the 'unplacedRuns' to the schedule.
-- For each unplaced run, you can ONLY use a slotId from its 'allowedSlotIds' list.
-- The chosen slotId must exist in the 'openSlots' list.
-- Do not remove or change any of the valid runs in the 'currentSchedule'.
-- The final schedule must have exactly {{totalRunsNeeded}} items.
-
-DATA:
-- Current valid schedule items (DO NOT CHANGE THESE): {{{json currentSchedule.schedule}}}
-- Runs that still need to be scheduled: {{{json unplacedRuns}}}
-- Available empty slots to place them in: {{{json openSlots}}}
-- All Slots (for lookup): {{{json allSlots}}}
-
-Return only the complete, fixed JSON schedule object.
-`
-    });
-
-    // We filter the schedule to only include valid runs, giving the AI a clean slate to add to.
-    const validRuns = result.schedule.filter(run => {
-        const slotId = `${run.date}|${run.startTime}|${run.arenaId}`;
-        return !diff.errors.some(e => e.includes(slotId));
-    });
-
-
-    const { output: repaired } = await repairPrompt({
-      currentSchedule: { schedule: validRuns },
-      unplacedRuns: diff.unplaced,
-      openSlots: diff.openSlots,
-      allSlots: input.allSlots,
-      totalRunsNeeded: input.totalRunsNeeded
-    });
-    
-    if (!repaired) {
-        console.error("Repair prompt failed to return an output.");
-        // If repair fails, we should stop and return the best we have, even if broken.
-        // Or we could throw an error. Let's return the broken one for now.
-        break; 
-    }
-
-    result = repaired;
-    attempts += 1;
-  }
+    const slotById = new Map(ctx.allSlots.map(s => [s.slotId, s]));
+    const allowedByRun = new Map(
+      ctx.runAllowlist.map(r => [r.runKey, new Set(r.allowedSlotIds)])
+    );
   
-  const finalCount = result?.schedule?.length ?? 0;
-  const neededCount = input.totalRunsNeeded;
-  console.log(`Schedule generation finished. Scheduled ${finalCount}/${neededCount} runs.`);
-
-  if (finalCount < neededCount) {
-    console.error("CRITICAL: Final schedule is incomplete after repair attempts.");
-  }
-
-  return result || { schedule: [] };
-}
-
-
-// Main exported function
-export async function generateSchedule(
-  input: GenerateScheduleInput
-): Promise<GenerateScheduleOutput> {
-  const requiredRuns = createRequiredRunsList(input.competitors);
-  const totalRunsNeeded = requiredRuns.length;
-  const allSlots = buildAllSlots(input.arenas, input.eventDays, input.timeSlots);
-  const runAllowlist = allowedSlotsForRuns(requiredRuns, allSlots);
-
-  const enhancedInput = {
-    ...input,
-    requiredRuns,
-    totalRunsNeeded,
-    allSlots,
-    runAllowlist,
-  };
+    const errors: string[] = [];
+    const usedSlots = new Set<string>();
+    const compAtTime = new Set<string>();
+    const placedRunKeys = new Set<string>();
+    const validSchedule: any[] = [];
   
-  return generateScheduleFlow(enhancedInput);
-}
+    for (const r of out.schedule) {
+      let runErrors = 0;
+      const slotId = `${r.date}|${r.startTime}|${r.arenaId}`;
+      const slot = slotById.get(slotId);
+      if (!slot) {
+          errors.push(`Invalid slot ${slotId}`);
+          runErrors++;
+      }
+  
+      const runKeysForCompetitor = ctx.runAllowlist
+          .filter(x => x.competitorId === r.competitorId)
+          .map(x => x.runKey);
+  
+      let assignedRunKey: string | null = null;
+      for (const key of runKeysForCompetitor) {
+          if (placedRunKeys.has(key)) continue;
+          const allowedSlotsForThisRun = allowedByRun.get(key);
+          if (allowedSlotsForThisRun && allowedSlotsForThisRun.has(slotId)) {
+              assignedRunKey = key;
+              break;
+          }
+      }
+  
+      if (!assignedRunKey) {
+          errors.push(`Slot ${slotId} is not allowed for any unplaced run of competitor ${r.competitorId}`);
+          runErrors++;
+      }
+  
+      if (usedSlots.has(slotId)) {
+          errors.push(`Duplicate slot ${slotId}`);
+          runErrors++;
+      }
+      
+      const tKey = `${r.competitorId}|${r.date}|${r.startTime}`;
+      if (compAtTime.has(tKey)) {
+          errors.push(`Competitor conflict ${tKey}`);
+          runErrors++;
+      }
+      
+      if(runErrors === 0 && assignedRunKey) {
+          usedSlots.add(slotId);
+          compAtTime.add(tKey);
+          placedRunKeys.add(assignedRunKey);
+          validSchedule.push(r);
+      }
+    }
+  
+    if(errors.length > 0) {
+        console.warn("AI schedule had validation errors:", errors);
+    }
 
-    
+    if (validSchedule.length < ctx.totalRunsNeeded) {
+        console.warn(`Validation resulted in an incomplete schedule. Only ${validSchedule.length}/${ctx.totalRunsNeeded} runs were valid.`);
+    }
+  
+    return { schedule: validSchedule };
+}
