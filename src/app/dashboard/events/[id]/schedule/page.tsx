@@ -95,9 +95,13 @@ interface Rubric {
 
 type SchedulingStatus = 'unscheduled' | 'partiallyScheduled' | 'fullyScheduled';
 
+interface DisplayRun extends ScheduledEvent {
+    arenaName: string;
+}
+
 interface DisplayCompetitor extends Competitor {
     status: SchedulingStatus;
-    runs: ScheduledEvent[];
+    runs: DisplayRun[];
 }
 
 const SortableCompetitorItem = ({ competitor, isDraggable, onRunClick }: { competitor: DisplayCompetitor, isDraggable: boolean, onRunClick: (run: ScheduledEvent) => void }) => {
@@ -176,8 +180,9 @@ const CompetitorItem = ({ competitor, isDraggable, dragHandle, onRunClick }: { c
                                 className="flex items-center gap-2 text-xs text-muted-foreground hover:text-primary transition-colors w-full text-left rounded-sm p-1 -ml-1"
                             >
                                 <Clock className="h-3 w-3" />
-                                 <span>
+                                 <span className="truncate">
                                     {format(parse(run.date, 'yyyy-MM-dd', new Date()), 'E, MMM dd')} @ {run.startTime}
+                                    <span className="font-medium text-primary/80"> in {run.arenaName}</span>
                                 </span>
                             </button>
                         ))}
@@ -402,16 +407,24 @@ export default function SchedulePage() {
                 } else {
                     status = 'partiallyScheduled';
                 }
+
+                const runsWithArenaNames = (scheduledRunsByCompetitor[comp.id] || []).map(run => {
+                    const arena = arenas.find(a => a.id === run.arenaId);
+                    return {
+                        ...run,
+                        arenaName: arena?.name || 'Unknown Arena'
+                    };
+                }).sort((a,b) => 
+                    new Date(a.date.replace(/-/g, '/')).getTime() - new Date(b.date.replace(/-/g, '/')).getTime() || a.startTime.localeCompare(b.startTime)
+                );
                 
                 return {
                     ...comp,
                     status,
-                    runs: (scheduledRunsByCompetitor[comp.id] || []).sort((a,b) => 
-                        new Date(a.date.replace(/-/g, '/')).getTime() - new Date(b.date.replace(/-/g, '/')).getTime() || a.startTime.localeCompare(b.startTime)
-                    ),
+                    runs: runsWithArenaNames,
                 }
             });
-    }, [competitors, schedule]);
+    }, [competitors, schedule, arenas]);
 
     const [sortedCompetitors, setSortedCompetitors] = useState<DisplayCompetitor[]>([]);
 
@@ -1078,3 +1091,5 @@ export default function SchedulePage() {
         </TooltipProvider>
     );
 }
+
+    
