@@ -48,6 +48,8 @@ export default function JudgingPage() {
   const [eventData, setEventData] = useState<any>(null);
   const [runData, setRunData] = useState<any>(null);
   const [competitorData, setCompetitorData] = useState<any>(null);
+  const [arenaData, setArenaData] = useState<any>(null);
+  const [rubricData, setRubricData] = useState<any>(null);
   const [eventId, setEventId] = useState<string | null>(null);
 
   const form = useForm<JudgingFormValues>({
@@ -75,26 +77,46 @@ export default function JudgingPage() {
             throw new Error("Could not determine the event for this run.");
         }
         
-        setEventId(eventRef.id);
+        const currentEventId = eventRef.id;
+        setEventId(currentEventId);
         
         const eventSnap = await getDoc(eventRef);
-
         if (!eventSnap.exists()) throw new Error("Event not found.");
-        
         const event = eventSnap.data();
+
+        // Fetch all data in parallel
+        const [competitorSnap, arenaSnap] = await Promise.all([
+             run.competitorId ? getDoc(doc(db, `events/${currentEventId}/competitors`, run.competitorId)) : null,
+             run.arenaId ? getDoc(doc(db, `events/${currentEventId}/arenas`, run.arenaId)) : null,
+        ]);
+        
         setEventData(event);
         setRunData(run);
         
-        if(run.competitorId) {
-            const competitorRef = doc(db, `events/${eventRef.id}/competitors`, run.competitorId);
-            const competitorSnap = await getDoc(competitorRef);
-            if(competitorSnap.exists()) {
-                setCompetitorData(competitorSnap.data());
+        if(competitorSnap?.exists()) {
+             setCompetitorData(competitorSnap.data());
+        }
+
+        let finalRubric = null;
+        if(arenaSnap?.exists()) {
+            const arena = arenaSnap.data();
+            setArenaData(arena);
+            if (arena.rubricId) {
+                const rubricRef = doc(db, 'rubrics', arena.rubricId);
+                const rubricSnap = await getDoc(rubricRef);
+                if (rubricSnap.exists()) {
+                    finalRubric = rubricSnap.data();
+                    setRubricData(finalRubric);
+                }
             }
         }
 
+        if (!finalRubric) {
+            console.warn("No rubric assigned to this arena.");
+        }
+        
         // Initialize form with rubric structure and existing scores
-        const initialScores = (event.rubric?.phases || []).map((phase: any) => ({
+        const initialScores = (finalRubric?.phases || []).map((phase: any) => ({
           phaseName: phase.name,
           exercises: phase.exercises.map((ex: any) => {
             const existingPhase = run.scores?.find((s:any) => s.phaseName === phase.name);
@@ -204,17 +226,20 @@ export default function JudgingPage() {
           <CardTitle>Run Details</CardTitle>
           <CardDescription>
             Scoring for <span className="font-bold">{competitorData?.name || '...'}</span> with{" "}
-            <span className="font-bold">{competitorData?.dogName || '...'}</span>.
+            <span className="font-bold">{competitorData?.dogName || '...'}</span> in Arena: <span className="font-bold">{arenaData?.name || '...'}</span>
           </CardDescription>
         </CardHeader>
       </Card>
 
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        {!eventData?.rubric?.phases || eventData.rubric.phases.length === 0 ? (
+        {!rubricData?.phases || rubricData.phases.length === 0 ? (
           <Card>
-            <CardContent className="pt-6">
-              <p className="text-center text-muted-foreground">
-                The scoring rubric for this event has not been configured yet.
+            <CardHeader>
+                <CardTitle>No Rubric Assigned</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-center text-muted-foreground py-8">
+                The scoring rubric for this arena has not been configured yet.
               </p>
             </CardContent>
           </Card>
@@ -294,7 +319,7 @@ export default function JudgingPage() {
                 <Textarea placeholder="Add any overall comments about the run..." {...form.register('notes')} />
             </CardContent>
             <CardFooter className="flex justify-end">
-                <Button type="submit" disabled={isSubmitting}>
+                <Button type="submit" disabled={isSubmitting || !rubricData}>
                     {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Submit Scores
                 </Button>

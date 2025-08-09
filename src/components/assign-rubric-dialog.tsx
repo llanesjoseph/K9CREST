@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from 'react';
@@ -5,7 +6,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Loader2 } from 'lucide-react';
-import { collection, addDoc, serverTimestamp, doc, updateDoc, arrayUnion } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import {
   Dialog,
   DialogContent,
@@ -28,12 +29,11 @@ const rubricSchema = z.object({
 type FormValues = z.infer<typeof rubricSchema>;
 
 interface AssignRubricDialogProps {
-    eventId: string;
     children: React.ReactNode;
     onRubricCreated: (id: string) => void;
 }
 
-export function AssignRubricDialog({ eventId, children, onRubricCreated }: AssignRubricDialogProps) {
+export function AssignRubricDialog({ children, onRubricCreated }: AssignRubricDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
@@ -44,28 +44,20 @@ export function AssignRubricDialog({ eventId, children, onRubricCreated }: Assig
   });
 
   const onSubmit = async (data: FormValues) => {
-    if (!eventId) {
-        toast({ variant: "destructive", title: "Error", description: "Event ID is missing." });
-        return;
-    }
     setIsSubmitting(true);
     try {
         const newRubric = {
             ...data,
+            createdBy: 'admin', // placeholder
             createdAt: serverTimestamp(),
             phases: [] // Initialize with empty phases
         };
         
-        const eventRef = doc(db, 'events', eventId);
-        const docRef = await addDoc(collection(db, `events/${eventId}/rubrics`), newRubric);
-        
-        await updateDoc(eventRef, {
-            rubrics: arrayUnion({ id: docRef.id, name: data.name })
-        });
+        const docRef = await addDoc(collection(db, `rubrics`), newRubric);
         
         toast({
             title: 'Rubric Created',
-            description: `${data.name} has been successfully created.`,
+            description: `${data.name} has been successfully created and added to the global library.`,
         });
         
         onRubricCreated(docRef.id);
@@ -88,9 +80,9 @@ export function AssignRubricDialog({ eventId, children, onRubricCreated }: Assig
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Create New Rubric</DialogTitle>
+          <DialogTitle>Create New Global Rubric</DialogTitle>
           <DialogDescription>
-            Give this new scoring rubric a name. You can add phases and exercises later.
+            This rubric will be saved to your library and can be reused across multiple events.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">

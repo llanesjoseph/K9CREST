@@ -61,6 +61,7 @@ export function AppSidebar() {
     if (!href) return false;
     // Special case for create page to highlight events tab
     if (pathname.startsWith('/dashboard/events/create') && href === '/dashboard/events') return true;
+    if (pathname.startsWith('/dashboard/rubrics') && href === '/dashboard/rubrics') return true;
     
     // For event specific links, we need exact match, otherwise they all become active
     if(href.includes('[id]')) {
@@ -78,7 +79,7 @@ export function AppSidebar() {
       { href: "/dashboard", label: "Dashboard", icon: LayoutGrid, roles: ['admin', 'judge', 'competitor', 'spectator'] },
       { href: "/dashboard/events", label: "Events", icon: Calendar, roles: ['admin', 'judge', 'competitor', 'spectator'] },
       { href: `/dashboard/events/${eventId}/leaderboard`, label: "Leaderboard", icon: Trophy, eventSpecific: true, roles: ['admin', 'judge', 'competitor', 'spectator'] },
-      { href: `/dashboard/events/${eventId}/rubric`, label: "Configure Rubric", icon: ListChecks, eventSpecific: true, roles: ['admin', 'judge'] },
+      { href: "/dashboard/rubrics", label: "Manage Rubrics", icon: ListChecks, roles: ['admin', 'judge'] },
       { href: `/dashboard/judging/1`, label: "Judging", icon: Gavel, eventSpecific: true, roles: ['judge'] },
       { href: "/dashboard/users", label: "Users", icon: Users, roles: ['admin'] },
       { href: "/dashboard/settings", label: "Settings", icon: Settings, roles: ['admin', 'judge', 'competitor', 'spectator'] },

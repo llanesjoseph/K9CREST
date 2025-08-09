@@ -68,6 +68,7 @@ export interface Arena {
     name: string;
     specialtyType: ArenaSpecialty;
     rubricId?: string;
+    rubricName?: string;
 }
 
 export interface ScheduledEvent {
@@ -83,9 +84,13 @@ interface EventDetails {
     name: string;
     startDate: Timestamp;
     endDate?: Timestamp;
-    rubrics?: { id: string; name: string }[];
     scheduleBlockDuration?: number;
     lunchBreak?: { start: string; end: string };
+}
+
+interface Rubric {
+    id: string;
+    name: string;
 }
 
 type SchedulingStatus = 'unscheduled' | 'partiallyScheduled' | 'fullyScheduled';
@@ -280,7 +285,8 @@ export default function SchedulePage() {
     const [arenas, setArenas] = useState<Arena[]>([]);
     const [schedule, setSchedule] = useState<ScheduledEvent[]>([]);
     const [eventDetails, setEventDetails] = useState<EventDetails | null>(null);
-    const [loading, setLoading] = useState({ event: true, arenas: true, schedule: true, competitors: true });
+    const [rubrics, setRubrics] = useState<Rubric[]>([]);
+    const [loading, setLoading] = useState({ event: true, arenas: true, schedule: true, competitors: true, rubrics: true });
     
     const [eventDays, setEventDays] = useState<Date[]>([]);
     
@@ -300,7 +306,7 @@ export default function SchedulePage() {
     useEffect(() => {
         if (!eventId || authLoading) return;
 
-        setLoading(prev => ({ event: true, arenas: true, schedule: true, competitors: true }));
+        setLoading(prev => ({ ...prev, event: true, arenas: true, schedule: true, competitors: true, rubrics: true }));
 
         const eventRef = doc(db, 'events', eventId);
         const eventUnsub = onSnapshot(eventRef, (docSnap) => {
@@ -317,6 +323,15 @@ export default function SchedulePage() {
         }, (error) => {
             toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch event details.' });
             setLoading(prev => ({ ...prev, event: false }));
+        });
+
+        const rubricsUnsub = onSnapshot(collection(db, 'rubrics'), (snapshot) => {
+            const rubricsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Rubric));
+            setRubrics(rubricsData);
+            setLoading(prev => ({ ...prev, rubrics: false }));
+        }, (error) => {
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch rubrics.' });
+            setLoading(prev => ({ ...prev, rubrics: false }));
         });
 
         // These listeners are for all authenticated users
@@ -355,6 +370,7 @@ export default function SchedulePage() {
             arenasUnsub();
             scheduleUnsub();
             competitorsUnsub();
+            rubricsUnsub();
         };
     }, [eventId, toast, authLoading]);
     
@@ -409,10 +425,12 @@ export default function SchedulePage() {
 
         const newArenaRef = doc(collection(db, `events/${eventId}/arenas`));
         try {
+            const selectedRubric = rubrics.find(r => r.id === selectedRubricId);
             await setDoc(newArenaRef, { 
                 name: newArenaName.trim(), 
                 specialtyType: newArenaSpecialty,
-                rubricId: selectedRubricId === 'none' ? null : selectedRubricId,
+                rubricId: selectedRubric?.id || null,
+                rubricName: selectedRubric?.name || null,
              });
             setNewArenaName('');
             setNewArenaSpecialty('Any');
@@ -761,7 +779,7 @@ export default function SchedulePage() {
 
     const activeCompetitor = useMemo(() => sortedCompetitors.find(c => c.id === activeId), [activeId, sortedCompetitors]);
 
-    const isFullyLoading = loading.arenas || loading.schedule || loading.competitors || loading.event || authLoading;
+    const isFullyLoading = loading.arenas || loading.schedule || loading.competitors || loading.event || authLoading || loading.rubrics;
 
     // --- Render ---
     return (
@@ -854,11 +872,11 @@ export default function SchedulePage() {
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="none">No Rubric</SelectItem>
-                                            {eventDetails?.rubrics && eventDetails.rubrics.map((rubric: any) => (
+                                            {rubrics.map((rubric) => (
                                                 <SelectItem key={rubric.id} value={rubric.id}>{rubric.name}</SelectItem>
                                             ))}
                                             <Separator />
-                                            <AssignRubricDialog eventId={eventId} onRubricCreated={(id) => setSelectedRubricId(id)}>
+                                            <AssignRubricDialog onRubricCreated={(id) => setSelectedRubricId(id)}>
                                                  <Button variant="ghost" className="w-full justify-start pl-2 font-normal">
                                                     <PlusCircle className="mr-2 h-4 w-4" /> Create New Rubric
                                                  </Button>
@@ -968,7 +986,6 @@ export default function SchedulePage() {
 
                                                         {/* Arena Rows */}
                                                         {arenas.map(arena => {
-                                                            const rubric = eventDetails?.rubrics?.find(r => r.id === arena.rubricId);
                                                             return (
                                                                 <div key={arena.id} className="grid grid-flow-col auto-cols-fr gap-2 items-center border-b py-2">
                                                                     <div className="w-48 font-medium text-card-foreground flex items-center pr-2">
@@ -977,8 +994,8 @@ export default function SchedulePage() {
                                                                             <span className="text-xs text-muted-foreground block">({arena.specialtyType})</span>
                                                                              <div className="text-xs text-muted-foreground/80 flex items-center gap-1 mt-1">
                                                                                 <ListChecks className="h-3 w-3" /> 
-                                                                                <span>{rubric?.name || 'No Rubric'}</span>
-                                                                                 {isAdmin && <EditArenaDialog eventId={eventId} arena={arena} rubrics={eventDetails?.rubrics || []} />}
+                                                                                <span>{arena.rubricName || 'No Rubric'}</span>
+                                                                                 {isAdmin && <EditArenaDialog eventId={eventId} arena={arena} rubrics={rubrics} />}
                                                                             </div>
                                                                         </div>
                                                                         {isAdmin && (
