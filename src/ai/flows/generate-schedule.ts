@@ -89,9 +89,9 @@ You must assign every required run to exactly one slotId from its own allowedSlo
 
 RULES:
 1) Use ONLY slotIds listed for that run in 'runAllowlist'. This is the most important rule.
-2. A slotId from 'allSlots' can be used at most once across the entire schedule.
-3. A competitor cannot be scheduled in two different runs that happen at the same date and startTime.
-4. Your final 'schedule' array MUST contain exactly {{totalRunsNeeded}} items.
+2) A slotId from 'allSlots' can be used at most once across the entire schedule.
+3) A competitor cannot be scheduled in two different runs that happen at the same date and startTime.
+4) Your final 'schedule' array MUST contain exactly {{totalRunsNeeded}} items.
 
 OUTPUT:
 Return ONLY the final JSON object. Do not include any other text.
@@ -121,10 +121,6 @@ export async function repairIfNeeded(
     out: GenerateScheduleOutput,
     ctx: { allSlots: Slot[]; runAllowlist: any[]; totalRunsNeeded: number }
 ): Promise<GenerateScheduleOutput> {
-    // For now, this is a placeholder. A full repair loop could be added back if needed,
-    // but the deterministic solver should handle most cases.
-    // The main goal here is to validate the output from the AI.
-    
     const slotById = new Map(ctx.allSlots.map(s => [s.slotId, s]));
     const allowedByRun = new Map(
       ctx.runAllowlist.map(r => [r.runKey, new Set(r.allowedSlotIds)])

@@ -61,7 +61,7 @@ export async function generateScheduleService(
     runAllowlist,
   });
 
-  const fixed = repairIfNeeded(aiResult, {
+  const fixed = await repairIfNeeded(aiResult, {
     allSlots: all,
     runAllowlist,
     totalRunsNeeded: requiredRuns.length,

@@ -1,3 +1,4 @@
+
 // app/api/schedule/route.ts
 export const runtime = 'nodejs';
 export const maxDuration = 120;

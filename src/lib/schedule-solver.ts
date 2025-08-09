@@ -53,7 +53,7 @@ export function allowlist(
   requiredRuns: { competitorId: string; specialtyType: Specialty }[],
   all: Slot[]
 ) {
-  return requiredRuns.map((r) => ({
+  return requiredRuns.map(r => ({
     runKey: `${r.competitorId}|${r.specialtyType}|${Math.random()}`, // Add random to distinguish same competitor/specialty
     competitorId: r.competitorId,
     specialtyType: r.specialtyType,
