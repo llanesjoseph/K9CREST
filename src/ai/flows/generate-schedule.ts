@@ -15,7 +15,7 @@ export async function generateScheduleAI(
   input: GenerateScheduleInput & { requiredRuns: any[], totalRunsNeeded: number, allSlots: Slot[], runAllowlist: any[] }
 ): Promise<GenerateScheduleOutput> {
   console.log('Starting AI schedule generation...');
-  const { output } = await prompt(input);
+  const { output } = await generateScheduleFlow(input);
 
   if (!output) {
       console.error("AI prompt failed to return an output.");
@@ -33,11 +33,7 @@ export async function generateScheduleAI(
   return output;
 }
 
-
-const prompt = ai.definePrompt({
-  name: 'generateSchedulePrompt',
-  input: { 
-    schema: z.object({
+const scheduleInputSchema = z.object({
       competitors: z.array(z.any()),
       arenas: z.array(z.any()),
       eventDays: z.array(z.string()),
@@ -51,7 +47,12 @@ const prompt = ai.definePrompt({
         specialtyType: z.string(),
         allowedSlotIds: z.array(z.string()),
       })),
-    })
+    });
+
+const prompt = ai.definePrompt({
+  name: 'generateSchedulePrompt',
+  input: { 
+    schema: scheduleInputSchema
   },
   output: { schema: z.object({ schedule: z.array(z.any()) }) },
   prompt: `
@@ -80,6 +81,18 @@ SELECTION PROCEDURE:
 - Do not invent slots. Do not deviate from 'allowedSlotIds'.
 `
 });
+
+const generateScheduleFlow = ai.defineFlow(
+    {
+        name: 'generateScheduleFlow',
+        inputSchema: scheduleInputSchema,
+        outputSchema: z.object({ schedule: z.array(z.any()) }),
+    },
+    async (input) => {
+        const { output } = await prompt(input);
+        return output!;
+    }
+);
 
 
 export async function repairIfNeeded(
