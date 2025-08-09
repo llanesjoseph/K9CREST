@@ -8,8 +8,30 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
-import { Arena, Competitor, GenerateScheduleInput, GenerateScheduleOutput } from '@/lib/schedule-types';
-import { Slot, allowlist, buildAllSlots } from '@/lib/schedule-solver';
+import { Arena, Competitor } from '@/lib/schedule-types';
+import { Slot } from '@/lib/schedule-solver';
+
+const OutputSchema = z.object({
+  schedule: z.array(
+    z.object({
+      competitorId: z.string(),
+      arenaId: z.string(),
+      startTime: z.string().regex(/^\d{2}:\d{2}$/, "HH:mm"),
+      endTime: z.string().regex(/^\d{2}:\d{2}$/, "HH:mm"),
+      date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "YYYY-MM-DD"),
+    }).strict()
+  )
+}).strict();
+
+export type GenerateScheduleOutput = z.infer<typeof OutputSchema>;
+
+export interface GenerateScheduleInput {
+  competitors: Competitor[];
+  arenas: Arena[];
+  eventDays: string[];
+  timeSlots: string[];
+}
+
 
 export async function generateScheduleAI(
   input: GenerateScheduleInput & { requiredRuns: any[], totalRunsNeeded: number, allSlots: Slot[], runAllowlist: any[] }
@@ -54,7 +76,7 @@ const prompt = ai.definePrompt({
   input: { 
     schema: scheduleInputSchema
   },
-  output: { schema: z.object({ schedule: z.array(z.any()) }) },
+  output: { schema: OutputSchema },
   prompt: `
 You are an expert event scheduler. Your goal is to assign every required run to a unique slot from its own list of allowed slots.
 
@@ -86,7 +108,7 @@ const generateScheduleFlow = ai.defineFlow(
     {
         name: 'generateScheduleFlow',
         inputSchema: scheduleInputSchema,
-        outputSchema: z.object({ schedule: z.array(z.any()) }),
+        outputSchema: OutputSchema,
     },
     async (input) => {
         const { output } = await prompt(input);
