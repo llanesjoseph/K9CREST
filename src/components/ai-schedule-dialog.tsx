@@ -166,12 +166,12 @@ export function AiScheduleDialog({ eventId, arenas, competitors, eventDays, time
 
   return (
         <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-            <DialogTrigger asChild>
-                <Button disabled={!isReady}>
-                    <Wand2 className="mr-2 h-4 w-4" />
-                    AI Assistant
-                </Button>
-            </DialogTrigger>
+          <DialogTrigger asChild>
+              <Button disabled={!isReady}>
+                  <Wand2 className="mr-2 h-4 w-4" />
+                  AI Assistant
+              </Button>
+          </DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>AI Scheduling Assistant</DialogTitle>
