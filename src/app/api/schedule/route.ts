@@ -2,7 +2,8 @@ export const runtime = "nodejs";
 export const maxDuration = 120;
 
 import { NextResponse } from "next/server";
-import { solveSchedule } from "@/lib/schedule-solver";
+import { solveSchedule, validateNoSubtypeCrossing } from "@/lib/schedule-solver";
+import { GenerateScheduleInput } from "@/lib/schedule-types";
 
 function json(data: any, status = 200) {
   return new NextResponse(JSON.stringify(data), {
@@ -22,7 +23,8 @@ export async function GET() { return json({ ok: true, ts: Date.now() }); }
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const result = solveSchedule(body);   // no network, no quotas
+    const result = solveSchedule(body, { detectionSubtypesStrict: true });
+    validateNoSubtypeCrossing(result.schedule, body as GenerateScheduleInput);
     return json(result, 200);
   } catch (e: any) {
     console.error("schedule error", e);

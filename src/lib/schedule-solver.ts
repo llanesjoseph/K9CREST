@@ -1,3 +1,4 @@
+
 import {
   InputSchema,
   OutputSchema,
@@ -17,7 +18,7 @@ type SolveOptions = {
 const DEFAULTS: Required<SolveOptions> = {
   runMinutes: 30,
   slotMinutes: 15,
-  detectionSubtypesStrict: false, // your request: if Narcotics arena doesn't exist, don't force it
+  detectionSubtypesStrict: true, // your request: if Narcotics arena doesn't exist, don't force it
   anyRunsFlexible: true,          // allow Any onto any arena so one-per-competitor works
 };
 
@@ -103,7 +104,15 @@ function allRequestedRuns(input: GenerateScheduleInput): RunReq[] {
       }
     }
   }
-  return runs;
+  
+  const arenaTypes = new Set(input.arenas.map(a => a.specialtyType));
+  return runs.filter(r => {
+    if (r.specialtyType === "Detection (Narcotics)")
+      return arenaTypes.has("Detection (Narcotics)") || arenaTypes.has("Any");
+    if (r.specialtyType === "Detection (Explosives)")
+      return arenaTypes.has("Detection (Explosives)") || arenaTypes.has("Any");
+    return true; // Bite Work, Any
+  });
 }
 
 type Domain = {
@@ -296,4 +305,25 @@ export function solveSchedule(inputRaw: unknown, optsIn: SolveOptions = {}): Gen
       unplacedRuns: unplaced,
     },
   });
+}
+
+export function validateNoSubtypeCrossing(schedule: {competitorId:string; date:string; startTime:string; arenaId:string}[],
+                                   input: GenerateScheduleInput) {
+  const arenaById = new Map(input.arenas.map(a => [a.id, a.specialtyType]));
+  const compById  = new Map(input.competitors.map(c => [c.id, c]));
+
+  for (const r of schedule) {
+    const arenaType = arenaById.get(r.arenaId);
+    const comp = compById.get(r.competitorId);
+    const compLabels = new Set((comp?.specialties || []).map(s =>
+      s.type === "Bite Work" ? "Bite Work" : `Detection (${s.detectionType})`
+    ));
+
+    // If arena is Explosives, competitor must have Explosives; same for Narcotics
+    if (arenaType === "Detection (Explosives)" && !compLabels.has("Detection (Explosives)"))
+      throw new Error(`Invalid placement: ${r.competitorId} into Explosives`);
+
+    if (arenaType === "Detection (Narcotics)" && !compLabels.has("Detection (Narcotics)"))
+      throw new Error(`Invalid placement: ${r.competitorId} into Narcotics`);
+  }
 }
