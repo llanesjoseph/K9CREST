@@ -78,7 +78,7 @@ interface DisplayCompetitor extends Competitor {
     runs: DisplayRun[];
 }
 
-const SortableCompetitorItem = ({ competitor, isDraggable, onRunClick }: { competitor: DisplayCompetitor, isDraggable: boolean, onRunClick: (run: ScheduledEvent) => void }) => {
+const SortableCompetitorItem = ({ competitor, isDraggable, onRunClick, allCompetitors }: { competitor: DisplayCompetitor, isDraggable: boolean, onRunClick: (run: ScheduledEvent) => void, allCompetitors: Competitor[] }) => {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: competitor.id });
     const style = {
         transform: CSS.Transform.toString(transform),
@@ -92,14 +92,14 @@ const SortableCompetitorItem = ({ competitor, isDraggable, onRunClick }: { compe
 
     return (
         <div ref={setNodeRef} style={style}>
-            <CompetitorItem competitor={competitor} isDraggable={canDrag} dragHandle={canDrag ? {...attributes, ...listeners} : undefined} onRunClick={onRunClick} />
+            <CompetitorItem competitor={competitor} isDraggable={canDrag} dragHandle={canDrag ? {...attributes, ...listeners} : undefined} onRunClick={onRunClick} allCompetitors={allCompetitors} />
         </div>
     );
 };
 
 
 // --- CompetitorItem Component ---
-const CompetitorItem = ({ competitor, isDraggable, dragHandle, onRunClick }: { competitor: DisplayCompetitor, isDraggable: boolean, dragHandle?: any, onRunClick: (run: ScheduledEvent) => void }) => {
+const CompetitorItem = ({ competitor, isDraggable, dragHandle, onRunClick, allCompetitors }: { competitor: DisplayCompetitor, isDraggable: boolean, dragHandle?: any, onRunClick: (run: ScheduledEvent) => void, allCompetitors: Competitor[] }) => {
     
     const getSpecialtyDisplay = (specialties: Specialty[] = []) => {
         if (!specialties || specialties.length === 0) {
@@ -170,7 +170,7 @@ const CompetitorItem = ({ competitor, isDraggable, dragHandle, onRunClick }: { c
                 )}
             </div>
              <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                <EditCompetitorDialog competitor={competitor} eventId={competitor.eventId} />
+                <EditCompetitorDialog competitor={competitor} eventId={competitor.eventId} allCompetitors={allCompetitors} />
             </div>
         </div>
     );
@@ -896,11 +896,11 @@ export default function SchedulePage() {
                                         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
                                             <SortableContext items={sortedCompetitors.map(c => c.id)} strategy={verticalListSortingStrategy}>
                                                 {sortedCompetitors.map(comp => (
-                                                    <SortableCompetitorItem key={comp.id} competitor={comp} isDraggable={isAdmin} onRunClick={handleRunClick} />
+                                                    <SortableCompetitorItem key={comp.id} competitor={comp} isDraggable={isAdmin} onRunClick={handleRunClick} allCompetitors={competitors} />
                                                 ))}
                                             </SortableContext>
                                              <DragOverlay>
-                                                {activeCompetitor ? <CompetitorItem competitor={activeCompetitor} isDraggable={isAdmin} onRunClick={() => {}} /> : null}
+                                                {activeCompetitor ? <CompetitorItem competitor={activeCompetitor} isDraggable={isAdmin} onRunClick={() => {}} allCompetitors={competitors} /> : null}
                                             </DragOverlay>
                                         </DndContext>
                                       )}
@@ -976,9 +976,13 @@ export default function SchedulePage() {
                                 <CardTitle>Event Schedule: {eventDetails?.name || <Skeleton className="h-6 w-48 inline-block" />}</CardTitle>
                                 <CardDescription>Drop competitors into time slots, or use the AI assistant.</CardDescription>
                             </div>
-                            <div className="flex w-full sm:w-auto items-center justify-end gap-2">
+                            <div className="flex w-full sm:w-auto items-center justify-end gap-2 flex-wrap">
                                {isAdmin && (
                                 <div className="flex-grow sm:flex-grow-0 flex items-center gap-2">
+                                    <Button onClick={handleAssignBibs} variant="outline" disabled={competitors.length === 0} size="sm">
+                                        <Hash className="mr-2 h-4 w-4"/>
+                                        Assign BIBs
+                                    </Button>
                                      <AiScheduleDialog 
                                         eventId={eventId}
                                         arenas={arenas}
@@ -986,10 +990,6 @@ export default function SchedulePage() {
                                         eventDays={eventDays}
                                         currentSchedule={schedule}
                                      />
-                                     <Button onClick={handleAssignBibs} variant="outline" disabled={competitors.length === 0} size="sm">
-                                        <Hash className="mr-2 h-4 w-4"/>
-                                        Assign BIBs
-                                    </Button>
                                 </div>
                                 )}
                                 <div className="flex items-center gap-2">

@@ -2,11 +2,11 @@
 "use client";
 
 import { useState } from 'react';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Loader2, Edit } from 'lucide-react';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, writeBatch } from 'firebase/firestore';
 
 import {
   Dialog,
@@ -33,9 +33,10 @@ type FormValues = z.infer<typeof formSchema>;
 interface EditCompetitorDialogProps {
     eventId: string;
     competitor: Competitor;
+    allCompetitors: Competitor[];
 }
 
-export function EditCompetitorDialog({ eventId, competitor }: EditCompetitorDialogProps) {
+export function EditCompetitorDialog({ eventId, competitor, allCompetitors }: EditCompetitorDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
@@ -51,18 +52,48 @@ export function EditCompetitorDialog({ eventId, competitor }: EditCompetitorDial
         return;
     }
     setIsSubmitting(true);
-    try {
-        const competitorRef = doc(db, `events/${eventId}/competitors`, competitor.id);
-        await updateDoc(competitorRef, {
-            bibNumber: data.bibNumber || null
-        });
-        
-        toast({
-            title: 'Competitor Updated',
-            description: `BIB number for ${competitor.dogName} has been updated.`,
-        });
-        
+
+    const newBibNumber = data.bibNumber || null;
+    const oldBibNumber = competitor.bibNumber || null;
+    
+    // No change, no need to do anything
+    if(newBibNumber === oldBibNumber) {
         setIsOpen(false);
+        setIsSubmitting(false);
+        return;
+    }
+
+    try {
+        const batch = writeBatch(db);
+        const competitorRef = doc(db, `events/${eventId}/competitors`, competitor.id);
+
+        // Check if the new BIB number is already in use by another competitor
+        const conflictingCompetitor = allCompetitors.find(
+            c => c.id !== competitor.id && c.bibNumber === newBibNumber
+        );
+
+        if (conflictingCompetitor) {
+            // Swap BIB numbers
+            const conflictingCompetitorRef = doc(db, `events/${eventId}/competitors`, conflictingCompetitor.id);
+            batch.update(conflictingCompetitorRef, { bibNumber: oldBibNumber });
+            batch.update(competitorRef, { bibNumber: newBibNumber });
+            
+            toast({
+                title: 'BIB Numbers Swapped!',
+                description: `${competitor.dogName} is now #${newBibNumber} and ${conflictingCompetitor.dogName} is now #${oldBibNumber || 'unassigned'}.`,
+            });
+        } else {
+            // Simple update
+            batch.update(competitorRef, { bibNumber: newBibNumber });
+            toast({
+                title: 'Competitor Updated',
+                description: `BIB number for ${competitor.dogName} has been updated to #${newBibNumber || 'unassigned'}.`,
+            });
+        }
+
+        await batch.commit();
+        setIsOpen(false);
+
     } catch (error) {
         console.error('Error updating competitor:', error);
         toast({
