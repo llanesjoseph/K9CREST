@@ -197,7 +197,7 @@ Hard rules:
 2) No competitor can occupy two slots that share the same date+startTime.
 3) Each slotId can be used at most once.
 4) Each run consumes exactly one slot. End time is already given in the slot.
-5) Output must contain exactly {{totalRunsNeeded}} items.
+5) Output must contain exactly {{totalRunsNeeded}} items if possible. It is acceptable to schedule fewer if there are not enough compatible slots.
 
 Priorities to reduce conflicts:
 - Prefer exact specialty arenas before using Any.
@@ -219,133 +219,34 @@ Return ONLY this JSON:
 
 How to pick a slot:
 - For each run, select exactly one slotId from allSlots that is specialty-compatible and not yet taken, then emit its date/startTime/endTime/arenaId.
-- Do not invent slots. Do not leave any run unassigned.
+- Do not invent slots. If a run cannot be assigned, do not include it in the output.
 `
 });
 
 
 // ##################################################################
-// # 3) Validate and repair if needed
+// # 3) Single-pass flow (no repair loop)
 // ##################################################################
-
-function validateAndDiff(
-  out: GenerateScheduleOutput,
-  input: { requiredRuns: any[]; totalRunsNeeded: number; allSlots: Slot[] }
-) {
-  const errors: string[] = [];
-  const slotSet = new Set(input.allSlots.map(s => s.slotId));
-  const usedSlots = new Set<string>();
-  const compAtTime = new Set<string>();
-
-  // build quick lookups
-  const slotByKey = new Map(input.allSlots.map(s => [s.slotId, s]));
-  
-  // reset placed status
-  input.requiredRuns.forEach(r => r._placed = false);
-
-  // Check counts
-  if (out.schedule.length !== input.totalRunsNeeded) {
-    errors.push(`Count mismatch. Expected ${input.totalRunsNeeded}, got ${out.schedule.length}.`);
-  }
-
-  for (const run of out.schedule) {
-    // derive slotId from fields
-    const slotId = `${run.date}|${run.startTime}|${run.arenaId}`;
-    if (!slotSet.has(slotId)) errors.push(`Invalid slotId ${slotId}.`);
-    if (usedSlots.has(slotId)) errors.push(`Duplicate slot ${slotId}.`);
-    usedSlots.add(slotId);
-
-    const key = `${run.competitorId}|${run.date}|${run.startTime}`;
-    if (compAtTime.has(key)) errors.push(`Competitor conflict at ${key}.`);
-    compAtTime.add(key);
-
-    const slot = slotByKey.get(slotId)!;
-    if (!slot) continue;
-
-    const required = input.requiredRuns.find(r => r.competitorId === run.competitorId && !r._placed);
-    if (!required) continue;
-    
-    const ok = specialtyCompat(required.specialtyType, slot.arenaSpecialty);
-    if (!ok) errors.push(`Specialty mismatch for competitor ${run.competitorId} at slot ${slotId}.`);
-    required._placed = true;
-  }
-
-  const unplaced = input.requiredRuns.filter(r => !r._placed).map(r => ({
-    competitorId: r.competitorId,
-    specialtyType: r.specialtyType
-  }));
-
-  const openSlots = input.allSlots
-    .filter(s => !usedSlots.has(s.slotId))
-    .map(s => ({ slotId: s.slotId, arenaId: s.arenaId, arenaSpecialty: s.arenaSpecialty, date: s.date, startTime: s.startTime, endTime: s.endTime }));
-
-  return { errors, unplaced, openSlots };
-}
-
-async function generateScheduleFlow(input: any) {
-  console.log("Starting schedule generation flow...");
+async function generateScheduleFlow(input: any): Promise<GenerateScheduleOutput> {
+  console.log(`Starting schedule generation. Needing to schedule ${input.totalRunsNeeded} runs.`);
   const { output } = await prompt(input);
 
-  let result = output!;
-  let attempts = 1;
+  if (output && output.schedule) {
+    const scheduledCount = output.schedule.length;
+    const percentage = input.totalRunsNeeded > 0 ? (scheduledCount / input.totalRunsNeeded) * 100 : 100;
+    console.log(`AI returned a schedule with ${scheduledCount}/${input.totalRunsNeeded} runs (${percentage.toFixed(1)}%).`);
 
-  while (attempts <= 3) {
-    const diff = validateAndDiff(result, input);
-    if (diff.errors.length === 0 && diff.unplaced.length === 0) {
-      console.log(`Validation successful on attempt ${attempts}.`);
-      break;
+    if (scheduledCount < input.totalRunsNeeded) {
+       console.warn('WARNING: Not all runs were scheduled by the AI.');
     }
-    
-    console.warn(`Validation failed on attempt ${attempts}. Errors:`, diff.errors, "Unplaced:", diff.unplaced.length);
-    attempts += 1;
-    if (attempts > 3) {
-      console.error("Max repair attempts reached. Returning last result.");
-      break;
-    }
-    
-    console.log("Attempting repair...");
-
-    const repairPrompt = ai.definePrompt({
-      name: 'repairSchedule',
-      input: { schema: z.object({
-        current: GenerateScheduleOutputSchema,
-        unplaced: z.array(z.object({ competitorId: z.string(), specialtyType: z.string() })),
-        openSlots: z.array(z.object({
-          slotId: z.string(), arenaId: z.string(), arenaSpecialty: z.string(),
-          date: z.string(), startTime: z.string(), endTime: z.string()
-        })),
-        totalRunsNeeded: z.number()
-      })},
-      output: { schema: GenerateScheduleOutputSchema },
-      prompt: `
-Fix the schedule so it has exactly {{totalRunsNeeded}} valid items, using only openSlots.
-
-Current schedule: {{{json current}}}
-Unplaced runs: {{{json unplaced}}}
-Open slots: {{{json openSlots}}}
-
-Rules are the same. Replace or add items as needed. Return only {"schedule":[...]}.
-`
-    });
-
-    const { output: repaired } = await repairPrompt({
-      current: result,
-      unplaced: diff.unplaced,
-      openSlots: diff.openSlots,
-      totalRunsNeeded: input.totalRunsNeeded
-    });
-
-    result = repaired!;
-  }
-  
-  if (result && result.schedule) {
-    const percentage = (result.schedule.length / input.totalRunsNeeded) * 100;
-    console.log(`Final schedule has ${result.schedule.length}/${input.totalRunsNeeded} runs (${percentage.toFixed(1)}%)`);
   } else {
     console.error("Flow finished but did not produce a valid schedule object.");
+    // Return an empty schedule to avoid crashing the client
+    return { schedule: [] };
   }
 
-  return result;
+  return output!;
 }
+    
 
     
