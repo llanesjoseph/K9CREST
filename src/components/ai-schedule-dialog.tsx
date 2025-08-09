@@ -45,7 +45,7 @@ export function AiScheduleDialog({ eventId, arenas, competitors, eventDays, time
   const { toast } = useToast();
 
   useEffect(() => {
-    const appRoot = document.querySelector('body');
+    const appRoot = document.getElementById('app-container');
     if (!appRoot) return;
 
     if (isOpen) {

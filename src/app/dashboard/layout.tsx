@@ -16,10 +16,12 @@ function DashboardWrapper({ children }: { children: React.ReactNode }) {
 
   return (
       <SidebarProvider>
+        <div id="app-container" className="flex min-h-screen w-full">
           <AppSidebar />
           <div className="flex-1 flex flex-col">
             <AppHeader />
             <main className="p-4 sm:p-6 lg:p-8 flex-grow">{children}</main>
+        </div>
         </div>
     </SidebarProvider>
   );
