@@ -22,6 +22,7 @@ import {
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -59,7 +60,7 @@ const formSchema = z.object({
   location: z.string().min(2, "Location is required."),
   description: z.string().optional(),
   bannerImage: z.any().optional(),
-  scheduleBlockDuration: z.coerce.number().default(30),
+  scheduleBlockDuration: z.coerce.number().min(5, "Duration must be at least 5 minutes.").max(60, "Duration cannot exceed 60 minutes.").default(30),
   lunchBreakStart: z.string().optional(),
   lunchBreakEnd: z.string().optional(),
 }).refine(data => {
@@ -226,18 +227,12 @@ export default function CreateEventPage() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Schedule Block Duration</FormLabel>
-                       <Select onValueChange={(value) => field.onChange(parseInt(value))} defaultValue={String(field.value)}>
-                         <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select a duration" />
-                          </SelectTrigger>
-                         </FormControl>
-                        <SelectContent>
-                          <SelectItem value="15">15 minutes</SelectItem>
-                          <SelectItem value="20">20 minutes</SelectItem>
-                          <SelectItem value="30">30 minutes</SelectItem>
-                        </SelectContent>
-                      </Select>
+                        <FormControl>
+                            <Input type="number" min="5" max="60" {...field} />
+                        </FormControl>
+                        <FormDescription>
+                            Enter a value in minutes (e.g., 20).
+                        </FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -334,5 +329,3 @@ export default function CreateEventPage() {
     </Card>
   );
 }
-
-    
