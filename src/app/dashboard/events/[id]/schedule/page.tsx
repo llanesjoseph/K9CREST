@@ -432,26 +432,34 @@ export default function SchedulePage() {
         }
     };
 
-    const removeArena = async (arena: Arena) => {
+    const removeArenaForDay = async (arena: Arena, date: string) => {
         if (!eventId) return;
         try {
             const batch = writeBatch(db);
 
-            const scheduleQuery = query(collection(db, `events/${eventId}/schedule`), where("arenaId", "==", arena.id));
+            // Query for runs in that specific arena on that specific day
+            const scheduleQuery = query(
+                collection(db, `events/${eventId}/schedule`), 
+                where("arenaId", "==", arena.id),
+                where("date", "==", date)
+            );
             const scheduleSnapshot = await getDocs(scheduleQuery);
+
+            if (scheduleSnapshot.empty) {
+                toast({ variant: 'destructive', title: 'No runs', description: `No runs to remove for ${arena.name} on this day.` });
+                return;
+            }
+
             scheduleSnapshot.forEach(doc => {
                  batch.delete(doc.ref);
             });
-
-            const arenaRef = doc(db, `events/${eventId}/arenas`, arena.id);
-            batch.delete(arenaRef);
-
+            
             await batch.commit();
 
-            toast({ title: 'Success', description: `Arena "${arena.name}" and its schedule have been removed.` });
+            toast({ title: 'Success', description: `Runs in "${arena.name}" for ${format(parse(date, 'yyyy-MM-dd', new Date()), 'MMM dd')} have been cleared.` });
         } catch (error) {
             console.error(error);
-            toast({ variant: 'destructive', title: 'Error', description: 'Could not remove arena.' });
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not remove the runs for this arena and day.' });
         }
     };
 
@@ -1015,19 +1023,19 @@ export default function SchedulePage() {
                                                                                         </AlertDialogTrigger>
                                                                                     </TooltipTrigger>
                                                                                     <TooltipContent>
-                                                                                        <p>Remove Arena</p>
+                                                                                        <p>Clear all runs in this arena for this day</p>
                                                                                     </TooltipContent>
                                                                                 </Tooltip>
                                                                                 <AlertDialogContent>
                                                                                     <AlertDialogHeader>
                                                                                         <AlertDialogTitle>Are you sure?</AlertDialogTitle>
                                                                                         <AlertDialogDescription>
-                                                                                            This will remove the arena "{arena.name}" and all of its scheduled runs. This action cannot be undone.
+                                                                                            This will remove all scheduled runs in "{arena.name}" for {format(day, 'MMM dd')}. This action cannot be undone.
                                                                                         </AlertDialogDescription>
                                                                                     </AlertDialogHeader>
                                                                                     <AlertDialogFooter>
                                                                                         <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                                                                        <AlertDialogAction onClick={() => removeArena(arena)}>Delete</AlertDialogAction>
+                                                                                        <AlertDialogAction onClick={() => removeArenaForDay(arena, formattedDate)}>Clear Runs for this Day</AlertDialogAction>
                                                                                     </AlertDialogFooter>
                                                                                 </AlertDialogContent>
                                                                             </AlertDialog>
@@ -1066,3 +1074,4 @@ export default function SchedulePage() {
 }
 
     
+
