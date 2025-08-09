@@ -82,10 +82,10 @@ SELECTION PROCEDURE:
 });
 
 
-export function repairIfNeeded(
+export async function repairIfNeeded(
     out: GenerateScheduleOutput,
     ctx: { allSlots: Slot[]; runAllowlist: any[]; totalRunsNeeded: number }
-): GenerateScheduleOutput {
+): Promise<GenerateScheduleOutput> {
     // For now, this is a placeholder. A full repair loop could be added back if needed,
     // but the deterministic solver should handle most cases.
     // The main goal here is to validate the output from the AI.
