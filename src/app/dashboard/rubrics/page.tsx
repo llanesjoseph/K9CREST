@@ -243,15 +243,16 @@ function RubricEditor({ rubric }: { rubric: Rubric }) {
 
     useEffect(() => {
         if (isDistributionEnabled && pointsPerExercise !== null) {
-            phases.forEach((phase, phaseIndex) => {
+            const currentPhases = form.getValues('phases');
+            currentPhases.forEach((phase, phaseIndex) => {
                 phase.exercises.forEach((exercise, exerciseIndex) => {
                     if (exercise.type === 'points') {
-                        form.setValue(`phases.${phaseIndex}.exercises.${exerciseIndex}.maxPoints`, pointsPerExercise);
+                        form.setValue(`phases.${phaseIndex}.exercises.${exerciseIndex}.maxPoints`, pointsPerExercise, { shouldDirty: true });
                     }
                 });
             });
         }
-    }, [isDistributionEnabled, pointsPerExercise, phases, form]);
+    }, [isDistributionEnabled, pointsPerExercise, form]);
 
     useEffect(() => {
         form.reset(rubric);
@@ -483,6 +484,7 @@ function ExerciseItem({ control, phaseIndex, exerciseIndex, remove, isDistributi
                                 readOnly={isDistributionEnabled && exerciseType === 'points'}
                                 className={isDistributionEnabled && exerciseType === 'points' ? 'bg-muted/70' : ''}
                                 value={field.value ?? ''}
+                                onChange={e => field.onChange(e.target.value === '' ? undefined : Number(e.target.value))}
                             />
                           </FormControl>
                         </FormItem>
