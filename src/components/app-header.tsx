@@ -57,8 +57,16 @@ export function AppHeader() {
   const currentRole = viewAsRole || role;
 
   const isActive = (path: string) => {
-    return pathname === path;
+    if(!path) return false;
+    // Check for exact match or if it's a parent path
+    return pathname === path || pathname.startsWith(`${path}/`);
+  };
+  
+  const isEventPageActive = (subpath: string) => {
+      if (!eventId) return false;
+      return pathname === `/dashboard/events/${eventId}/${subpath}`;
   }
+
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background/80 backdrop-blur-sm px-4 sm:px-6 lg:px-8">
@@ -67,12 +75,12 @@ export function AppHeader() {
         <span className="hidden sm:inline-block">K9 Trial Pro</span>
       </Link>
        <nav className="hidden md:flex items-center gap-2 mx-auto">
-            <NavLink href="/dashboard/events" isActive={isActive('/dashboard/events')}><Calendar className="mr-2"/> Events</NavLink>
+            <NavLink href="/dashboard/events" isActive={pathname.startsWith('/dashboard/events')}><Calendar className="mr-2"/> Events</NavLink>
             {eventId && (
                  <>
-                    <NavLink href={`/dashboard/events/${eventId}/schedule`} isActive={isActive(`/dashboard/events/${eventId}/schedule`)}><ClipboardList className="mr-2"/> Schedule</NavLink>
-                    {['admin', 'judge'].includes(currentRole) && <NavLink href={`/dashboard/rubrics`} isActive={isActive(`/dashboard/rubrics`)}><ListChecks className="mr-2"/> Rubrics</NavLink>}
-                    <NavLink href={`/dashboard/events/${eventId}/leaderboard`} isActive={isActive(`/dashboard/events/${eventId}/leaderboard`)}><Trophy className="mr-2"/> Leaderboard</NavLink>
+                    <NavLink href={`/dashboard/events/${eventId}/schedule`} isActive={isEventPageActive('schedule')}><ClipboardList className="mr-2"/> Schedule</NavLink>
+                    {['admin', 'judge'].includes(currentRole) && <NavLink href={`/dashboard/rubrics`} isActive={pathname.startsWith(`/dashboard/rubrics`)}><ListChecks className="mr-2"/> Rubrics</NavLink>}
+                    <NavLink href={`/dashboard/events/${eventId}/leaderboard`} isActive={isEventPageActive('leaderboard')}><Trophy className="mr-2"/> Leaderboard</NavLink>
                  </>
             )}
        </nav>
@@ -81,7 +89,7 @@ export function AppHeader() {
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="relative h-10 w-10 rounded-full">
               <Avatar>
-                 <AvatarImage src={user?.photoURL || `https://placehold.co/40x40`} />
+                 <AvatarImage src={user?.photoURL || `https://placehold.co/40x40`} data-ai-hint="person portrait" />
                 <AvatarFallback>{user?.email?.[0].toUpperCase() || 'U'}</AvatarFallback>
               </Avatar>
             </Button>

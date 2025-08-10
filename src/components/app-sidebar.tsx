@@ -68,12 +68,16 @@ export function AppSidebar() {
       { href: "/dashboard/rubrics", label: "Manage Rubrics", icon: ListChecks, roles: ['admin', 'judge'] },
       { href: "/dashboard/users", label: "Users", icon: Users, roles: ['admin'] },
       { href: "/dashboard/settings", label: "Settings", icon: Settings, roles: ['admin', 'judge', 'competitor', 'spectator'] },
-  ].filter(item => item.roles.includes(currentRole));
+  ].filter(item => {
+      if (!currentRole) return false;
+      return item.roles.includes(currentRole)
+  });
 
   const isActive = (href: string) => {
     if (!href) return false;
     // Special case for create page to highlight events tab
     if (pathname === '/dashboard/events/create' && href === '/dashboard/events') return true;
+    if (href.includes('[id]')) return false; // Don't match templates
     return pathname === href;
   };
 
@@ -141,7 +145,7 @@ export function AppSidebar() {
         <Separator />
         <Link href="/dashboard/settings" className="flex items-center gap-3 hover:bg-muted/50 rounded-md p-2 transition-colors">
           <Avatar className="group-data-[collapsible=icon]:h-8 group-data-[collapsible=icon]:w-8">
-            <AvatarImage src={user?.photoURL || `https://placehold.co/40x40`} />
+            <AvatarImage src={user?.photoURL || `https://placehold.co/40x40`} data-ai-hint="person portrait" />
             <AvatarFallback>{user?.email?.[0].toUpperCase() || 'U'}</AvatarFallback>
           </Avatar>
           <div className="flex flex-col flex-grow overflow-hidden group-data-[collapsible=icon]:hidden">
