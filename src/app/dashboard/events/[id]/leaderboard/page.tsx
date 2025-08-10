@@ -165,7 +165,7 @@ export default function LeaderboardPage() {
 
     setAgencyStandings(calculatedAgencyStandings);
 
-  }, [runs, competitors, loading]);
+  }, [runs, competitors]);
 
   const renderOverallBody = () => {
     if (loading) {

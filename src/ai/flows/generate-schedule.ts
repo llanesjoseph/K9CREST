@@ -1,9 +1,8 @@
 
 'use server';
 /**
- * @fileOverview Enhanced AI agent that generates a complete event schedule.
- * This version uses a pre-computed slot list and a validate-and-repair loop
- * for higher accuracy and reliability.
+ * @fileOverview AI agent that generates a complete event schedule.
+ * Uses a pre-computed slot list and constraint-based generation for higher accuracy.
  */
 
 import { ai } from '@/ai/genkit';
@@ -17,7 +16,7 @@ const OutputSchema = z.object({
       competitorId: z.string(),
       arenaId: z.string(),
       startTime: z.string().regex(/^\d{2}:\d{2}$/),
-      endTime: z.string().regex(/^\d{2}:\d{2}$/),
+      endTime: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
       date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
     }).strict()
   )

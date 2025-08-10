@@ -115,7 +115,8 @@ export default function JudgingPage() {
             const existingExercise = existingPhase?.exercises.find((e:any) => e.exerciseName === ex.name);
             
             let defaultScore: number | boolean = 0;
-            if (ex.type === 'pass/fail') defaultScore = 0; // Fail by default
+            if (ex.type === 'pass/fail') defaultScore = false; // default to fail (represented as 0 or false)
+            if (ex.type === 'time') defaultScore = 0.0;
             
             return {
               exerciseName: ex.name,
@@ -288,7 +289,7 @@ export default function JudgingPage() {
                                 render={({ field }) => (
                                     <Switch
                                         id={`switch-${phaseIndex}-${exerciseIndex}`}
-                                        checked={field.value === 1}
+                                        checked={field.value === 1 || field.value === true}
                                         onCheckedChange={(isChecked) => field.onChange(isChecked ? 1 : 0)}
                                     />
                                 )}

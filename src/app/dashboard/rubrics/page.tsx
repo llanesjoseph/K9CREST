@@ -101,7 +101,7 @@ export default function ManageRubricsPage() {
         }
         setIsCreating(true);
         try {
-            const docRef = await addDoc(collection(db, "rubrics"), { name: newRubricName.trim(), phases: [] });
+            const docRef = await addDoc(collection(db, "rubrics"), { name: newRubricName.trim(), phases: [], totalPoints: 100 });
             setSelectedRubricId(docRef.id);
             setNewRubricName("");
              toast({ title: "Success", description: "Rubric created successfully." });
@@ -252,7 +252,7 @@ function RubricEditor({ rubric }: { rubric: Rubric }) {
                 });
             });
         }
-    }, [isDistributionEnabled, pointsPerExercise, form]);
+    }, [pointsPerExercise, form, isDistributionEnabled]);
 
     useEffect(() => {
         form.reset(rubric);
@@ -264,17 +264,17 @@ function RubricEditor({ rubric }: { rubric: Rubric }) {
         setIsSubmitting(true);
         try {
             const rubricRef = doc(db, "rubrics", data.id);
-            // If distributing, remove totalPoints field before saving
-            const dataToSave = { ...data };
-            if (isDistributionEnabled) {
-                // Not saving totalPoints, as it's a UI control
-            }
-            await updateDoc(rubricRef, { name: dataToSave.name, phases: dataToSave.phases, totalPoints: dataToSave.totalPoints });
+            const dataToSave = { 
+                name: data.name, 
+                phases: data.phases, 
+                totalPoints: data.totalPoints 
+            };
+            await updateDoc(rubricRef, dataToSave);
             toast({
                 title: "Rubric Saved!",
                 description: "The scoring rubric has been successfully updated.",
             });
-            setOpenAccordionItems([]);
+            form.reset(data, { keepValues: true });
         } catch (error) {
             console.error(error);
             toast({
@@ -318,7 +318,7 @@ function RubricEditor({ rubric }: { rubric: Rubric }) {
                                     <FormItem>
                                     <FormLabel>Total Points</FormLabel>
                                     <FormControl>
-                                        <Input type="number" {...field} placeholder="e.g., 100" onChange={e => field.onChange(e.target.value ? Number(e.target.value) : undefined)} value={field.value ?? ''} />
+                                        <Input type="number" {...field} placeholder="e.g., 100" onChange={e => field.onChange(e.target.value === '' ? undefined : Number(e.target.value))} value={field.value ?? ''} />
                                     </FormControl>
                                     </FormItem>
                                 )}
@@ -522,5 +522,3 @@ function ExerciseItem({ control, phaseIndex, exerciseIndex, remove, isDistributi
         </div>
     )
 }
-
-    

@@ -59,11 +59,20 @@ export function AppHeader() {
   const isEventPage = pathname.includes('/dashboard/events/');
 
   const isActive = (path: string) => {
-    if(!path || !isEventPage) return false;
-    const basePath = `/dashboard/events/${eventId}`;
-    const fullPath = `${basePath}/${path}`;
-    // Check for exact match or if it's a parent path
-    return pathname === fullPath || pathname.startsWith(`${fullPath}/`);
+    if (!path) return false;
+    // Handle base paths
+    if (path === '/dashboard/events' && pathname.startsWith('/dashboard/events')) return true;
+    if (path === '/dashboard/rubrics' && pathname.startsWith('/dashboard/rubrics')) return true;
+    
+    // Handle event-specific paths
+    if (isEventPage && eventId) {
+      const basePath = `/dashboard/events/${eventId}`;
+      const fullPath = `${basePath}/${path}`;
+      // Check for exact match or if it's a parent path
+      return pathname === fullPath || pathname.startsWith(`${fullPath}/`);
+    }
+
+    return pathname === path;
   };
   
   return (
@@ -73,8 +82,8 @@ export function AppHeader() {
         <span className="hidden sm:inline-block">K9 Trial Pro</span>
       </Link>
        <nav className="hidden md:flex items-center gap-2 mx-auto">
-            <NavLink href="/dashboard/events" isActive={pathname.startsWith('/dashboard/events')}><Calendar className="mr-2"/> Events</NavLink>
-            {['admin', 'judge'].includes(currentRole) && <NavLink href={`/dashboard/rubrics`} isActive={pathname.startsWith(`/dashboard/rubrics`)}><ListChecks className="mr-2"/> Rubrics</NavLink>}
+            <NavLink href="/dashboard/events" isActive={isActive('/dashboard/events')}><Calendar className="mr-2"/> Events</NavLink>
+            {['admin', 'judge'].includes(currentRole) && <NavLink href={`/dashboard/rubrics`} isActive={isActive(`/dashboard/rubrics`)}><ListChecks className="mr-2"/> Rubrics</NavLink>}
             <NavLink href={`/dashboard/events/${eventId}/leaderboard`} isActive={isActive('leaderboard')} disabled={!eventId}><Trophy className="mr-2"/> Leaderboard</NavLink>
        </nav>
       <div className="ml-auto">
