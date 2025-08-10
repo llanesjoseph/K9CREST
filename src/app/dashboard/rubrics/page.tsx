@@ -317,7 +317,7 @@ function RubricEditor({ rubric }: { rubric: Rubric }) {
                                     <FormItem>
                                     <FormLabel>Total Points (Optional)</FormLabel>
                                     <FormControl>
-                                        <Input type="number" {...field} placeholder="e.g., 100" onChange={e => field.onChange(e.target.value ? Number(e.target.value) : undefined)} />
+                                        <Input type="number" {...field} placeholder="e.g., 100" onChange={e => field.onChange(e.target.value ? Number(e.target.value) : undefined)} value={field.value ?? ''} />
                                     </FormControl>
                                     </FormItem>
                                 )}
@@ -482,7 +482,7 @@ function ExerciseItem({ control, phaseIndex, exerciseIndex, remove, isDistributi
                                 placeholder={exerciseType === 'time' ? "e.g., 60" : "e.g., 10"}
                                 readOnly={isDistributionEnabled && exerciseType === 'points'}
                                 className={isDistributionEnabled && exerciseType === 'points' ? 'bg-muted/70' : ''}
-                                value={field.value === undefined ? '' : (typeof field.value === 'number' && field.value % 1 !== 0 ? field.value.toFixed(2) : field.value)}
+                                value={field.value ?? ''}
                             />
                           </FormControl>
                         </FormItem>
