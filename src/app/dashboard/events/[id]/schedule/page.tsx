@@ -5,7 +5,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { collection, onSnapshot, doc, setDoc, deleteDoc, writeBatch, query, getDocs, getDoc, Timestamp, updateDoc, where } from 'firebase/firestore';
 import { generateTimeSlots } from '@/lib/schedule-helpers';
-import { Trash2, AlertTriangle, PlusCircle, Users, X, Eraser, Wand2, Clock, Loader2, FileDown, GripVertical, Upload, ListChecks, Hash, Gavel } from 'lucide-react';
+import { Trash2, AlertTriangle, PlusCircle, Users, X, Eraser, Wand2, Clock, Loader2, FileDown, GripVertical, Upload, ListChecks, Hash, Gavel, ClipboardCheck } from 'lucide-react';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragOverlay, DragStartEvent, DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -49,6 +49,7 @@ import { AiScheduleDialog } from '@/components/ai-schedule-dialog';
 import { EditCompetitorDialog } from '@/components/edit-competitor-dialog';
 import type { Arena, Competitor, ScheduledEvent, ArenaSpecialty } from '@/lib/schedule-types';
 import Link from 'next/link';
+import { cn } from '@/lib/utils';
 
 // --- State Structures ---
 interface Specialty {
@@ -161,7 +162,7 @@ const CompetitorItem = ({ competitor, isDraggable, dragHandle, onRunClick, allCo
                                 onClick={() => onRunClick(run)}
                                 className="flex items-center gap-2 text-xs text-muted-foreground hover:text-primary transition-colors w-full text-left rounded-sm p-1 -ml-1"
                             >
-                                <Clock className="h-3 w-3" />
+                                {run.status === 'scored' ? <ClipboardCheck className="h-3 w-3 text-blue-600" /> : <Clock className="h-3 w-3" />}
                                  <span className="truncate">
                                     {format(parse(run.date, 'yyyy-MM-dd', new Date()), 'E, MMM dd')} @ {run.startTime}
                                     <span className="font-medium text-primary/80"> in {run.arenaName}</span>
@@ -232,6 +233,8 @@ const TimeSlot = ({
     const eventCompetitor = scheduledEvent ? competitors.find(c => c.id === scheduledEvent.competitorId) : null;
     const canDragEvent = isDraggable && !!scheduledEvent;
     const slotId = `slot-${arenaId}-${date}-${startTime}`;
+    
+    const isScored = scheduledEvent?.status === 'scored';
 
     const scheduledContent = scheduledEvent && eventCompetitor ? (
         <div className="flex flex-col items-center justify-center p-1 group w-full h-full text-center">
@@ -250,18 +253,24 @@ const TimeSlot = ({
             )}
             {isJudge && (
                  <div className="absolute bottom-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Gavel className="h-4 w-4 text-primary/70" />
+                    {isScored ? <ClipboardCheck className="h-4 w-4 text-primary/70" /> : <Gavel className="h-4 w-4 text-primary/70" />}
                  </div>
             )}
         </div>
     ) : null;
 
-    const wrapperClasses = `w-32 h-20 border border-dashed rounded-md flex items-center justify-center text-center text-sm transition-all duration-200 ease-in-out relative
-        ${scheduledEvent ? (isJudge ? 'bg-blue-100 dark:bg-blue-900/30 border-blue-500/50 hover:shadow-md hover:border-blue-500' : 'bg-green-100 dark:bg-green-900/30 border-green-500/50') : isDraggable ? 'bg-background hover:bg-muted/80' : 'bg-secondary/50'}
-        ${isOver ? 'border-primary ring-2 ring-primary' : ''}
-        ${canDragEvent ? 'cursor-grab' : ''}
-        ${isJudge && scheduledEvent ? 'cursor-pointer' : ''}
-    `;
+    const wrapperClasses = cn(`w-32 h-20 border border-dashed rounded-md flex items-center justify-center text-center text-sm transition-all duration-200 ease-in-out relative`,
+        {
+            'bg-green-100 dark:bg-green-900/30 border-green-500/50': scheduledEvent && !isScored && !isJudge,
+            'bg-blue-100 dark:bg-blue-900/30 border-blue-500/50 hover:shadow-md hover:border-blue-500': scheduledEvent && isScored && isJudge,
+            'bg-green-100 dark:bg-green-900/30 border-green-500/50 hover:shadow-md hover:border-green-500': scheduledEvent && !isScored && isJudge,
+            'bg-background hover:bg-muted/80': !scheduledEvent && isDraggable,
+            'bg-secondary/50': !scheduledEvent && !isDraggable,
+            'border-primary ring-2 ring-primary': isOver,
+            'cursor-grab': canDragEvent,
+            'cursor-pointer': isJudge && scheduledEvent,
+        }
+    );
 
     return (
         <div
@@ -568,7 +577,7 @@ export default function SchedulePage() {
         // Create new schedule data
         const duration = eventDetails?.scheduleBlockDuration || 30;
         const endTime = new Date(new Date(`2000/01/01 ${startTime}`).getTime() + duration * 60 * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
-        const newScheduleData = { competitorId, arenaId, startTime, endTime, date };
+        const newScheduleData = { competitorId, arenaId, startTime, endTime, date, status: 'scheduled' };
 
         try {
             if (draggedScheduleId) {

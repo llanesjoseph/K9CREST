@@ -44,6 +44,7 @@ export const ScheduledRunSchema = z.object({
     startTime: z.string().regex(/^\d{2}:\d{2}$/),
     endTime: z.string().regex(/^\d{2}:\d{2}$/),
     date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    status: z.enum(['scheduled', 'scored']).optional(),
 });
 
 export const OutputSchema = z.object({
