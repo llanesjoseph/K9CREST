@@ -1,8 +1,9 @@
 
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { ChevronLeft, Trophy } from "lucide-react";
+import { ChevronLeft, Trophy, Loader2 } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -22,14 +23,202 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useParams } from "next/navigation";
+import { collection, query, where, onSnapshot } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { Skeleton } from "@/components/ui/skeleton";
 
-const overallStandings: any[] = [];
-const agencyStandings: any[] = [];
+interface Score {
+  phaseName: string;
+  exercises: {
+    exerciseName: string;
+    score: number | boolean;
+    type: string;
+    maxPoints?: number;
+  }[];
+}
+
+interface Standing {
+  rank: number;
+  competitorId: string;
+  competitor: string;
+  dog: string;
+  agency: string;
+  score: number;
+}
+
+interface AgencyStanding {
+  rank: number;
+  agency: string;
+  score: number;
+}
+
 
 export default function LeaderboardPage() {
   const params = useParams();
   const eventId = params.id as string;
-  
+  const [loading, setLoading] = useState(true);
+  const [overallStandings, setOverallStandings] = useState<Standing[]>([]);
+  const [agencyStandings, setAgencyStandings] = useState<AgencyStanding[]>([]);
+
+  useEffect(() => {
+    if (!eventId) return;
+
+    setLoading(true);
+    
+    // Listen to scored runs
+    const scheduleQuery = query(
+      collection(db, `events/${eventId}/schedule`),
+      where("status", "==", "scored")
+    );
+
+    const scheduleUnsub = onSnapshot(scheduleQuery, (scheduleSnapshot) => {
+      const runs = scheduleSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+      // Listen to competitors
+      const competitorsQuery = collection(db, `events/${eventId}/competitors`);
+      const competitorsUnsub = onSnapshot(competitorsQuery, (competitorsSnapshot) => {
+        const competitors = competitorsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+        const competitorScores: Record<string, { totalScore: number; count: number; data: any }> = {};
+
+        runs.forEach(run => {
+            const competitor = competitors.find(c => c.id === run.competitorId);
+            if (!competitor) return;
+
+            let runScore = 0;
+            if (run.scores) {
+                run.scores.forEach((phase: Score) => {
+                    phase.exercises.forEach(exercise => {
+                        if (exercise.type === 'points' || exercise.type === 'time') {
+                           runScore += Number(exercise.score) || 0;
+                        } else if (exercise.type === 'pass/fail') {
+                           runScore += (exercise.score === 1 || exercise.score === true) ? (exercise.maxPoints || 1) : 0;
+                        }
+                    });
+                });
+            }
+
+            if (!competitorScores[run.competitorId]) {
+                competitorScores[run.competitorId] = { totalScore: 0, count: 0, data: competitor };
+            }
+            competitorScores[run.competitorId].totalScore += runScore;
+        });
+
+        const calculatedStandings = Object.values(competitorScores)
+            .map(item => ({
+                competitorId: item.data.id,
+                competitor: item.data.name,
+                dog: item.data.dogName,
+                agency: item.data.agency,
+                score: item.totalScore
+            }))
+            .sort((a, b) => b.score - a.score)
+            .map((s, index) => ({ ...s, rank: index + 1 }));
+
+        setOverallStandings(calculatedStandings);
+        
+        // Calculate Agency Standings
+        const agencyScores: Record<string, number> = {};
+        calculatedStandings.forEach(standing => {
+            if(!agencyScores[standing.agency]) {
+                agencyScores[standing.agency] = 0;
+            }
+            agencyScores[standing.agency] += standing.score;
+        });
+        
+        const calculatedAgencyStandings = Object.entries(agencyScores)
+            .map(([agency, score]) => ({ agency, score }))
+            .sort((a,b) => b.score - a.score)
+            .map((s, index) => ({...s, rank: index + 1}));
+            
+        setAgencyStandings(calculatedAgencyStandings);
+
+        setLoading(false);
+      });
+      
+      return () => competitorsUnsub();
+    });
+
+    return () => scheduleUnsub();
+  }, [eventId]);
+
+  const renderOverallBody = () => {
+    if (loading) {
+      return Array.from({ length: 3 }).map((_, i) => (
+        <TableRow key={`skel-overall-${i}`}>
+          <TableCell><Skeleton className="h-6 w-6 rounded-full" /></TableCell>
+          <TableCell><Skeleton className="h-6 w-3/4" /></TableCell>
+          <TableCell><Skeleton className="h-6 w-1/2" /></TableCell>
+          <TableCell><Skeleton className="h-6 w-1/4" /></TableCell>
+        </TableRow>
+      ));
+    }
+    if (overallStandings.length === 0) {
+      return (
+        <TableRow>
+          <TableCell colSpan={4} className="h-24 text-center">
+            No scores submitted yet.
+          </TableCell>
+        </TableRow>
+      );
+    }
+    return overallStandings.map((entry) => (
+      <TableRow key={entry.rank}>
+        <TableCell className="font-bold text-lg">
+          <div className="flex items-center justify-center">
+            {entry.rank <= 3 ? <Trophy className={`w-6 h-6 ${entry.rank === 1 ? 'text-yellow-500' : entry.rank === 2 ? 'text-gray-400' : 'text-yellow-700'}`} /> : entry.rank}
+          </div>
+        </TableCell>
+        <TableCell>
+          <div className="flex items-center gap-3">
+            <Avatar>
+              <AvatarImage src={`https://placehold.co/40x40?text=${entry.competitor.charAt(0)}`} data-ai-hint="person portrait" />
+              <AvatarFallback>{entry.competitor.charAt(0)}</AvatarFallback>
+            </Avatar>
+            <div>
+              <div className="font-medium">{entry.competitor}</div>
+              <div className="text-sm text-muted-foreground">{entry.dog}</div>
+            </div>
+          </div>
+        </TableCell>
+        <TableCell>{entry.agency}</TableCell>
+        <TableCell className="text-right font-mono text-lg">{entry.score.toFixed(1)}</TableCell>
+      </TableRow>
+    ));
+  }
+
+  const renderAgencyBody = () => {
+     if (loading) {
+      return Array.from({ length: 3 }).map((_, i) => (
+        <TableRow key={`skel-agency-${i}`}>
+          <TableCell><Skeleton className="h-6 w-6 rounded-full" /></TableCell>
+          <TableCell><Skeleton className="h-6 w-3/4" /></TableCell>
+          <TableCell><Skeleton className="h-6 w-1/2" /></TableCell>
+        </TableRow>
+      ));
+    }
+    if (agencyStandings.length === 0) {
+       return (
+        <TableRow>
+          <TableCell colSpan={3} className="h-24 text-center">
+            No agency scores available.
+          </TableCell>
+        </TableRow>
+      );
+    }
+    return agencyStandings.map((entry) => (
+      <TableRow key={entry.rank}>
+        <TableCell className="font-bold text-lg">
+          <div className="flex items-center justify-center">
+            {entry.rank <= 3 ? <Trophy className={`w-6 h-6 ${entry.rank === 1 ? 'text-yellow-500' : entry.rank === 2 ? 'text-gray-400' : 'text-yellow-700'}`} /> : entry.rank}
+          </div>
+        </TableCell>
+        <TableCell className="font-medium">{entry.agency}</TableCell>
+        <TableCell className="text-right font-mono text-lg">{entry.score.toFixed(1)}</TableCell>
+      </TableRow>
+    ));
+  }
+
   return (
     <div className="flex flex-col gap-6">
        <div className="flex items-center gap-4">
@@ -62,37 +251,7 @@ export default function LeaderboardPage() {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {overallStandings.length === 0 ? (
-                                    <TableRow>
-                                        <TableCell colSpan={4} className="h-24 text-center">
-                                            No scores submitted yet.
-                                        </TableCell>
-                                    </TableRow>
-                                ) : (
-                                    overallStandings.map((entry) => (
-                                    <TableRow key={entry.rank}>
-                                        <TableCell className="font-bold text-lg">
-                                            <div className="flex items-center justify-center">
-                                                {entry.rank <= 3 ? <Trophy className={`w-6 h-6 ${entry.rank === 1 ? 'text-yellow-500' : entry.rank === 2 ? 'text-gray-400' : 'text-yellow-700'}`} /> : entry.rank}
-                                            </div>
-                                        </TableCell>
-                                        <TableCell>
-                                            <div className="flex items-center gap-3">
-                                                <Avatar>
-                                                    <AvatarImage src={`https://placehold.co/40x40?text=${entry.competitor.charAt(0)}`} data-ai-hint="person portrait" />
-                                                    <AvatarFallback>{entry.competitor.charAt(0)}</AvatarFallback>
-                                                </Avatar>
-                                                <div>
-                                                    <div className="font-medium">{entry.competitor}</div>
-                                                    <div className="text-sm text-muted-foreground">{entry.dog}</div>
-                                                </div>
-                                            </div>
-                                        </TableCell>
-                                        <TableCell>{entry.agency}</TableCell>
-                                        <TableCell className="text-right font-mono text-lg">{entry.score.toFixed(1)}</TableCell>
-                                    </TableRow>
-                                    ))
-                                )}
+                               {renderOverallBody()}
                             </TableBody>
                         </Table>
                     </TabsContent>
@@ -106,25 +265,7 @@ export default function LeaderboardPage() {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {agencyStandings.length === 0 ? (
-                                    <TableRow>
-                                        <TableCell colSpan={3} className="h-24 text-center">
-                                            No agency scores available.
-                                        </TableCell>
-                                    </TableRow>
-                                ) : (
-                                    agencyStandings.map((entry) => (
-                                    <TableRow key={entry.rank}>
-                                        <TableCell className="font-bold text-lg">
-                                            <div className="flex items-center justify-center">
-                                                {entry.rank <= 3 ? <Trophy className={`w-6 h-6 ${entry.rank === 1 ? 'text-yellow-500' : entry.rank === 2 ? 'text-gray-400' : 'text-yellow-700'}`} /> : entry.rank}
-                                            </div>
-                                        </TableCell>
-                                        <TableCell className="font-medium">{entry.agency}</TableCell>
-                                        <TableCell className="text-right font-mono text-lg">{entry.score.toFixed(1)}</TableCell>
-                                    </TableRow>
-                                    ))
-                                )}
+                                {renderAgencyBody()}
                             </TableBody>
                         </Table>
                     </TabsContent>
