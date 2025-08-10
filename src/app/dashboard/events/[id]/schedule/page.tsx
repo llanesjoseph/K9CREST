@@ -187,7 +187,8 @@ const TimeSlot = ({
     competitors,
     removeScheduledEvent,
     isDraggable,
-    isJudge
+    isJudge,
+    eventId
 }: {
     arenaId: string;
     startTime: string;
@@ -198,6 +199,7 @@ const TimeSlot = ({
     removeScheduledEvent: (eventId: string) => void;
     isDraggable: boolean;
     isJudge: boolean;
+    eventId: string;
 }) => {
     const [isOver, setIsOver] = useState(false);
 
@@ -271,7 +273,7 @@ const TimeSlot = ({
             className={wrapperClasses}
         >
             {scheduledEvent && isJudge ? (
-                <Link href={`/dashboard/judging/${scheduledEvent.id}`} className="w-full h-full flex items-center justify-center">
+                <Link href={`/dashboard/events/${eventId}/judging/${scheduledEvent.id}`} className="w-full h-full flex items-center justify-center">
                     {scheduledContent}
                 </Link>
             ) : scheduledEvent ? (
@@ -1158,6 +1160,7 @@ export default function SchedulePage() {
                                                                             removeScheduledEvent={removeScheduledEvent}
                                                                             isDraggable={isAdmin}
                                                                             isJudge={isJudge}
+                                                                            eventId={eventId}
                                                                         />
                                                                     ))}
                                                                 </div>
@@ -1178,4 +1181,3 @@ export default function SchedulePage() {
         </TooltipProvider>
     );
 }
-
