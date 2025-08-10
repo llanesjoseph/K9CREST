@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
@@ -702,14 +703,6 @@ export default function SchedulePage() {
                 'Any': '#8b5cf6'
             };
 
-            const arenaIcons: Record<string, string> = {
-                'Bite Work': '🔥',
-                'Detection (Narcotics)': '👀',
-                'Detection (Explosives)': '📄',
-                'Any': '⭐'
-            };
-
-
             const groupedSchedule = schedule.reduce((acc, run) => {
                 const date = run.date;
                 if (!acc[date]) acc[date] = {};
@@ -772,8 +765,7 @@ export default function SchedulePage() {
                     doc.setFont('helvetica', 'bold');
                     doc.setFontSize(12);
                     doc.setTextColor('#333333');
-                    const icon = arenaIcons[arena.specialtyType] || '⭐';
-                    doc.text(`${icon} ${arena.name}`, colCursors[i].x, margin + 70);
+                    doc.text(arena.name, colCursors[i].x, margin + 70);
                 });
 
 
@@ -843,8 +835,7 @@ export default function SchedulePage() {
                             doc.setFont('helvetica', 'bold');
                             doc.setFontSize(12);
                             doc.setTextColor('#333333');
-                            const icon = arenaIcons[arena.specialtyType] || '⭐';
-                            doc.text(`${icon} ${arena.name}`, colCursors[i].x, margin + 70);
+                            doc.text(arena.name, colCursors[i].x, margin + 70);
                         });
                     }
                 }
