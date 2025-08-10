@@ -23,7 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useParams } from "next/navigation";
-import { collection, query, where, onSnapshot, Unsubscribe, DocumentData } from "firebase/firestore";
+import { collection, query, where, onSnapshot, DocumentData } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -100,7 +100,7 @@ export default function LeaderboardPage() {
   }, [eventId]);
 
   useEffect(() => {
-    if (competitors.length === 0 && runs.length === 0 && loading) {
+    if (!competitors.length && !runs.length && loading) {
         return; // Wait for initial data
     }
 
