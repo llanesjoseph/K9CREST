@@ -37,7 +37,7 @@ import {
 } from "@/components/ui/accordion";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { collection, onSnapshot, doc, getDoc, setDoc, updateDoc, addDoc, deleteDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/components/auth-provider";
@@ -52,6 +52,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Separator } from "@/components/ui/separator";
 
 const exerciseSchema = z.object({
   id: z.string().optional(),
@@ -69,6 +70,7 @@ const phaseSchema = z.object({
 const rubricSchema = z.object({
   id: z.string().optional(),
   name: z.string().min(1, "Rubric name is required."),
+  totalPoints: z.coerce.number().optional(),
   phases: z.array(phaseSchema),
 });
 
@@ -211,35 +213,66 @@ function RubricEditor({ rubric }: { rubric: Rubric }) {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [openAccordionItems, setOpenAccordionItems] = useState<string[]>([]);
 
-
     const form = useForm<Rubric>({
         resolver: zodResolver(rubricSchema),
         defaultValues: rubric,
     });
-    
-     useEffect(() => {
-        form.reset(rubric);
-        // Expand all phases when a new rubric is selected
-        setOpenAccordionItems(rubric.phases.map((_, index) => `item-${index}`) || []);
-    }, [rubric, form]);
 
-
-    const { fields, append, remove, update } = useFieldArray({
+    const { fields, append, remove } = useFieldArray({
         control: form.control,
         name: "phases",
     });
+
+    const totalPoints = useWatch({ control: form.control, name: 'totalPoints' });
+    const phases = useWatch({ control: form.control, name: 'phases' });
+
+    const isDistributionEnabled = useMemo(() => {
+        return typeof totalPoints === 'number' && totalPoints > 0;
+    }, [totalPoints]);
+    
+    const pointBasedExerciseCount = useMemo(() => {
+        return phases.reduce((count, phase) => {
+            return count + (phase.exercises?.filter(ex => ex.type === 'points').length || 0);
+        }, 0);
+    }, [phases]);
+    
+    const pointsPerExercise = useMemo(() => {
+        if (!isDistributionEnabled || pointBasedExerciseCount === 0) return null;
+        return totalPoints! / pointBasedExerciseCount;
+    }, [isDistributionEnabled, totalPoints, pointBasedExerciseCount]);
+
+    useEffect(() => {
+        if (isDistributionEnabled && pointsPerExercise !== null) {
+            phases.forEach((phase, phaseIndex) => {
+                phase.exercises.forEach((exercise, exerciseIndex) => {
+                    if (exercise.type === 'points') {
+                        form.setValue(`phases.${phaseIndex}.exercises.${exerciseIndex}.maxPoints`, pointsPerExercise);
+                    }
+                });
+            });
+        }
+    }, [isDistributionEnabled, pointsPerExercise, phases, form]);
+
+    useEffect(() => {
+        form.reset(rubric);
+        setOpenAccordionItems(rubric.phases?.map((_, index) => `item-${index}`) || []);
+    }, [rubric, form]);
 
     async function onSubmit(data: Rubric) {
         if (!data.id) return;
         setIsSubmitting(true);
         try {
             const rubricRef = doc(db, "rubrics", data.id);
-            await updateDoc(rubricRef, { name: data.name, phases: data.phases });
+            // If distributing, remove totalPoints field before saving
+            const dataToSave = { ...data };
+            if (isDistributionEnabled) {
+                // Not saving totalPoints, as it's a UI control
+            }
+            await updateDoc(rubricRef, { name: dataToSave.name, phases: dataToSave.phases, totalPoints: dataToSave.totalPoints });
             toast({
                 title: "Rubric Saved!",
                 description: "The scoring rubric has been successfully updated.",
             });
-            // Collapse all accordions on successful save
             setOpenAccordionItems([]);
         } catch (error) {
             console.error(error);
@@ -264,18 +297,38 @@ function RubricEditor({ rubric }: { rubric: Rubric }) {
             <CardContent>
                 <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                        <FormField
-                            control={form.control}
-                            name="name"
-                            render={({ field }) => (
-                                <FormItem>
-                                <FormLabel>Rubric Name</FormLabel>
-                                <FormControl>
-                                    <Input {...field} />
-                                </FormControl>
-                                </FormItem>
-                            )}
-                        />
+                        <div className="grid grid-cols-2 gap-4">
+                            <FormField
+                                control={form.control}
+                                name="name"
+                                render={({ field }) => (
+                                    <FormItem>
+                                    <FormLabel>Rubric Name</FormLabel>
+                                    <FormControl>
+                                        <Input {...field} />
+                                    </FormControl>
+                                    </FormItem>
+                                )}
+                            />
+                             <FormField
+                                control={form.control}
+                                name="totalPoints"
+                                render={({ field }) => (
+                                    <FormItem>
+                                    <FormLabel>Total Points (Optional)</FormLabel>
+                                    <FormControl>
+                                        <Input type="number" {...field} placeholder="e.g., 100" onChange={e => field.onChange(e.target.value ? Number(e.target.value) : undefined)} />
+                                    </FormControl>
+                                    </FormItem>
+                                )}
+                            />
+                        </div>
+                        {isDistributionEnabled && (
+                            <div className="text-sm text-muted-foreground bg-accent/50 p-3 rounded-md">
+                               Point distribution is active. Each of the <strong>{pointBasedExerciseCount}</strong> point-based exercises will be worth <strong>{pointsPerExercise?.toFixed(2) ?? 0}</strong> points.
+                            </div>
+                        )}
+                        <Separator />
                         <Accordion type="multiple" className="w-full space-y-4" value={openAccordionItems} onValueChange={setOpenAccordionItems}>
                             {fields.map((phase, phaseIndex) => (
                                 <AccordionItem key={phase.id || phaseIndex} value={`item-${phaseIndex}`} className="border rounded-lg bg-background">
@@ -290,7 +343,7 @@ function RubricEditor({ rubric }: { rubric: Rubric }) {
                                         </div>
                                     </AccordionTrigger>
                                     <AccordionContent className="p-4 pt-0">
-                                    <PhaseExercises control={form.control} phaseIndex={phaseIndex} />
+                                    <PhaseExercises control={form.control} phaseIndex={phaseIndex} isDistributionEnabled={isDistributionEnabled} />
                                     <div className="flex justify-end mt-4">
                                         <Button
                                             type="button"
@@ -335,8 +388,7 @@ function RubricEditor({ rubric }: { rubric: Rubric }) {
     );
 }
 
-
-function PhaseExercises({ control, phaseIndex }: { control: any, phaseIndex: number }) {
+function PhaseExercises({ control, phaseIndex, isDistributionEnabled }: { control: any, phaseIndex: number, isDistributionEnabled: boolean }) {
   const { fields, append, remove } = useFieldArray({
     control,
     name: `phases.${phaseIndex}.exercises`,
@@ -351,6 +403,7 @@ function PhaseExercises({ control, phaseIndex }: { control: any, phaseIndex: num
             phaseIndex={phaseIndex} 
             exerciseIndex={exerciseIndex} 
             remove={remove}
+            isDistributionEnabled={isDistributionEnabled}
         />
       ))}
        {fields.length === 0 && (
@@ -369,7 +422,7 @@ function PhaseExercises({ control, phaseIndex }: { control: any, phaseIndex: num
   );
 }
 
-function ExerciseItem({ control, phaseIndex, exerciseIndex, remove }: { control: any, phaseIndex: number, exerciseIndex: number, remove: (index: number) => void}) {
+function ExerciseItem({ control, phaseIndex, exerciseIndex, remove, isDistributionEnabled }: { control: any, phaseIndex: number, exerciseIndex: number, remove: (index: number) => void, isDistributionEnabled: boolean}) {
     const exerciseType = useWatch({
         control,
         name: `phases.${phaseIndex}.exercises.${exerciseIndex}.type`,
@@ -423,7 +476,14 @@ function ExerciseItem({ control, phaseIndex, exerciseIndex, remove }: { control:
                         <FormItem className="w-full">
                           <FormLabel>{exerciseType === 'time' ? 'Max Time (sec)' : 'Max Points'}</FormLabel>
                           <FormControl>
-                            <Input {...field} type="number" placeholder={exerciseType === 'time' ? "e.g., 60" : "e.g., 10"} />
+                            <Input 
+                                {...field} 
+                                type="number" 
+                                placeholder={exerciseType === 'time' ? "e.g., 60" : "e.g., 10"}
+                                readOnly={isDistributionEnabled && exerciseType === 'points'}
+                                className={isDistributionEnabled && exerciseType === 'points' ? 'bg-muted/70' : ''}
+                                value={field.value === undefined ? '' : (typeof field.value === 'number' && field.value % 1 !== 0 ? field.value.toFixed(2) : field.value)}
+                            />
                           </FormControl>
                         </FormItem>
                       )}
