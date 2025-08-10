@@ -16,6 +16,7 @@ import {
   FileUp,
   ListChecks,
   Eye,
+  ClipboardList,
 } from "lucide-react";
 
 import {
@@ -70,7 +71,7 @@ export function AppSidebar() {
 
     if (href === "/dashboard") return pathname === href;
 
-    return pathname.startsWith(href);
+    return pathname.startsWith(href) && href !== '/dashboard';
   };
   
   const currentRole = viewAsRole || role;
@@ -78,6 +79,7 @@ export function AppSidebar() {
   const baseMenuItems = [
       { href: "/dashboard", label: "Dashboard", icon: LayoutGrid, roles: ['admin', 'judge', 'competitor', 'spectator'] },
       { href: "/dashboard/events", label: "Events", icon: Calendar, roles: ['admin', 'judge', 'competitor', 'spectator'] },
+      { href: `/dashboard/events/${eventId}/schedule`, label: "Schedule", icon: ClipboardList, eventSpecific: true, roles: ['admin', 'judge', 'competitor', 'spectator'] },
       { href: `/dashboard/events/${eventId}/leaderboard`, label: "Leaderboard", icon: Trophy, eventSpecific: true, roles: ['admin', 'judge', 'competitor', 'spectator'] },
       { href: "/dashboard/rubrics", label: "Manage Rubrics", icon: ListChecks, roles: ['admin', 'judge'] },
       { href: `/dashboard/judging/1`, label: "Judging", icon: Gavel, eventSpecific: true, roles: ['judge'] },

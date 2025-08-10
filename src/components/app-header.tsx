@@ -13,6 +13,7 @@ import {
   ListChecks,
   Calendar,
   Trophy,
+  ClipboardList,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { auth } from "@/lib/firebase";
@@ -32,9 +33,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
-function NavLink({ href, children }: { href: string, children: React.ReactNode }) {
+function NavLink({ href, children, isActive }: { href: string, children: React.ReactNode, isActive?: boolean }) {
     return (
-         <Button variant="ghost" asChild className="text-muted-foreground hover:text-foreground">
+         <Button variant={isActive ? "secondary" : "ghost"} asChild className="text-muted-foreground hover:text-foreground data-[active]:text-foreground">
             <Link href={href}>{children}</Link>
         </Button>
     )
@@ -45,6 +46,7 @@ export function AppHeader() {
   const { user, role, isTrueAdmin, setViewAsRole, viewAsRole } = useAuth();
   const router = useRouter();
   const params = useParams();
+  const pathname = useRouter();
   const eventId = params ? (params.id as string) : null;
 
   const handleSignOut = async () => {
@@ -64,8 +66,8 @@ export function AppHeader() {
             <NavLink href="/dashboard/events"><Calendar /> Events</NavLink>
             {eventId && (
                  <>
+                    <NavLink href={`/dashboard/events/${eventId}/schedule`}><ClipboardList /> Schedule</NavLink>
                     {['admin', 'judge'].includes(currentRole) && <NavLink href={`/dashboard/events/${eventId}/rubric`}><ListChecks /> Rubric</NavLink>}
-                    {['admin', 'judge'].includes(currentRole) && <NavLink href={`/dashboard/judging/1`}><Gavel /> Judging</NavLink>}
                     <NavLink href={`/dashboard/events/${eventId}/leaderboard`}><Trophy /> Leaderboard</NavLink>
                  </>
             )}
