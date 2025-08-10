@@ -70,7 +70,7 @@ const phaseSchema = z.object({
 const rubricSchema = z.object({
   id: z.string().optional(),
   name: z.string().min(1, "Rubric name is required."),
-  totalPoints: z.coerce.number().optional(),
+  totalPoints: z.coerce.number({ required_error: "Total points are required." }).min(1, "Total points must be greater than 0."),
   phases: z.array(phaseSchema),
 });
 
@@ -316,7 +316,7 @@ function RubricEditor({ rubric }: { rubric: Rubric }) {
                                 name="totalPoints"
                                 render={({ field }) => (
                                     <FormItem>
-                                    <FormLabel>Total Points (Optional)</FormLabel>
+                                    <FormLabel>Total Points</FormLabel>
                                     <FormControl>
                                         <Input type="number" {...field} placeholder="e.g., 100" onChange={e => field.onChange(e.target.value ? Number(e.target.value) : undefined)} value={field.value ?? ''} />
                                     </FormControl>
@@ -522,3 +522,5 @@ function ExerciseItem({ control, phaseIndex, exerciseIndex, remove, isDistributi
         </div>
     )
 }
+
+    
