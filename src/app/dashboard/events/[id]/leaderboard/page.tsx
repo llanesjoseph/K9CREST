@@ -23,7 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useParams } from "next/navigation";
-import { collection, query, where, onSnapshot, Unsubscribe } from "firebase/firestore";
+import { collection, query, where, onSnapshot, Unsubscribe, DocumentData } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -52,6 +52,10 @@ interface AgencyStanding {
   score: number;
 }
 
+interface CompetitorData {
+    id: string;
+    [key: string]: any;
+}
 
 export default function LeaderboardPage() {
   const params = useParams();
@@ -59,117 +63,104 @@ export default function LeaderboardPage() {
   const [loading, setLoading] = useState(true);
   const [overallStandings, setOverallStandings] = useState<Standing[]>([]);
   const [agencyStandings, setAgencyStandings] = useState<AgencyStanding[]>([]);
+  const [competitors, setCompetitors] = useState<CompetitorData[]>([]);
+  const [runs, setRuns] = useState<DocumentData[]>([]);
 
   useEffect(() => {
     if (!eventId) return;
 
     setLoading(true);
-    
+
     const competitorsQuery = collection(db, `events/${eventId}/competitors`);
     const scheduleQuery = query(
       collection(db, `events/${eventId}/schedule`),
       where("status", "==", "scored")
     );
 
-    let competitorsUnsub: Unsubscribe;
-    let scheduleUnsub: Unsubscribe;
-    
-    let competitorsData: any[] = [];
-    let runsData: any[] = [];
-
-    const calculateStandings = () => {
-        if (!competitorsData.length || !runsData.length) {
-             setOverallStandings([]);
-             setAgencyStandings([]);
-             setLoading(false);
-             return;
-        }
-
-        const competitorScores: Record<string, { totalScore: number; data: any }> = {};
-
-        runsData.forEach(run => {
-            const competitor = competitorsData.find(c => c.id === run.competitorId);
-            if (!competitor) return;
-
-            let runScore = 0;
-            if (run.scores) {
-                run.scores.forEach((phase: Score) => {
-                    phase.exercises.forEach(exercise => {
-                        if (exercise.type === 'points') {
-                           runScore += Number(exercise.score) || 0;
-                        } else if (exercise.type === 'time') {
-                            // Lower time is better, but for total score we might just add it.
-                            // This logic may need refinement based on scoring rules. For now, add it.
-                           runScore += Number(exercise.score) || 0;
-                        } else if (exercise.type === 'pass/fail') {
-                           // Explicitly check for 1 or true.
-                           const passed = exercise.score === 1 || exercise.score === true;
-                           runScore += passed ? (exercise.maxPoints || 1) : 0;
-                        }
-                    });
-                });
-            }
-
-            if (!competitorScores[run.competitorId]) {
-                competitorScores[run.competitorId] = { totalScore: 0, data: competitor };
-            }
-            competitorScores[run.competitorId].totalScore += runScore;
-        });
-
-        const calculatedStandings = Object.values(competitorScores)
-            .map(item => ({
-                competitorId: item.data.id,
-                competitor: item.data.name,
-                dog: item.data.dogName,
-                agency: item.data.agency,
-                score: item.totalScore
-            }))
-            .sort((a, b) => b.score - a.score)
-            .map((s, index) => ({ ...s, rank: index + 1 }));
-
-        setOverallStandings(calculatedStandings);
-        
-        // Calculate Agency Standings
-        const agencyScores: Record<string, number> = {};
-        calculatedStandings.forEach(standing => {
-            if(!agencyScores[standing.agency]) {
-                agencyScores[standing.agency] = 0;
-            }
-            agencyScores[standing.agency] += standing.score;
-        });
-        
-        const calculatedAgencyStandings = Object.entries(agencyScores)
-            .map(([agency, score]) => ({ agency, score }))
-            .sort((a,b) => b.score - a.score)
-            .map((s, index) => ({...s, rank: index + 1}));
-            
-        setAgencyStandings(calculatedAgencyStandings);
-
-        setLoading(false);
-    }
-    
-    competitorsUnsub = onSnapshot(competitorsQuery, (snapshot) => {
-        competitorsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        calculateStandings();
+    const competitorsUnsub = onSnapshot(competitorsQuery, (snapshot) => {
+        setCompetitors(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     }, (error) => {
         console.error("Error fetching competitors:", error);
-        setLoading(false);
     });
-    
-    scheduleUnsub = onSnapshot(scheduleQuery, (snapshot) => {
-        runsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        calculateStandings();
+
+    const scheduleUnsub = onSnapshot(scheduleQuery, (snapshot) => {
+        setRuns(snapshot.docs.map(doc => doc.data()));
     }, (error) => {
         console.error("Error fetching schedule:", error);
-        setLoading(false);
     });
+    
+    // Give a moment for initial data to load
+    const timer = setTimeout(() => setLoading(false), 1500);
 
     return () => {
-        if(competitorsUnsub) competitorsUnsub();
-        if(scheduleUnsub) scheduleUnsub();
-    }
-
+        competitorsUnsub();
+        scheduleUnsub();
+        clearTimeout(timer);
+    };
   }, [eventId]);
+
+  useEffect(() => {
+    if (loading) return; // Don't calculate until initial load is done
+
+    const competitorMap = new Map(competitors.map(c => [c.id, c]));
+    const competitorScores: Record<string, { totalScore: number; data: any }> = {};
+
+    runs.forEach(run => {
+      const competitor = competitorMap.get(run.competitorId);
+      if (!competitor) return;
+
+      let runScore = 0;
+      if (run.scores) {
+        run.scores.forEach((phase: Score) => {
+          phase.exercises.forEach(exercise => {
+            if (exercise.type === 'points') {
+              runScore += Number(exercise.score) || 0;
+            } else if (exercise.type === 'time') {
+              runScore += Number(exercise.score) || 0;
+            } else if (exercise.type === 'pass/fail') {
+              const passed = exercise.score === 1 || exercise.score === true;
+              runScore += passed ? (exercise.maxPoints || 1) : 0;
+            }
+          });
+        });
+      }
+
+      if (!competitorScores[run.competitorId]) {
+        competitorScores[run.competitorId] = { totalScore: 0, data: competitor };
+      }
+      competitorScores[run.competitorId].totalScore += runScore;
+    });
+
+    const calculatedStandings = Object.values(competitorScores)
+      .map(item => ({
+        competitorId: item.data.id,
+        competitor: item.data.name,
+        dog: item.data.dogName,
+        agency: item.data.agency,
+        score: item.totalScore
+      }))
+      .sort((a, b) => b.score - a.score)
+      .map((s, index) => ({ ...s, rank: index + 1 }));
+
+    setOverallStandings(calculatedStandings);
+
+    // Calculate Agency Standings
+    const agencyScores: Record<string, number> = {};
+    calculatedStandings.forEach(standing => {
+      if (!agencyScores[standing.agency]) {
+        agencyScores[standing.agency] = 0;
+      }
+      agencyScores[standing.agency] += standing.score;
+    });
+
+    const calculatedAgencyStandings = Object.entries(agencyScores)
+      .map(([agency, score]) => ({ agency, score }))
+      .sort((a, b) => b.score - a.score)
+      .map((s, index) => ({ ...s, rank: index + 1 }));
+
+    setAgencyStandings(calculatedAgencyStandings);
+
+  }, [runs, competitors, loading]);
 
   const renderOverallBody = () => {
     if (loading) {
@@ -192,9 +183,9 @@ export default function LeaderboardPage() {
       );
     }
     return overallStandings.map((entry) => (
-      <TableRow key={entry.rank}>
+      <TableRow key={entry.competitorId}>
         <TableCell className="font-bold text-lg">
-          <div className="flex items-center justify-center">
+          <div className="flex items-center justify-center w-8">
             {entry.rank <= 3 ? <Trophy className={`w-6 h-6 ${entry.rank === 1 ? 'text-yellow-500' : entry.rank === 2 ? 'text-gray-400' : 'text-yellow-700'}`} /> : entry.rank}
           </div>
         </TableCell>
@@ -236,9 +227,9 @@ export default function LeaderboardPage() {
       );
     }
     return agencyStandings.map((entry) => (
-      <TableRow key={entry.rank}>
+      <TableRow key={entry.agency}>
         <TableCell className="font-bold text-lg">
-          <div className="flex items-center justify-center">
+          <div className="flex items-center justify-center w-8">
             {entry.rank <= 3 ? <Trophy className={`w-6 h-6 ${entry.rank === 1 ? 'text-yellow-500' : entry.rank === 2 ? 'text-gray-400' : 'text-yellow-700'}`} /> : entry.rank}
           </div>
         </TableCell>
@@ -273,7 +264,7 @@ export default function LeaderboardPage() {
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                <TableHead className="w-[50px]">Rank</TableHead>
+                                <TableHead className="w-[80px]">Rank</TableHead>
                                 <TableHead>Competitor</TableHead>
                                 <TableHead>Agency</TableHead>
                                 <TableHead className="text-right">Score</TableHead>
@@ -288,7 +279,7 @@ export default function LeaderboardPage() {
                          <Table>
                             <TableHeader>
                                 <TableRow>
-                                <TableHead className="w-[50px]">Rank</TableHead>
+                                <TableHead className="w-[80px]">Rank</TableHead>
                                 <TableHead>Agency</TableHead>
                                 <TableHead className="text-right">Total Score</TableHead>
                                 </TableRow>
@@ -304,3 +295,5 @@ export default function LeaderboardPage() {
     </div>
   );
 }
+
+    
