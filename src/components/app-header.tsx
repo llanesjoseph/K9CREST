@@ -60,18 +60,18 @@ export function AppHeader() {
 
   const isActive = (path: string) => {
     if (!path) return false;
-    // Handle base paths
-    if (path === '/dashboard/events' && pathname.startsWith('/dashboard/events')) return true;
-    if (path === '/dashboard/rubrics' && pathname.startsWith('/dashboard/rubrics')) return true;
     
-    // Handle event-specific paths
+    // Check for event-specific paths
     if (isEventPage && eventId) {
       const basePath = `/dashboard/events/${eventId}`;
       const fullPath = `${basePath}/${path}`;
-      // Check for exact match or if it's a parent path
-      return pathname === fullPath || pathname.startsWith(`${fullPath}/`);
+      if (pathname === fullPath || pathname.startsWith(`${fullPath}/`)) return true;
     }
 
+    // Handle base paths and special cases
+    if (path === '/dashboard/events' && pathname.startsWith('/dashboard/events')) return true;
+    if (path === '/dashboard/rubrics' && pathname.startsWith('/dashboard/rubrics')) return true;
+    
     return pathname === path;
   };
   
@@ -83,7 +83,7 @@ export function AppHeader() {
       </Link>
        <nav className="hidden md:flex items-center gap-2 mx-auto">
             <NavLink href="/dashboard/events" isActive={isActive('/dashboard/events')}><Calendar className="mr-2"/> Events</NavLink>
-            {['admin', 'judge'].includes(currentRole) && <NavLink href={`/dashboard/rubrics`} isActive={isActive(`/dashboard/rubrics`)}><ListChecks className="mr-2"/> Rubrics</NavLink>}
+            {['admin'].includes(currentRole) && <NavLink href={`/dashboard/rubrics`} isActive={isActive(`/dashboard/rubrics`)}><ListChecks className="mr-2"/> Rubrics</NavLink>}
             <NavLink href={`/dashboard/events/${eventId}/leaderboard`} isActive={isActive('leaderboard')} disabled={!eventId}><Trophy className="mr-2"/> Leaderboard</NavLink>
        </nav>
       <div className="ml-auto">
