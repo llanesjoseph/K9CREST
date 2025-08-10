@@ -65,10 +65,14 @@ export function AppSidebar() {
       { href: "/dashboard/events", label: "Events", icon: Calendar, roles: ['admin', 'judge', 'competitor', 'spectator'] },
       { href: `/dashboard/events/${eventId}/leaderboard`, label: "Leaderboard", icon: Trophy, eventSpecific: true, roles: ['admin', 'judge', 'competitor', 'spectator'] },
       { href: "/dashboard/rubrics", label: "Manage Rubrics", icon: ListChecks, roles: ['admin'] },
+      { href: "/dashboard/reports", label: "Reports", icon: ClipboardList, roles: ['admin'] },
       { href: "/dashboard/users", label: "Users", icon: Users, roles: ['admin'] },
       { href: "/dashboard/settings", label: "Settings", icon: Settings, roles: ['admin', 'judge', 'competitor', 'spectator'] },
   ].filter(item => {
       if (!currentRole) return false;
+      if (currentRole === 'spectator' && item.href === '/dashboard') return false;
+      if (currentRole === 'judge' && (item.href === '/dashboard' || item.href === '/dashboard/rubrics')) return false;
+
       const hasRole = item.roles.includes(currentRole);
       return hasRole;
   });
@@ -78,6 +82,7 @@ export function AppSidebar() {
     // Special case for create page to highlight events tab
     if (pathname === '/dashboard/events/create' && href === '/dashboard/events') return true;
     if (pathname.startsWith('/dashboard/rubrics') && href === '/dashboard/rubrics') return true;
+    if (pathname.startsWith('/dashboard/reports') && href === '/dashboard/reports') return true;
     // For event specific pages, we need to match the base path
     if (eventId && href.includes('[id]')) {
         const basePath = href.replace('[id]', eventId);

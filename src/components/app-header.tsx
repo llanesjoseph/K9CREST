@@ -71,6 +71,7 @@ export function AppHeader() {
     // Handle base paths and special cases
     if (path === '/dashboard/events' && pathname.startsWith('/dashboard/events')) return true;
     if (path === '/dashboard/rubrics' && pathname.startsWith('/dashboard/rubrics')) return true;
+    if (path === '/dashboard/reports' && pathname.startsWith('/dashboard/reports')) return true;
     
     return pathname === path;
   };
@@ -84,6 +85,7 @@ export function AppHeader() {
        <nav className="hidden md:flex items-center gap-2 mx-auto">
             <NavLink href="/dashboard/events" isActive={isActive('/dashboard/events')}><Calendar className="mr-2"/> Events</NavLink>
             {['admin'].includes(currentRole) && <NavLink href={`/dashboard/rubrics`} isActive={isActive(`/dashboard/rubrics`)}><ListChecks className="mr-2"/> Rubrics</NavLink>}
+            {['admin'].includes(currentRole) && <NavLink href={`/dashboard/reports`} isActive={isActive(`/dashboard/reports`)}><ClipboardList className="mr-2"/> Reports</NavLink>}
             <NavLink href={`/dashboard/events/${eventId}/leaderboard`} isActive={isActive('leaderboard')} disabled={!eventId}><Trophy className="mr-2"/> Leaderboard</NavLink>
        </nav>
       <div className="ml-auto">
