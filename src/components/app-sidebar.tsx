@@ -57,37 +57,26 @@ export function AppSidebar() {
     await auth.signOut();
     router.push("/");
   };
-
-  const isActive = (href: string) => {
-    if (!href) return false;
-    // Special case for create page to highlight events tab
-    if (pathname.startsWith('/dashboard/events/create') && href === '/dashboard/events') return true;
-    if (pathname.startsWith('/dashboard/rubrics') && href === '/dashboard/rubrics') return true;
-    
-    // For event specific links, we need exact match, otherwise they all become active
-    if(href.includes('[id]')) {
-        return pathname === href.replace('[id]', eventId || '');
-    }
-
-    if (href === "/dashboard") return pathname === href;
-
-    return pathname.startsWith(href) && href !== '/dashboard';
-  };
   
   const currentRole = viewAsRole || role;
   
-  const baseMenuItems = [
+  const menuItems = [
       { href: "/dashboard", label: "Dashboard", icon: LayoutGrid, roles: ['admin', 'judge', 'competitor', 'spectator'] },
       { href: "/dashboard/events", label: "Events", icon: Calendar, roles: ['admin', 'judge', 'competitor', 'spectator'] },
       { href: `/dashboard/events/${eventId}/schedule`, label: "Schedule", icon: ClipboardList, eventSpecific: true, roles: ['admin', 'judge', 'competitor', 'spectator'] },
       { href: `/dashboard/events/${eventId}/leaderboard`, label: "Leaderboard", icon: Trophy, eventSpecific: true, roles: ['admin', 'judge', 'competitor', 'spectator'] },
       { href: "/dashboard/rubrics", label: "Manage Rubrics", icon: ListChecks, roles: ['admin', 'judge'] },
-      { href: `/dashboard/judging/1`, label: "Judging", icon: Gavel, eventSpecific: true, roles: ['judge'] },
       { href: "/dashboard/users", label: "Users", icon: Users, roles: ['admin'] },
       { href: "/dashboard/settings", label: "Settings", icon: Settings, roles: ['admin', 'judge', 'competitor', 'spectator'] },
-  ];
+  ].filter(item => item.roles.includes(currentRole));
 
-  const menuItems = baseMenuItems.filter(item => item.roles.includes(currentRole));
+  const isActive = (href: string) => {
+    if (!href) return false;
+    // Special case for create page to highlight events tab
+    if (pathname === '/dashboard/events/create' && href === '/dashboard/events') return true;
+    return pathname === href;
+  };
+
 
   return (
     <Sidebar collapsible="icon">
@@ -109,7 +98,7 @@ export function AppSidebar() {
                 <SidebarMenuItem key={item.label}>
                     <SidebarMenuButton
                         asChild
-                        isActive={!disabled && isActive(item.href)}
+                        isActive={!disabled && isActive(finalHref)}
                         tooltip={{
                         children: item.label,
                         side: "right",
