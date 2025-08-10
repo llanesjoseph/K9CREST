@@ -4,7 +4,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { collection, onSnapshot, doc, setDoc, deleteDoc, writeBatch, query, getDocs, getDoc, Timestamp, updateDoc, where } from 'firebase/firestore';
 import { generateTimeSlots } from '@/lib/schedule-helpers';
-import { Trash2, AlertTriangle, PlusCircle, Users, X, Eraser, Wand2, Clock, Loader2, FileDown, GripVertical, Upload, ListChecks, Hash } from 'lucide-react';
+import { Trash2, AlertTriangle, PlusCircle, Users, X, Eraser, Wand2, Clock, Loader2, FileDown, GripVertical, Upload, ListChecks, Hash, Gavel } from 'lucide-react';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragOverlay, DragStartEvent, DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -47,6 +47,7 @@ import { Separator } from '@/components/ui/separator';
 import { AiScheduleDialog } from '@/components/ai-schedule-dialog';
 import { EditCompetitorDialog } from '@/components/edit-competitor-dialog';
 import type { Arena, Competitor, ScheduledEvent, ArenaSpecialty } from '@/lib/schedule-types';
+import Link from 'next/link';
 
 // --- State Structures ---
 interface Specialty {
@@ -185,7 +186,8 @@ const TimeSlot = ({
     scheduledEvent,
     competitors,
     removeScheduledEvent,
-    isDraggable
+    isDraggable,
+    isJudge
 }: {
     arenaId: string;
     startTime: string;
@@ -195,6 +197,7 @@ const TimeSlot = ({
     competitors: Competitor[];
     removeScheduledEvent: (eventId: string) => void;
     isDraggable: boolean;
+    isJudge: boolean;
 }) => {
     const [isOver, setIsOver] = useState(false);
 
@@ -227,35 +230,53 @@ const TimeSlot = ({
     const canDragEvent = isDraggable && !!scheduledEvent;
     const slotId = `slot-${arenaId}-${date}-${startTime}`;
 
+    const scheduledContent = scheduledEvent && eventCompetitor ? (
+        <div className="flex flex-col items-center justify-center p-1 group w-full h-full text-center">
+            <span className="font-bold text-sm">{eventCompetitor.dogName}</span>
+            <span className="text-xs text-muted-foreground">({eventCompetitor.name})</span>
+             {isDraggable && (
+                 <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={(e) => { e.preventDefault(); removeScheduledEvent(scheduledEvent.id); }}
+                    className="absolute top-0 right-0 h-6 w-6 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                    title="Remove from schedule"
+                >
+                   <X className="h-4 w-4" />
+                </Button>
+            )}
+            {isJudge && (
+                 <div className="absolute bottom-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Gavel className="h-4 w-4 text-primary/70" />
+                 </div>
+            )}
+        </div>
+    ) : null;
+
+    const wrapperClasses = `w-32 h-20 border border-dashed rounded-md flex items-center justify-center text-center text-sm transition-all duration-200 ease-in-out relative
+        ${scheduledEvent ? (isJudge ? 'bg-blue-100 dark:bg-blue-900/30 border-blue-500/50 hover:shadow-md hover:border-blue-500' : 'bg-green-100 dark:bg-green-900/30 border-green-500/50') : isDraggable ? 'bg-background hover:bg-muted/80' : 'bg-secondary/50'}
+        ${isOver ? 'border-primary ring-2 ring-primary' : ''}
+        ${canDragEvent ? 'cursor-grab' : ''}
+        ${isJudge && scheduledEvent ? 'cursor-pointer' : ''}
+    `;
+
     return (
         <div
             id={slotId}
-            className={`w-32 h-20 border border-dashed rounded-md flex items-center justify-center text-center text-sm transition-all duration-200 ease-in-out relative
-                ${scheduledEvent ? 'bg-green-100 dark:bg-green-900/30 border-green-500/50' : isDraggable ? 'bg-background hover:bg-muted/80' : 'bg-secondary/50'}
-                ${isOver ? 'border-primary ring-2 ring-primary' : ''}
-                ${canDragEvent ? 'cursor-grab' : ''}
-            `}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
             onDragStart={handleDragStart}
             draggable={canDragEvent}
+            className={wrapperClasses}
         >
-            {scheduledEvent && eventCompetitor ? (
-                <div className="flex flex-col items-center justify-center p-1 group w-full h-full">
-                    <span className="font-bold text-green-800 dark:text-green-300 text-sm">{eventCompetitor.dogName}</span>
-                    <span className="text-xs text-green-700 dark:text-green-400">({eventCompetitor.name})</span>
-                    {isDraggable && (
-                         <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => removeScheduledEvent(scheduledEvent.id)}
-                            className="absolute top-0 right-0 h-6 w-6 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-                            title="Remove from schedule"
-                        >
-                           <X className="h-4 w-4" />
-                        </Button>
-                    )}
+            {scheduledEvent && isJudge ? (
+                <Link href={`/dashboard/judging/${scheduledEvent.id}`} className="w-full h-full flex items-center justify-center">
+                    {scheduledContent}
+                </Link>
+            ) : scheduledEvent ? (
+                <div className="w-full h-full flex items-center justify-center">
+                    {scheduledContent}
                 </div>
             ) : isDraggable ? (
                 <span className="text-muted-foreground text-xs">Drop Here</span>
@@ -266,7 +287,7 @@ const TimeSlot = ({
 
 
 export default function SchedulePage() {
-    const { isAdmin, loading: authLoading } = useAuth();
+    const { isAdmin, role, loading: authLoading } = useAuth();
     const { toast } = useToast();
     const params = useParams();
     const eventId = params.id as string;
@@ -867,6 +888,7 @@ export default function SchedulePage() {
 
     const isFullyLoading = loading.arenas || loading.schedule || loading.competitors || loading.event || authLoading || loading.rubrics;
     const timeSlots = generateTimeSlots({ duration: eventDetails?.scheduleBlockDuration, lunchBreak: eventDetails?.lunchBreak });
+    const isJudge = role === 'judge';
 
 
     // --- Render ---
@@ -1135,6 +1157,7 @@ export default function SchedulePage() {
                                                                             competitors={competitors}
                                                                             removeScheduledEvent={removeScheduledEvent}
                                                                             isDraggable={isAdmin}
+                                                                            isJudge={isJudge}
                                                                         />
                                                                     ))}
                                                                 </div>
