@@ -77,7 +77,6 @@ export function AppSidebar() {
     if (!href) return false;
     // Special case for create page to highlight events tab
     if (pathname === '/dashboard/events/create' && href === '/dashboard/events') return true;
-    if (href.includes('[id]')) return false; // Don't match templates
     return pathname === href;
   };
 

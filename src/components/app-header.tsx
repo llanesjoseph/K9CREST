@@ -33,9 +33,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
-function NavLink({ href, children, isActive }: { href: string, children: React.ReactNode, isActive?: boolean }) {
+function NavLink({ href, children, isActive, disabled }: { href: string, children: React.ReactNode, isActive?: boolean, disabled?: boolean }) {
     return (
-         <Button variant={isActive ? "secondary" : "ghost"} asChild className="text-muted-foreground hover:text-foreground data-[active]:text-foreground">
+         <Button variant={isActive ? "secondary" : "ghost"} asChild className="text-muted-foreground hover:text-foreground data-[active]:text-foreground" disabled={disabled}>
             <Link href={href}>{children}</Link>
         </Button>
     )
@@ -56,18 +56,16 @@ export function AppHeader() {
   
   const currentRole = viewAsRole || role;
 
+  const isEventPage = pathname.includes('/dashboard/events/');
+
   const isActive = (path: string) => {
-    if(!path) return false;
+    if(!path || !isEventPage) return false;
+    const basePath = `/dashboard/events/${eventId}`;
+    const fullPath = `${basePath}/${path}`;
     // Check for exact match or if it's a parent path
-    return pathname === path || pathname.startsWith(`${path}/`);
+    return pathname === fullPath || pathname.startsWith(`${fullPath}/`);
   };
   
-  const isEventPageActive = (subpath: string) => {
-      if (!eventId) return false;
-      return pathname === `/dashboard/events/${eventId}/${subpath}`;
-  }
-
-
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background/80 backdrop-blur-sm px-4 sm:px-6 lg:px-8">
       <Link href="/dashboard" className="flex items-center gap-2 font-semibold text-lg">
@@ -76,13 +74,9 @@ export function AppHeader() {
       </Link>
        <nav className="hidden md:flex items-center gap-2 mx-auto">
             <NavLink href="/dashboard/events" isActive={pathname.startsWith('/dashboard/events')}><Calendar className="mr-2"/> Events</NavLink>
-            {eventId && (
-                 <>
-                    <NavLink href={`/dashboard/events/${eventId}/schedule`} isActive={isEventPageActive('schedule')}><ClipboardList className="mr-2"/> Schedule</NavLink>
-                    {['admin', 'judge'].includes(currentRole) && <NavLink href={`/dashboard/rubrics`} isActive={pathname.startsWith(`/dashboard/rubrics`)}><ListChecks className="mr-2"/> Rubrics</NavLink>}
-                    <NavLink href={`/dashboard/events/${eventId}/leaderboard`} isActive={isEventPageActive('leaderboard')}><Trophy className="mr-2"/> Leaderboard</NavLink>
-                 </>
-            )}
+            <NavLink href={`/dashboard/events/${eventId}/schedule`} isActive={isActive('schedule')} disabled={!eventId}><ClipboardList className="mr-2"/> Schedule</NavLink>
+            {['admin', 'judge'].includes(currentRole) && <NavLink href={`/dashboard/rubrics`} isActive={pathname.startsWith(`/dashboard/rubrics`)} disabled={!eventId}><ListChecks className="mr-2"/> Rubrics</NavLink>}
+            <NavLink href={`/dashboard/events/${eventId}/leaderboard`} isActive={isActive('leaderboard')} disabled={!eventId}><Trophy className="mr-2"/> Leaderboard</NavLink>
        </nav>
       <div className="ml-auto">
         <DropdownMenu>
