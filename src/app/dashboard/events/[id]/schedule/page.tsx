@@ -69,13 +69,13 @@ interface Rubric {
 
 type SchedulingStatus = 'unscheduled' | 'partiallyScheduled' | 'fullyScheduled';
 
-interface DisplayRun extends ScheduledEvent {
-    arenaName: string;
-}
-
 interface DisplayCompetitor extends Competitor {
     status: SchedulingStatus;
     runs: DisplayRun[];
+}
+
+interface DisplayRun extends ScheduledEvent {
+    arenaName: string;
 }
 
 const SortableCompetitorItem = ({ competitor, isDraggable, onRunClick, allCompetitors }: { competitor: DisplayCompetitor, isDraggable: boolean, onRunClick: (run: ScheduledEvent) => void, allCompetitors: Competitor[] }) => {
@@ -373,6 +373,12 @@ export default function SchedulePage() {
             return acc;
         }, {} as Record<string, ScheduledEvent[]>);
 
+        const statusOrder: Record<SchedulingStatus, number> = {
+            unscheduled: 1,
+            partiallyScheduled: 2,
+            fullyScheduled: 3,
+        };
+
         return competitors
             .map(comp => {
                 const scheduledCount = (scheduledRunsByCompetitor[comp.id] || []).length;
@@ -402,6 +408,12 @@ export default function SchedulePage() {
                     status,
                     runs: runsWithArenaNames,
                 }
+            })
+            .sort((a, b) => {
+                const statusDiff = statusOrder[a.status] - statusOrder[b.status];
+                if (statusDiff !== 0) return statusDiff;
+                // Optional: secondary sort by BIB number if statuses are the same
+                return (parseInt(a.bibNumber || '9999', 10) - parseInt(b.bibNumber || '9999', 10));
             });
     }, [competitors, schedule, arenas]);
 
@@ -854,6 +866,8 @@ export default function SchedulePage() {
     const activeCompetitor = useMemo(() => sortedCompetitors.find(c => c.id === activeId), [activeId, sortedCompetitors]);
 
     const isFullyLoading = loading.arenas || loading.schedule || loading.competitors || loading.event || authLoading || loading.rubrics;
+    const timeSlots = generateTimeSlots({ duration: eventDetails?.scheduleBlockDuration, lunchBreak: eventDetails?.lunchBreak });
+
 
     // --- Render ---
     return (
@@ -865,7 +879,7 @@ export default function SchedulePage() {
                         <CardHeader className="flex flex-row items-center justify-between">
                             <div>
                                 <CardTitle>Competitors</CardTitle>
-                                 <CardDescription>Drag and drop competitors to re-order the list for scheduling priority.</CardDescription>
+                                 <CardDescription>Unscheduled competitors are at the top. Drag to re-order.</CardDescription>
                             </div>
                             {isAdmin && (
                                 <CompetitorImportDialog eventId={eventId} />
@@ -1043,7 +1057,7 @@ export default function SchedulePage() {
                                     {eventDays.map(day => {
                                         const formattedDate = format(day, 'yyyy-MM-dd');
                                         const dayArenas = arenas.filter(arena => !hiddenArenas[formattedDate]?.has(arena.id));
-                                        const timeSlots = generateTimeSlots({ duration: eventDetails?.scheduleBlockDuration, lunchBreak: eventDetails?.lunchBreak });
+                                        
                                         return (
                                             <div key={day.toISOString()}>
                                                 <h3 className="text-lg font-semibold mb-3 sticky top-0 bg-card py-2 z-20">{format(day, 'EEEE, MMM dd')}</h3>
@@ -1141,3 +1155,4 @@ export default function SchedulePage() {
         </TooltipProvider>
     );
 }
+
