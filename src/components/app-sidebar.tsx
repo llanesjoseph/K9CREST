@@ -70,13 +70,17 @@ export function AppSidebar() {
       { href: "/dashboard/settings", label: "Settings", icon: Settings, roles: ['admin', 'judge', 'competitor', 'spectator'] },
   ].filter(item => {
       if (!currentRole) return false;
-      return item.roles.includes(currentRole)
+      const hasRole = item.roles.includes(currentRole);
+      // Hide event-specific links if no eventId, unless on the main /rubrics page
+      if (item.eventSpecific && !eventId) return false;
+      return hasRole;
   });
 
   const isActive = (href: string) => {
     if (!href) return false;
     // Special case for create page to highlight events tab
     if (pathname === '/dashboard/events/create' && href === '/dashboard/events') return true;
+    if (pathname.startsWith('/dashboard/rubrics') && href === '/dashboard/rubrics') return true;
     return pathname === href;
   };
 
