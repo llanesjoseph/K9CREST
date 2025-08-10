@@ -6,7 +6,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Loader2, Upload } from 'lucide-react';
-import { doc, getDoc, updateDoc, collection, query, where, getDocs, writeBatch } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, collection, query, where, getDocs, writeBatch, documentId } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import Image from 'next/image';
 
@@ -40,7 +40,7 @@ export default function SettingsPage() {
   const form = useForm<FormValues>({
     resolver: zodResolver(profileSchema),
     defaultValues: {
-      handlerName: '',
+      handlerName: user?.displayName || '',
       dogName: '',
       dogBio: '',
     },
@@ -53,38 +53,42 @@ export default function SettingsPage() {
         return;
       };
 
+      setIsLoading(true);
       try {
-        // This logic assumes a competitor is uniquely identified by the user's UID.
-        // In a multi-event system, a more robust link might be needed.
+        // This logic finds the first competitor profile associated with the user's name
+        // across all events. A more robust system might use a dedicated user profile collection.
         const eventsRef = collection(db, 'events');
         const eventsSnapshot = await getDocs(eventsRef);
         let foundCompetitor = null;
-        let eventIdOfCompetitor = null;
         
         for (const eventDoc of eventsSnapshot.docs) {
            const competitorsRef = collection(db, `events/${eventDoc.id}/competitors`);
-           // This is a simplification; a real app might need a direct user->competitor link.
-           // For now, we find a competitor with a matching name to the logged-in user.
            const q = query(competitorsRef, where("name", "==", user.displayName));
            const competitorSnapshot = await getDocs(q);
            if (!competitorSnapshot.empty) {
                const competitorDoc = competitorSnapshot.docs[0];
                foundCompetitor = { id: competitorDoc.id, ...competitorDoc.data() };
-               eventIdOfCompetitor = eventDoc.id;
-               break;
+               break; // Found the first one, stop searching
            }
         }
 
-        if (foundCompetitor && eventIdOfCompetitor) {
+        if (foundCompetitor) {
           setCompetitorId(foundCompetitor.id);
           form.reset({
-            handlerName: foundCompetitor.name || '',
+            handlerName: foundCompetitor.name || user?.displayName || '',
             dogName: foundCompetitor.dogName || '',
             dogBio: foundCompetitor.dogBio || '',
           });
           if(foundCompetitor.dogImage) {
             setImageUrl(foundCompetitor.dogImage);
           }
+        } else {
+            // If no competitor found, still allow creation by pre-filling handler name
+            form.reset({
+                handlerName: user?.displayName || '',
+                dogName: '',
+                dogBio: '',
+            });
         }
       } catch (error) {
         console.error("Error fetching competitor data:", error);
@@ -98,49 +102,55 @@ export default function SettingsPage() {
       }
     };
 
-    if (!authLoading) {
+    if (!authLoading && user) {
       fetchCompetitorData();
+    } else if (!authLoading && !user) {
+      setIsLoading(false);
     }
   }, [user, authLoading, form, toast]);
 
   const onSubmit = async (data: FormValues) => {
-    if (!user || !competitorId) {
-      toast({ variant: "destructive", title: "Error", description: "Not authenticated or profile not found." });
+    if (!user) {
+      toast({ variant: "destructive", title: "Error", description: "You must be logged in to update your profile." });
       return;
     }
     setIsSubmitting(true);
     
     try {
       let newImageUrl = imageUrl;
+      // Handle image upload if a new one is selected
       if (data.dogImage && data.dogImage[0]) {
         const file = data.dogImage[0];
         const storageRef = ref(storage, `k9_images/${user.uid}/${file.name}`);
         const uploadResult = await uploadBytes(storageRef, file);
         newImageUrl = await getDownloadURL(uploadResult.ref);
+        setImageUrl(newImageUrl);
       }
 
-      // Find all instances of this competitor across all events to update them
       const batch = writeBatch(db);
       const eventsRef = collection(db, 'events');
       const eventsSnapshot = await getDocs(eventsRef);
 
+      // Find all instances of this competitor across all events to update them
       for (const eventDoc of eventsSnapshot.docs) {
-          const competitorRef = doc(db, `events/${eventDoc.id}/competitors`, competitorId);
-          const competitorSnap = await getDoc(competitorRef);
-          if (competitorSnap.exists()) {
-             batch.update(competitorRef, {
-                name: data.handlerName,
-                dogName: data.dogName,
-                dogBio: data.dogBio,
-                dogImage: newImageUrl,
-             });
-          }
+          const competitorsRef = collection(db, `events/${eventDoc.id}/competitors`);
+          // A more direct link like a `userId` field would be more robust
+          const q = query(competitorsRef, where("name", "==", user.displayName)); 
+          const competitorDocs = await getDocs(q);
+
+          competitorDocs.forEach(competitorDoc => {
+               batch.update(competitorDoc.ref, {
+                  name: data.handlerName,
+                  dogName: data.dogName,
+                  dogBio: data.dogBio,
+                  dogImage: newImageUrl,
+               });
+          });
       }
       
       await batch.commit();
 
-      toast({ title: "Profile Updated", description: "Your K9's profile has been successfully updated." });
-      if(newImageUrl) setImageUrl(newImageUrl);
+      toast({ title: "Profile Updated", description: "Your K9's profile has been successfully updated across all events." });
       form.reset(data, { keepValues: true });
 
     } catch (error) {
@@ -151,19 +161,25 @@ export default function SettingsPage() {
     }
   };
   
-  if(isLoading) {
+  if(isLoading || authLoading) {
       return (
           <div className="flex flex-col gap-6">
               <Card>
-                  <CardHeader><Skeleton className="h-8 w-1/4" /></CardHeader>
+                  <CardHeader>
+                      <CardTitle>Competitor Profile</CardTitle>
+                      <CardDescription>Manage your and your K9's information.</CardDescription>
+                  </CardHeader>
                   <CardContent className="space-y-4">
-                      <div className="flex gap-4">
-                          <Skeleton className="h-32 w-32 rounded-full" />
-                          <div className="space-y-2 flex-1">
-                              <Skeleton className="h-6 w-1/3" />
-                              <Skeleton className="h-10 w-full" />
-                              <Skeleton className="h-6 w-1/3" />
-                              <Skeleton className="h-10 w-full" />
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                          <div className="md:col-span-1 flex flex-col items-center gap-4">
+                             <Skeleton className="h-48 w-48 rounded-full" />
+                          </div>
+                          <div className="md:col-span-2 space-y-4">
+                              <div className="grid grid-cols-2 gap-4">
+                                  <div className="space-y-2"><Skeleton className="h-4 w-1/4" /><Skeleton className="h-10 w-full" /></div>
+                                  <div className="space-y-2"><Skeleton className="h-4 w-1/4" /><Skeleton className="h-10 w-full" /></div>
+                              </div>
+                               <div className="space-y-2"><Skeleton className="h-4 w-1/4" /><Skeleton className="h-24 w-full" /></div>
                           </div>
                       </div>
                   </CardContent>
@@ -171,27 +187,6 @@ export default function SettingsPage() {
           </div>
       )
   }
-
-  if (!competitorId) {
-       return (
-        <div className="flex flex-col gap-6">
-            <Card>
-                <CardHeader>
-                    <CardTitle>Settings</CardTitle>
-                    <CardDescription>
-                     Manage your account and platform settings.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                   <div className="flex h-64 items-center justify-center rounded-lg border-2 border-dashed">
-                        <p className="text-muted-foreground text-center">No competitor profile found for your account.<br /> Please contact an administrator.</p>
-                   </div>
-                </CardContent>
-            </Card>
-        </div>
-      );
-  }
-
 
   return (
     <div className="flex flex-col gap-6">
@@ -250,34 +245,40 @@ export default function SettingsPage() {
                         </div>
                         <div className="md:col-span-2 space-y-4">
                              <div className="grid grid-cols-2 gap-4">
-                                <Controller
+                                <FormField
                                     control={form.control}
                                     name="handlerName"
                                     render={({ field }) => (
                                         <FormItem>
                                         <Label>Handler Name</Label>
-                                        <Input {...field} />
+                                        <FormControl>
+                                            <Input {...field} />
+                                        </FormControl>
                                         </FormItem>
                                     )}
                                 />
-                                 <Controller
+                                 <FormField
                                     control={form.control}
                                     name="dogName"
                                     render={({ field }) => (
                                         <FormItem>
                                         <Label>K9 Name</Label>
-                                        <Input {...field} />
+                                         <FormControl>
+                                            <Input {...field} />
+                                        </FormControl>
                                         </FormItem>
                                     )}
                                 />
                              </div>
-                             <Controller
+                             <FormField
                                 control={form.control}
                                 name="dogBio"
                                 render={({ field }) => (
                                     <FormItem>
                                     <Label>K9 Bio</Label>
-                                    <Textarea {...field} placeholder="Tell us about your K9..." className="min-h-[120px]" />
+                                     <FormControl>
+                                        <Textarea {...field} placeholder="Tell us about your K9..." className="min-h-[120px]" />
+                                     </FormControl>
                                     </FormItem>
                                 )}
                             />
@@ -295,3 +296,5 @@ export default function SettingsPage() {
     </div>
   );
 }
+
+    
