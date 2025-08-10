@@ -24,6 +24,7 @@ import { useEffect, useState } from "react";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useAuth } from "@/components/auth-provider";
 
 interface JudgingFormValues {
     scores: {
@@ -42,6 +43,7 @@ export default function JudgingPage() {
   const { toast } = useToast();
   const router = useRouter();
   const params = useParams();
+  const { role } = useAuth();
   const eventId = params.id as string;
   const runId = params.runId as string;
   
@@ -52,6 +54,10 @@ export default function JudgingPage() {
   const [competitorData, setCompetitorData] = useState<any>(null);
   const [arenaData, setArenaData] = useState<any>(null);
   const [rubricData, setRubricData] = useState<any>(null);
+
+  const isReadOnly = role === 'spectator' || role === 'competitor';
+  const pageTitle = isReadOnly ? "View Scorecard" : "Judge Scoring Interface";
+
 
   const form = useForm<JudgingFormValues>({
       defaultValues: { scores: [], notes: "" }
@@ -115,7 +121,7 @@ export default function JudgingPage() {
             const existingExercise = existingPhase?.exercises.find((e:any) => e.exerciseName === ex.name);
             
             let defaultScore: number | boolean = 0;
-            if (ex.type === 'pass/fail') defaultScore = false; // default to fail (represented as 0 or false)
+            if (ex.type === 'pass/fail') defaultScore = false;
             if (ex.type === 'time') defaultScore = 0.0;
             
             return {
@@ -149,7 +155,7 @@ export default function JudgingPage() {
   }, [eventId, runId, toast, form, router]);
 
   async function onSubmit(data: JudgingFormValues) {
-    if(!runId || !eventId) return;
+    if(!runId || !eventId || isReadOnly) return;
     setIsSubmitting(true);
     
     try {
@@ -209,7 +215,7 @@ export default function JudgingPage() {
           </Link>
         </Button>
         <div>
-            <h1 className="text-2xl font-semibold">Judge Scoring Interface</h1>
+            <h1 className="text-2xl font-semibold">{pageTitle}</h1>
             <p className="text-muted-foreground">Event: {eventData?.name || '...'}</p>
         </div>
       </div>
@@ -258,6 +264,7 @@ export default function JudgingPage() {
                             placeholder="0"
                             className="text-right"
                             max={exercise.maxPoints}
+                            readOnly={isReadOnly}
                             {...form.register(`scores.${phaseIndex}.exercises.${exerciseIndex}.score`)}
                           />
                           <span className="text-sm text-muted-foreground">
@@ -273,6 +280,7 @@ export default function JudgingPage() {
                             placeholder="0.00"
                             step="0.01"
                             className="text-right"
+                            readOnly={isReadOnly}
                              {...form.register(`scores.${phaseIndex}.exercises.${exerciseIndex}.score`)}
                           />
                           <span className="text-sm text-muted-foreground">
@@ -291,6 +299,7 @@ export default function JudgingPage() {
                                         id={`switch-${phaseIndex}-${exerciseIndex}`}
                                         checked={field.value === 1 || field.value === true}
                                         onCheckedChange={(isChecked) => field.onChange(isChecked ? 1 : 0)}
+                                        disabled={isReadOnly}
                                     />
                                 )}
                             />
@@ -310,14 +319,16 @@ export default function JudgingPage() {
                 <CardTitle>General Notes</CardTitle>
             </CardHeader>
             <CardContent>
-                <Textarea placeholder="Add any overall comments about the run..." {...form.register('notes')} />
+                <Textarea placeholder="Add any overall comments about the run..." {...form.register('notes')} readOnly={isReadOnly} />
             </CardContent>
-            <CardFooter className="flex justify-end">
-                <Button type="submit" disabled={isSubmitting || !rubricData}>
-                    {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Submit Scores
-                </Button>
-            </CardFooter>
+            {!isReadOnly && (
+                <CardFooter className="flex justify-end">
+                    <Button type="submit" disabled={isSubmitting || !rubricData}>
+                        {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Submit Scores
+                    </Button>
+                </CardFooter>
+            )}
         </Card>
       </form>
     </div>
