@@ -217,6 +217,7 @@ export default function JudgingPage() {
         <CardHeader>
           <CardTitle>Run Details</CardTitle>
           <CardDescription>
+            {competitorData?.bibNumber && <span className="font-bold text-primary mr-2">#{competitorData.bibNumber}</span>}
             Scoring for <span className="font-bold">{competitorData?.name || '...'}</span> with{" "}
             <span className="font-bold">{competitorData?.dogName || '...'}</span> in Arena: <span className="font-bold">{arenaData?.name || '...'}</span>
           </CardDescription>
