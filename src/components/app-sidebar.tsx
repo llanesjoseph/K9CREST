@@ -71,8 +71,6 @@ export function AppSidebar() {
   ].filter(item => {
       if (!currentRole) return false;
       const hasRole = item.roles.includes(currentRole);
-      // Hide event-specific links if no eventId, unless on the main /rubrics page
-      if (item.eventSpecific && !eventId) return false;
       return hasRole;
   });
 
