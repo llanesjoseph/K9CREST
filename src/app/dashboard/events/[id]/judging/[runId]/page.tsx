@@ -289,22 +289,33 @@ export default function JudgingPage() {
                         </div>
                       )}
                        {exercise.type === "pass/fail" && (
-                        <div className="flex items-center justify-end gap-2">
-                           <Label htmlFor={`switch-${phaseIndex}-${exerciseIndex}`} className="text-sm font-normal">Fail</Label>
-                            <Controller
-                                control={form.control}
-                                name={`scores.${phaseIndex}.exercises.${exerciseIndex}.score`}
-                                render={({ field }) => (
-                                    <Switch
-                                        id={`switch-${phaseIndex}-${exerciseIndex}`}
-                                        checked={field.value === 1 || field.value === true}
-                                        onCheckedChange={(isChecked) => field.onChange(isChecked ? 1 : 0)}
-                                        disabled={isReadOnly}
-                                    />
-                                )}
-                            />
-                            <Label htmlFor={`switch-${phaseIndex}-${exerciseIndex}`} className="text-sm font-normal">Pass</Label>
-                        </div>
+                          isReadOnly ? (
+                            <div className="flex items-center justify-end gap-2 text-right">
+                                <span className="font-mono text-lg">
+                                    {(exercise.score === 1 || exercise.score === true) ? (exercise.maxPoints || 1) : 0}
+                                </span>
+                                <span className="text-sm text-muted-foreground">
+                                    / {exercise.maxPoints} pts
+                                </span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-end gap-2">
+                                <Label htmlFor={`switch-${phaseIndex}-${exerciseIndex}`} className="text-sm font-normal">Fail</Label>
+                                <Controller
+                                    control={form.control}
+                                    name={`scores.${phaseIndex}.exercises.${exerciseIndex}.score`}
+                                    render={({ field }) => (
+                                        <Switch
+                                            id={`switch-${phaseIndex}-${exerciseIndex}`}
+                                            checked={field.value === 1 || field.value === true}
+                                            onCheckedChange={(isChecked) => field.onChange(isChecked ? 1 : 0)}
+                                            disabled={isReadOnly}
+                                        />
+                                    )}
+                                />
+                                <Label htmlFor={`switch-${phaseIndex}-${exerciseIndex}`} className="text-sm font-normal">Pass</Label>
+                            </div>
+                         )
                       )}
                     </div>
                     {exerciseIndex < phase.exercises.length - 1 && <Separator className="mt-4" />}
