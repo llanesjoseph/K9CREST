@@ -240,7 +240,7 @@ const TimeSlot = ({
         <div className="flex flex-col items-center justify-center p-1 group w-full h-full text-center">
             <span className="font-bold text-sm">{eventCompetitor.dogName}</span>
             <span className="text-xs text-muted-foreground">({eventCompetitor.name})</span>
-             {isDraggable && (
+             {isDraggable && !isScored && (
                  <Button
                     variant="ghost"
                     size="icon"
@@ -251,24 +251,21 @@ const TimeSlot = ({
                    <X className="h-4 w-4" />
                 </Button>
             )}
-            {isJudge && (
-                 <div className="absolute bottom-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    {isScored ? <ClipboardCheck className="h-4 w-4 text-primary/70" /> : <Gavel className="h-4 w-4 text-primary/70" />}
-                 </div>
-            )}
+            <div className="absolute bottom-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                {isScored ? <ClipboardCheck className="h-4 w-4 text-primary/70" /> : (isJudge && <Gavel className="h-4 w-4 text-primary/70" />) }
+            </div>
         </div>
     ) : null;
 
     const wrapperClasses = cn(`w-32 h-20 border border-dashed rounded-md flex items-center justify-center text-center text-sm transition-all duration-200 ease-in-out relative`,
         {
-            'bg-green-100 dark:bg-green-900/30 border-green-500/50': scheduledEvent && !isScored && !isJudge,
-            'bg-blue-100 dark:bg-blue-900/30 border-blue-500/50 hover:shadow-md hover:border-blue-500': scheduledEvent && isScored && isJudge,
-            'bg-green-100 dark:bg-green-900/30 border-green-500/50 hover:shadow-md hover:border-green-500': scheduledEvent && !isScored && isJudge,
+            'bg-green-100 dark:bg-green-900/30 border-green-500/50': scheduledEvent && !isScored,
+            'bg-blue-100 dark:bg-blue-900/30 border-blue-500/50 hover:shadow-md hover:border-blue-500': isScored,
             'bg-background hover:bg-muted/80': !scheduledEvent && isDraggable,
             'bg-secondary/50': !scheduledEvent && !isDraggable,
             'border-primary ring-2 ring-primary': isOver,
-            'cursor-grab': canDragEvent,
-            'cursor-pointer': isJudge && scheduledEvent,
+            'cursor-grab': canDragEvent && !isScored,
+            'cursor-pointer': isJudge || isScored,
         }
     );
 
@@ -279,10 +276,10 @@ const TimeSlot = ({
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
             onDragStart={handleDragStart}
-            draggable={canDragEvent}
+            draggable={canDragEvent && !isScored}
             className={wrapperClasses}
         >
-            {scheduledEvent && isJudge ? (
+            {scheduledEvent && (isJudge || isScored) ? (
                 <Link href={`/dashboard/events/${eventId}/judging/${scheduledEvent.id}`} className="w-full h-full flex items-center justify-center">
                     {scheduledContent}
                 </Link>
