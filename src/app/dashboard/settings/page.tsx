@@ -19,6 +19,7 @@ import { useToast } from '@/hooks/use-toast';
 import { db, storage } from '@/lib/firebase';
 import { useAuth } from '@/components/auth-provider';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
 
 const profileSchema = z.object({
   handlerName: z.string().min(1, 'Handler name is required.'),
@@ -198,103 +199,106 @@ export default function SettingsPage() {
                 </CardDescription>
             </CardHeader>
             <CardContent>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <div className="md:col-span-1 flex flex-col items-center gap-4">
-                            <Controller
-                                control={form.control}
-                                name="dogImage"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <Label htmlFor="dogImage">
-                                            <div className="relative group w-48 h-48 cursor-pointer">
-                                                 <Image
-                                                    src={imageUrl || "https://placehold.co/192x192.png"}
-                                                    alt="K9 Photo"
-                                                    width={192}
-                                                    height={192}
-                                                    className="rounded-full object-cover w-48 h-48 border-4 border-muted"
-                                                    data-ai-hint="dog pet"
-                                                />
-                                                <div className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                                    <Upload className="h-8 w-8 text-white" />
-                                                </div>
-                                            </div>
-                                        </Label>
-                                        <FormControl>
-                                            <Input 
-                                                id="dogImage"
-                                                type="file" 
-                                                className="hidden" 
-                                                accept="image/*"
-                                                onChange={(e) => {
-                                                    field.onChange(e.target.files);
-                                                    if(e.target.files?.[0]) {
-                                                        const reader = new FileReader();
-                                                        reader.onloadend = () => {
-                                                            setImageUrl(reader.result as string);
-                                                        }
-                                                        reader.readAsDataURL(e.target.files[0]);
-                                                    }
-                                                }}
-                                            />
-                                        </FormControl>
-                                    </FormItem>
-                                )}
-                            />
-                        </div>
-                        <div className="md:col-span-2 space-y-4">
-                             <div className="grid grid-cols-2 gap-4">
-                                <FormField
+                <Form {...form}>
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div className="md:col-span-1 flex flex-col items-center gap-4">
+                                <Controller
                                     control={form.control}
-                                    name="handlerName"
+                                    name="dogImage"
                                     render={({ field }) => (
                                         <FormItem>
-                                        <Label>Handler Name</Label>
-                                        <FormControl>
-                                            <Input {...field} />
-                                        </FormControl>
+                                            <Label htmlFor="dogImage">
+                                                <div className="relative group w-48 h-48 cursor-pointer">
+                                                     <Image
+                                                        src={imageUrl || "https://placehold.co/192x192.png"}
+                                                        alt="K9 Photo"
+                                                        width={192}
+                                                        height={192}
+                                                        className="rounded-full object-cover w-48 h-48 border-4 border-muted"
+                                                        data-ai-hint="dog pet"
+                                                    />
+                                                    <div className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <Upload className="h-8 w-8 text-white" />
+                                                    </div>
+                                                </div>
+                                            </Label>
+                                            <FormControl>
+                                                <Input 
+                                                    id="dogImage"
+                                                    type="file" 
+                                                    className="hidden" 
+                                                    accept="image/*"
+                                                    onChange={(e) => {
+                                                        field.onChange(e.target.files);
+                                                        if(e.target.files?.[0]) {
+                                                            const reader = new FileReader();
+                                                            reader.onloadend = () => {
+                                                                setImageUrl(reader.result as string);
+                                                            }
+                                                            reader.readAsDataURL(e.target.files[0]);
+                                                        }
+                                                    }}
+                                                />
+                                            </FormControl>
                                         </FormItem>
                                     )}
                                 />
+                            </div>
+                            <div className="md:col-span-2 space-y-4">
+                                 <div className="grid grid-cols-2 gap-4">
+                                    <FormField
+                                        control={form.control}
+                                        name="handlerName"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                            <Label>Handler Name</Label>
+                                            <FormControl>
+                                                <Input {...field} />
+                                            </FormControl>
+                                            <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                     <FormField
+                                        control={form.control}
+                                        name="dogName"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                            <Label>K9 Name</Label>
+                                             <FormControl>
+                                                <Input {...field} />
+                                            </FormControl>
+                                            <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                 </div>
                                  <FormField
                                     control={form.control}
-                                    name="dogName"
+                                    name="dogBio"
                                     render={({ field }) => (
                                         <FormItem>
-                                        <Label>K9 Name</Label>
+                                        <Label>K9 Bio</Label>
                                          <FormControl>
-                                            <Input {...field} />
-                                        </FormControl>
+                                            <Textarea {...field} placeholder="Tell us about your K9..." className="min-h-[120px]" />
+                                         </FormControl>
+                                         <FormMessage />
                                         </FormItem>
                                     )}
                                 />
-                             </div>
-                             <FormField
-                                control={form.control}
-                                name="dogBio"
-                                render={({ field }) => (
-                                    <FormItem>
-                                    <Label>K9 Bio</Label>
-                                     <FormControl>
-                                        <Textarea {...field} placeholder="Tell us about your K9..." className="min-h-[120px]" />
-                                     </FormControl>
-                                    </FormItem>
-                                )}
-                            />
+                            </div>
                         </div>
-                    </div>
-                     <div className="flex justify-end">
-                        <Button type="submit" disabled={isSubmitting}>
-                            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            Save Profile
-                        </Button>
-                    </div>
-                </form>
+                         <div className="flex justify-end">
+                            <Button type="submit" disabled={isSubmitting}>
+                                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                Save Profile
+                            </Button>
+                        </div>
+                    </form>
+                </Form>
             </CardContent>
         </Card>
     </div>
   );
 }
-
-    
