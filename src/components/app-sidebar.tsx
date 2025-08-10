@@ -61,11 +61,10 @@ export function AppSidebar() {
   const currentRole = viewAsRole || role;
   
   const menuItems = [
-      { href: "/dashboard", label: "Dashboard", icon: LayoutGrid, roles: ['admin', 'competitor', 'spectator'] }, // Removed judge
+      { href: "/dashboard", label: "Dashboard", icon: LayoutGrid, roles: ['admin', 'competitor', 'spectator'] },
       { href: "/dashboard/events", label: "Events", icon: Calendar, roles: ['admin', 'judge', 'competitor', 'spectator'] },
-      { href: `/dashboard/events/${eventId}/schedule`, label: "Schedule", icon: ClipboardList, eventSpecific: true, roles: ['admin', 'competitor', 'spectator'] }, // Removed judge
       { href: `/dashboard/events/${eventId}/leaderboard`, label: "Leaderboard", icon: Trophy, eventSpecific: true, roles: ['admin', 'judge', 'competitor', 'spectator'] },
-      { href: "/dashboard/rubrics", label: "Manage Rubrics", icon: ListChecks, roles: ['admin'] }, // Removed judge
+      { href: "/dashboard/rubrics", label: "Manage Rubrics", icon: ListChecks, roles: ['admin', 'judge'] },
       { href: "/dashboard/users", label: "Users", icon: Users, roles: ['admin'] },
       { href: "/dashboard/settings", label: "Settings", icon: Settings, roles: ['admin', 'judge', 'competitor', 'spectator'] },
   ].filter(item => {
@@ -79,6 +78,11 @@ export function AppSidebar() {
     // Special case for create page to highlight events tab
     if (pathname === '/dashboard/events/create' && href === '/dashboard/events') return true;
     if (pathname.startsWith('/dashboard/rubrics') && href === '/dashboard/rubrics') return true;
+    // For event specific pages, we need to match the base path
+    if (eventId && href.includes('[id]')) {
+        const basePath = href.replace('[id]', eventId);
+        return pathname.startsWith(basePath);
+    }
     return pathname === href || pathname.startsWith(`${href}/`);
   };
 
@@ -98,7 +102,7 @@ export function AppSidebar() {
         <SidebarMenu>
           {menuItems.map((item) => {
              const disabled = item.eventSpecific && !eventId;
-             const finalHref = disabled ? '#' : item.href;
+             const finalHref = disabled ? '#' : (item.href || '');
              return (
                 <SidebarMenuItem key={item.label}>
                     <SidebarMenuButton
