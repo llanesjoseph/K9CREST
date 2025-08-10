@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { ChevronLeft, Trophy, Loader2 } from "lucide-react";
+import { ChevronLeft, Trophy } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -23,7 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useParams } from "next/navigation";
-import { collection, query, where, onSnapshot } from "firebase/firestore";
+import { collection, query, where, onSnapshot, Unsubscribe } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -65,41 +65,53 @@ export default function LeaderboardPage() {
 
     setLoading(true);
     
-    // Listen to scored runs
+    const competitorsQuery = collection(db, `events/${eventId}/competitors`);
     const scheduleQuery = query(
       collection(db, `events/${eventId}/schedule`),
       where("status", "==", "scored")
     );
 
-    const scheduleUnsub = onSnapshot(scheduleQuery, (scheduleSnapshot) => {
-      const runs = scheduleSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    let competitorsUnsub: Unsubscribe;
+    let scheduleUnsub: Unsubscribe;
+    
+    let competitorsData: any[] = [];
+    let runsData: any[] = [];
 
-      // Listen to competitors
-      const competitorsQuery = collection(db, `events/${eventId}/competitors`);
-      const competitorsUnsub = onSnapshot(competitorsQuery, (competitorsSnapshot) => {
-        const competitors = competitorsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const calculateStandings = () => {
+        if (!competitorsData.length || !runsData.length) {
+             setOverallStandings([]);
+             setAgencyStandings([]);
+             setLoading(false);
+             return;
+        }
 
-        const competitorScores: Record<string, { totalScore: number; count: number; data: any }> = {};
+        const competitorScores: Record<string, { totalScore: number; data: any }> = {};
 
-        runs.forEach(run => {
-            const competitor = competitors.find(c => c.id === run.competitorId);
+        runsData.forEach(run => {
+            const competitor = competitorsData.find(c => c.id === run.competitorId);
             if (!competitor) return;
 
             let runScore = 0;
             if (run.scores) {
                 run.scores.forEach((phase: Score) => {
                     phase.exercises.forEach(exercise => {
-                        if (exercise.type === 'points' || exercise.type === 'time') {
+                        if (exercise.type === 'points') {
+                           runScore += Number(exercise.score) || 0;
+                        } else if (exercise.type === 'time') {
+                            // Lower time is better, but for total score we might just add it.
+                            // This logic may need refinement based on scoring rules. For now, add it.
                            runScore += Number(exercise.score) || 0;
                         } else if (exercise.type === 'pass/fail') {
-                           runScore += (exercise.score === 1 || exercise.score === true) ? (exercise.maxPoints || 1) : 0;
+                           // Explicitly check for 1 or true.
+                           const passed = exercise.score === 1 || exercise.score === true;
+                           runScore += passed ? (exercise.maxPoints || 1) : 0;
                         }
                     });
                 });
             }
 
             if (!competitorScores[run.competitorId]) {
-                competitorScores[run.competitorId] = { totalScore: 0, count: 0, data: competitor };
+                competitorScores[run.competitorId] = { totalScore: 0, data: competitor };
             }
             competitorScores[run.competitorId].totalScore += runScore;
         });
@@ -134,12 +146,29 @@ export default function LeaderboardPage() {
         setAgencyStandings(calculatedAgencyStandings);
 
         setLoading(false);
-      });
-      
-      return () => competitorsUnsub();
+    }
+    
+    competitorsUnsub = onSnapshot(competitorsQuery, (snapshot) => {
+        competitorsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        calculateStandings();
+    }, (error) => {
+        console.error("Error fetching competitors:", error);
+        setLoading(false);
+    });
+    
+    scheduleUnsub = onSnapshot(scheduleQuery, (snapshot) => {
+        runsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        calculateStandings();
+    }, (error) => {
+        console.error("Error fetching schedule:", error);
+        setLoading(false);
     });
 
-    return () => scheduleUnsub();
+    return () => {
+        if(competitorsUnsub) competitorsUnsub();
+        if(scheduleUnsub) scheduleUnsub();
+    }
+
   }, [eventId]);
 
   const renderOverallBody = () => {
