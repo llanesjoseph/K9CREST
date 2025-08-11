@@ -153,7 +153,7 @@ export default function JudgingPage() {
             const existingExercise = existingPhase?.exercises.find((e:any) => e.exerciseName === ex.name);
             
             let defaultScore: number | boolean = 0;
-            if (ex.type === 'pass/fail') defaultScore = false;
+            if (ex.type === 'pass/fail') defaultScore = 0;
             if (ex.type === 'time') defaultScore = 0.0;
             
             return {
@@ -385,7 +385,7 @@ export default function JudgingPage() {
                           isReadOnly ? (
                             <div className="flex items-center justify-end gap-2 text-right">
                                 <span className="font-mono text-lg">
-                                    {(exercise.score === 1 || exercise.score === true) ? (exercise.maxPoints || 1) : 0}
+                                    {Number(exercise.score) > 0 ? exercise.maxPoints : 0}
                                 </span>
                                 <span className="text-sm text-muted-foreground">
                                     / {exercise.maxPoints || 1} pts
@@ -400,8 +400,8 @@ export default function JudgingPage() {
                                     render={({ field }) => (
                                         <Switch
                                             id={`switch-${phaseIndex}-${exerciseIndex}`}
-                                            checked={field.value === 1 || field.value === true}
-                                            onCheckedChange={(isChecked) => field.onChange(isChecked ? 1 : 0)}
+                                            checked={Number(field.value) > 0}
+                                            onCheckedChange={(isChecked) => field.onChange(isChecked ? exercise.maxPoints : 0)}
                                             disabled={isReadOnly}
                                         />
                                     )}
@@ -438,5 +438,3 @@ export default function JudgingPage() {
     </div>
   );
 }
-
-    
