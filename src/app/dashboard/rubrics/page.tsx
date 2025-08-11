@@ -429,9 +429,8 @@ function ExerciseItem({ control, phaseIndex, exerciseIndex, remove, isDistributi
         name: `phases.${phaseIndex}.exercises.${exerciseIndex}.type`,
     });
 
-    const showMaxPoints = exerciseType === 'points' || exerciseType === 'time';
-    const showPassFail = exerciseType === 'pass/fail';
-
+    const showMaxPoints = exerciseType === 'points' || exerciseType === 'pass/fail';
+    
     return (
         <div className="flex items-start gap-4 p-4 rounded-md border bg-secondary/50">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 flex-grow">
@@ -491,20 +490,11 @@ function ExerciseItem({ control, phaseIndex, exerciseIndex, remove, isDistributi
                       )}
                     />
                 )}
-                {showPassFail && (
+                 {exerciseType === 'time' && (
                      <FormItem className="w-full">
                         <FormLabel>Score Input</FormLabel>
                         <FormControl>
-                            <div className="flex items-center justify-start gap-4 h-10 border border-input bg-background rounded-md px-3">
-                               <div className="flex items-center gap-2 text-muted-foreground">
-                                    <XCircle className="h-4 w-4 text-destructive" />
-                                    <span>Fail</span>
-                               </div>
-                               <div className="flex items-center gap-2 text-muted-foreground">
-                                    <CheckCircle className="h-4 w-4 text-green-500" />
-                                    <span>Pass</span>
-                               </div>
-                            </div>
+                            <Input type="number" placeholder="Time in seconds" readOnly />
                         </FormControl>
                     </FormItem>
                 )}
