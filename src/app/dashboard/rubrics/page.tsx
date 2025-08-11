@@ -232,7 +232,7 @@ function RubricEditor({ rubric }: { rubric: Rubric }) {
     
     const pointBasedExerciseCount = useMemo(() => {
         return phases.reduce((count, phase) => {
-            return count + (phase.exercises?.filter(ex => ex.type === 'points').length || 0);
+            return count + (phase.exercises?.filter(ex => ex.type === 'points' || ex.type === 'pass/fail').length || 0);
         }, 0);
     }, [phases]);
     
@@ -246,7 +246,7 @@ function RubricEditor({ rubric }: { rubric: Rubric }) {
             const currentPhases = form.getValues('phases');
             currentPhases.forEach((phase, phaseIndex) => {
                 phase.exercises.forEach((exercise, exerciseIndex) => {
-                    if (exercise.type === 'points') {
+                    if (exercise.type === 'points' || exercise.type === 'pass/fail') {
                         form.setValue(`phases.${phaseIndex}.exercises.${exerciseIndex}.maxPoints`, pointsPerExercise, { shouldDirty: true });
                     }
                 });
@@ -326,7 +326,7 @@ function RubricEditor({ rubric }: { rubric: Rubric }) {
                         </div>
                         {isDistributionEnabled && (
                             <div className="text-sm text-muted-foreground bg-accent/50 p-3 rounded-md">
-                               Point distribution is active. Each of the <strong>{pointBasedExerciseCount}</strong> point-based exercises will be worth <strong>{pointsPerExercise?.toFixed(2) ?? 0}</strong> points.
+                               Point distribution is active. Each of the <strong>{pointBasedExerciseCount}</strong> point-based & pass/fail exercises will be worth <strong>{pointsPerExercise?.toFixed(2) ?? 0}</strong> points.
                             </div>
                         )}
                         <Separator />
@@ -480,8 +480,8 @@ function ExerciseItem({ control, phaseIndex, exerciseIndex, remove, isDistributi
                                 {...field} 
                                 type="number" 
                                 placeholder={exerciseType === 'time' ? "e.g., 60" : "e.g., 10"}
-                                readOnly={isDistributionEnabled && exerciseType === 'points'}
-                                className={isDistributionEnabled && exerciseType === 'points' ? 'bg-muted/70' : ''}
+                                readOnly={isDistributionEnabled}
+                                className={isDistributionEnabled ? 'bg-muted/70' : ''}
                                 value={field.value ?? ''}
                                 onChange={e => field.onChange(e.target.value === '' ? undefined : Number(e.target.value))}
                             />
