@@ -1,9 +1,9 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
-import { ChevronLeft, Trophy, Timer } from "lucide-react";
+import { ChevronLeft, Trophy, Timer, Medal } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -20,10 +20,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useParams } from "next/navigation";
-import { collection, query, where, onSnapshot, DocumentData } from "firebase/firestore";
+import { collection, query, where, onSnapshot, DocumentData, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -53,53 +52,122 @@ interface AgencyStanding {
   score: number;
 }
 
-interface CompetitorData {
+interface EventData {
     id: string;
-    [key: string]: any;
+    name: string;
+    standings: Standing[];
 }
 
 export default function LeaderboardPage() {
   const params = useParams();
-  const eventId = params.id as string;
+  const eventId = params.id as string; // We'll keep this to provide a link back to the specific event schedule
   const [loading, setLoading] = useState(true);
-  const [overallStandings, setOverallStandings] = useState<Standing[]>([]);
+  const [eventsData, setEventsData] = useState<EventData[]>([]);
   const [agencyStandings, setAgencyStandings] = useState<AgencyStanding[]>([]);
-  const [competitors, setCompetitors] = useState<CompetitorData[]>([]);
-  const [runs, setRuns] = useState<DocumentData[]>([]);
 
   useEffect(() => {
-    if (!eventId) return;
+    const fetchAllEventData = async () => {
+        setLoading(true);
+        try {
+            const eventsQuery = query(collection(db, "events"));
+            const eventsSnap = await getDocs(eventsQuery);
+            
+            const allEventsData = await Promise.all(
+                eventsSnap.docs.map(async (eventDoc) => {
+                    const currentEventId = eventDoc.id;
+                    const competitorsQuery = collection(db, `events/${currentEventId}/competitors`);
+                    const scheduleQuery = query(
+                        collection(db, `events/${currentEventId}/schedule`),
+                        where("status", "==", "scored")
+                    );
 
-    setLoading(true);
+                    const [competitorsSnap, scheduleSnap] = await Promise.all([
+                        getDocs(competitorsQuery),
+                        getDocs(scheduleQuery)
+                    ]);
+                    
+                    const competitors = competitorsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    const runs = scheduleSnap.docs.map(doc => doc.data());
 
-    const competitorsQuery = collection(db, `events/${eventId}/competitors`);
-    const scheduleQuery = query(
-      collection(db, `events/${eventId}/schedule`),
-      where("status", "==", "scored")
-    );
+                    const competitorMap = new Map(competitors.map(c => [c.id, c]));
+                    const competitorStats: Record<string, { totalScore: number; totalTime: number; data: any }> = {};
 
-    const competitorsUnsub = onSnapshot(competitorsQuery, (snapshot) => {
-        setCompetitors(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    }, (error) => {
-        console.error("Error fetching competitors:", error);
-    });
+                    runs.forEach(run => {
+                        const competitor = competitorMap.get(run.competitorId);
+                        if (!competitor) return;
 
-    const scheduleUnsub = onSnapshot(scheduleQuery, (snapshot) => {
-        setRuns(snapshot.docs.map(doc => doc.data()));
-    }, (error) => {
-        console.error("Error fetching schedule:", error);
-    });
-    
-    // Give a moment for initial data to load
-    const timer = setTimeout(() => setLoading(false), 1500);
+                        let runScore = 0;
+                        if (run.scores) {
+                            run.scores.forEach((phase: Score) => {
+                                phase.exercises.forEach(exercise => {
+                                    if (exercise.type === 'points') {
+                                        runScore += Number(exercise.score) || 0;
+                                    } else if (exercise.type === 'pass/fail') {
+                                        const passed = Number(exercise.score) > 0;
+                                        runScore += passed ? (Number(exercise.maxPoints) || 0) : 0;
+                                    }
+                                });
+                            });
+                        }
+                        const runTime = Number(run.totalTime) || 0;
 
-    return () => {
-        competitorsUnsub();
-        scheduleUnsub();
-        clearTimeout(timer);
+                        if (!competitorStats[run.competitorId]) {
+                            competitorStats[run.competitorId] = { totalScore: 0, totalTime: 0, data: competitor };
+                        }
+                        competitorStats[run.competitorId].totalScore += runScore;
+                        competitorStats[run.competitorId].totalTime += runTime;
+                    });
+                    
+                     const standings = Object.values(competitorStats)
+                        .map(item => ({
+                            competitorId: item.data.id,
+                            competitor: item.data.name,
+                            dog: item.data.dogName,
+                            agency: item.data.agency,
+                            score: item.totalScore,
+                            time: item.totalTime,
+                        }))
+                        .sort((a, b) => b.score - a.score || a.time - b.time)
+                        .map((s, index) => ({ ...s, rank: index + 1 }));
+
+                    return {
+                        id: currentEventId,
+                        name: eventDoc.data().name,
+                        standings: standings,
+                    };
+                })
+            );
+            
+            // Calculate overall agency standings
+            const agencyScores: Record<string, { totalScore: number, count: number }> = {};
+            allEventsData.forEach(event => {
+                event.standings.forEach(standing => {
+                    if(!agencyScores[standing.agency]) {
+                        agencyScores[standing.agency] = { totalScore: 0, count: 0 };
+                    }
+                    agencyScores[standing.agency].totalScore += standing.score;
+                    agencyScores[standing.agency].count += 1; // Or some other logic
+                });
+            });
+
+            const calculatedAgencyStandings = Object.entries(agencyScores)
+              .map(([agency, data]) => ({ agency, score: data.totalScore }))
+              .sort((a, b) => b.score - a.score)
+              .map((s, index) => ({ ...s, rank: index + 1 }));
+
+            setEventsData(allEventsData.filter(e => e.standings.length > 0));
+            setAgencyStandings(calculatedAgencyStandings);
+
+        } catch (error) {
+            console.error("Error fetching event leaderboards: ", error);
+        } finally {
+            setLoading(false);
+        }
     };
-  }, [eventId]);
-  
+    
+    fetchAllEventData();
+  }, []);
+
   const formatTime = (timeInSeconds: number) => {
     if (isNaN(timeInSeconds) || timeInSeconds === 0) return '00:00.0';
     const minutes = Math.floor(timeInSeconds / 60);
@@ -108,155 +176,37 @@ export default function LeaderboardPage() {
     return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}.${milliseconds}`;
   };
 
-  useEffect(() => {
-    if (!competitors.length && !runs.length && loading) {
-        return; // Wait for initial data
-    }
-
-    const competitorMap = new Map(competitors.map(c => [c.id, c]));
-    const competitorStats: Record<string, { totalScore: number; totalTime: number; data: any }> = {};
-
-    runs.forEach(run => {
-      const competitor = competitorMap.get(run.competitorId);
-      if (!competitor) return;
-
-      let runScore = 0;
-      if (run.scores) {
-        run.scores.forEach((phase: Score) => {
-          phase.exercises.forEach(exercise => {
-            if (exercise.type === 'points') {
-              runScore += Number(exercise.score) || 0;
-            } else if (exercise.type === 'pass/fail') {
-              const passed = Number(exercise.score) > 0;
-              runScore += passed ? (Number(exercise.maxPoints) || 0) : 0;
-            }
-          });
-        });
+  const renderStandingsTable = (standings: Standing[]) => {
+      if (standings.length === 0) {
+          return <p className="text-center text-muted-foreground py-4">No scored runs for this event yet.</p>;
       }
-      
-      const runTime = Number(run.totalTime) || 0;
-
-      if (!competitorStats[run.competitorId]) {
-        competitorStats[run.competitorId] = { totalScore: 0, totalTime: 0, data: competitor };
-      }
-      competitorStats[run.competitorId].totalScore += runScore;
-      competitorStats[run.competitorId].totalTime += runTime;
-    });
-
-    const calculatedStandings = Object.values(competitorStats)
-      .map(item => ({
-        competitorId: item.data.id,
-        competitor: item.data.name,
-        dog: item.data.dogName,
-        agency: item.data.agency,
-        score: item.totalScore,
-        time: item.totalTime,
-      }))
-      .sort((a, b) => {
-          if(b.score !== a.score) {
-              return b.score - a.score;
-          }
-          return a.time - b.time; // Lower time is better
-      })
-      .map((s, index) => ({ ...s, rank: index + 1 }));
-
-    setOverallStandings(calculatedStandings);
-
-    // Calculate Agency Standings
-    const agencyScores: Record<string, number> = {};
-    calculatedStandings.forEach(standing => {
-      if (!agencyScores[standing.agency]) {
-        agencyScores[standing.agency] = 0;
-      }
-      agencyScores[standing.agency] += standing.score;
-    });
-
-    const calculatedAgencyStandings = Object.entries(agencyScores)
-      .map(([agency, score]) => ({ agency, score }))
-      .sort((a, b) => b.score - a.score)
-      .map((s, index) => ({ ...s, rank: index + 1 }));
-
-    setAgencyStandings(calculatedAgencyStandings);
-
-  }, [runs, competitors]);
-
-  const renderOverallBody = () => {
-    if (loading) {
-      return Array.from({ length: 3 }).map((_, i) => (
-        <TableRow key={`skel-overall-${i}`}>
-          <TableCell><Skeleton className="h-6 w-6 rounded-full" /></TableCell>
-          <TableCell><Skeleton className="h-6 w-3/4" /></TableCell>
-          <TableCell><Skeleton className="h-6 w-1/2" /></TableCell>
-          <TableCell><Skeleton className="h-6 w-1/4" /></TableCell>
-          <TableCell><Skeleton className="h-6 w-1/4" /></TableCell>
-        </TableRow>
-      ));
-    }
-    if (overallStandings.length === 0) {
       return (
-        <TableRow>
-          <TableCell colSpan={5} className="h-24 text-center">
-            No scores submitted yet.
-          </TableCell>
-        </TableRow>
+        <Table>
+            <TableHeader>
+                <TableRow>
+                    <TableHead className="w-12">Rank</TableHead>
+                    <TableHead>Competitor</TableHead>
+                    <TableHead className="text-right">Score</TableHead>
+                    <TableHead className="text-right">Time</TableHead>
+                </TableRow>
+            </TableHeader>
+            <TableBody>
+                {standings.slice(0, 5).map(entry => (
+                    <TableRow key={entry.competitorId}>
+                        <TableCell className="font-bold text-lg text-center">
+                            {entry.rank <= 3 ? <Medal className={`w-6 h-6 mx-auto ${entry.rank === 1 ? 'text-yellow-500' : entry.rank === 2 ? 'text-gray-400' : 'text-yellow-700'}`} /> : entry.rank}
+                        </TableCell>
+                        <TableCell>
+                            <div className="font-medium">{entry.competitor}</div>
+                            <div className="text-sm text-muted-foreground">{entry.dog} ({entry.agency})</div>
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-base">{entry.score.toFixed(1)}</TableCell>
+                        <TableCell className="text-right font-mono text-xs text-muted-foreground">{formatTime(entry.time)}</TableCell>
+                    </TableRow>
+                ))}
+            </TableBody>
+        </Table>
       );
-    }
-    return overallStandings.map((entry) => (
-      <TableRow key={entry.competitorId}>
-        <TableCell className="font-bold text-lg">
-          <div className="flex items-center justify-center w-8">
-            {entry.rank <= 3 ? <Trophy className={`w-6 h-6 ${entry.rank === 1 ? 'text-yellow-500' : entry.rank === 2 ? 'text-gray-400' : 'text-yellow-700'}`} /> : entry.rank}
-          </div>
-        </TableCell>
-        <TableCell>
-          <div className="flex items-center gap-3">
-            <Avatar>
-              <AvatarImage src={`https://placehold.co/40x40?text=${entry.competitor.charAt(0)}`} data-ai-hint="person portrait" />
-              <AvatarFallback>{entry.competitor.charAt(0)}</AvatarFallback>
-            </Avatar>
-            <div>
-              <div className="font-medium">{entry.competitor}</div>
-              <div className="text-sm text-muted-foreground">{entry.dog}</div>
-            </div>
-          </div>
-        </TableCell>
-        <TableCell>{entry.agency}</TableCell>
-        <TableCell className="text-right font-mono text-lg">{entry.score.toFixed(1)}</TableCell>
-        <TableCell className="text-right font-mono text-sm text-muted-foreground">{formatTime(entry.time)}</TableCell>
-      </TableRow>
-    ));
-  }
-
-  const renderAgencyBody = () => {
-     if (loading) {
-      return Array.from({ length: 3 }).map((_, i) => (
-        <TableRow key={`skel-agency-${i}`}>
-          <TableCell><Skeleton className="h-6 w-6 rounded-full" /></TableCell>
-          <TableCell><Skeleton className="h-6 w-3/4" /></TableCell>
-          <TableCell><Skeleton className="h-6 w-1/2" /></TableCell>
-        </TableRow>
-      ));
-    }
-    if (agencyStandings.length === 0) {
-       return (
-        <TableRow>
-          <TableCell colSpan={3} className="h-24 text-center">
-            No agency scores available.
-          </TableCell>
-        </TableRow>
-      );
-    }
-    return agencyStandings.map((entry) => (
-      <TableRow key={entry.agency}>
-        <TableCell className="font-bold text-lg">
-          <div className="flex items-center justify-center w-8">
-            {entry.rank <= 3 ? <Trophy className={`w-6 h-6 ${entry.rank === 1 ? 'text-yellow-500' : entry.rank === 2 ? 'text-gray-400' : 'text-yellow-700'}`} /> : entry.rank}
-          </div>
-        </TableCell>
-        <TableCell className="font-medium">{entry.agency}</TableCell>
-        <TableCell className="text-right font-mono text-lg">{entry.score.toFixed(1)}</TableCell>
-      </TableRow>
-    ));
   }
 
   return (
@@ -265,54 +215,74 @@ export default function LeaderboardPage() {
         <Button variant="outline" size="icon" asChild>
             <Link href={`/dashboard/events/${eventId}/schedule`}><ChevronLeft className="h-4 w-4" /></Link>
         </Button>
-        <h1 className="text-2xl font-semibold">Live Leaderboard</h1>
+        <h1 className="text-2xl font-semibold">Leaderboards</h1>
       </div>
-        <Card>
-            <CardHeader>
-                <CardTitle>Standings</CardTitle>
-                <CardDescription>
-                Real-time results for the event.
-                </CardDescription>
-            </CardHeader>
-            <CardContent>
-                <Tabs defaultValue="overall">
-                    <TabsList className="grid w-full grid-cols-2">
-                        <TabsTrigger value="overall">Overall Standings</TabsTrigger>
-                        <TabsTrigger value="agency">Agency Standings</TabsTrigger>
-                    </TabsList>
-                    <TabsContent value="overall">
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                <TableHead className="w-[80px]">Rank</TableHead>
-                                <TableHead>Competitor</TableHead>
-                                <TableHead>Agency</TableHead>
-                                <TableHead className="text-right">Score</TableHead>
-                                <TableHead className="text-right flex items-center gap-1 justify-end"><Timer className="h-4 w-4" />Time</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                               {renderOverallBody()}
-                            </TableBody>
-                        </Table>
-                    </TabsContent>
-                    <TabsContent value="agency">
-                         <Table>
-                            <TableHeader>
-                                <TableRow>
-                                <TableHead className="w-[80px]">Rank</TableHead>
-                                <TableHead>Agency</TableHead>
-                                <TableHead className="text-right">Total Score</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {renderAgencyBody()}
-                            </TableBody>
-                        </Table>
-                    </TabsContent>
-                </Tabs>
-            </CardContent>
-        </Card>
+      
+       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+            <div className="xl:col-span-2 flex flex-col gap-6">
+                {loading ? (
+                    Array.from({length: 2}).map((_, i) => (
+                         <Card key={`skel-event-${i}`}>
+                            <CardHeader><Skeleton className="h-8 w-1/2" /></CardHeader>
+                            <CardContent><Skeleton className="h-48 w-full" /></CardContent>
+                        </Card>
+                    ))
+                ) : eventsData.length === 0 ? (
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>No Active Events</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <p className="text-center text-muted-foreground py-12">There are no events with scored runs to display.</p>
+                        </CardContent>
+                    </Card>
+                ) : (
+                    eventsData.map(event => (
+                        <Card key={event.id}>
+                            <CardHeader>
+                                <CardTitle>{event.name}</CardTitle>
+                                <CardDescription>Top 5 Overall Standings</CardDescription>
+                            </CardHeader>
+                            <CardContent className="px-0">
+                                {renderStandingsTable(event.standings)}
+                            </CardContent>
+                        </Card>
+                    ))
+                )}
+            </div>
+            <div className="xl:col-span-1">
+                 <Card>
+                    <CardHeader>
+                        <CardTitle>Top Agencies</CardTitle>
+                        <CardDescription>Aggregate scores across all events.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        {loading ? <Skeleton className="h-48 w-full" /> : (
+                             <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead className="w-12">Rank</TableHead>
+                                        <TableHead>Agency</TableHead>
+                                        <TableHead className="text-right">Total Score</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {agencyStandings.slice(0, 5).map(entry => (
+                                        <TableRow key={entry.agency}>
+                                            <TableCell className="font-bold text-lg text-center">
+                                                {entry.rank <= 3 ? <Trophy className={`w-6 h-6 mx-auto ${entry.rank === 1 ? 'text-yellow-500' : entry.rank === 2 ? 'text-gray-400' : 'text-yellow-700'}`} /> : entry.rank}
+                                            </TableCell>
+                                            <TableCell className="font-medium">{entry.agency}</TableCell>
+                                            <TableCell className="text-right font-mono text-base">{entry.score.toFixed(1)}</TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        )}
+                    </CardContent>
+                </Card>
+            </div>
+       </div>
     </div>
   );
 }
