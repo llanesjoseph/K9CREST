@@ -8,7 +8,6 @@ import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -80,9 +79,9 @@ export default function JudgingPage() {
   
     useEffect(() => {
         if (isTimerRunning) {
-            const startTime = Date.now() - elapsedTime * 1000;
+            const startTime = Date.now() - elapsedTime;
             timerIntervalRef.current = setInterval(() => {
-                setElapsedTime((Date.now() - startTime) / 1000);
+                setElapsedTime(Date.now() - startTime);
             }, 100);
         } else {
             if (timerIntervalRef.current) {
@@ -166,7 +165,7 @@ export default function JudgingPage() {
         }));
         
         const initialTime = run.totalTime || 0;
-        setElapsedTime(initialTime);
+        setElapsedTime(initialTime * 1000);
 
         form.reset({
             scores: initialScores,
@@ -197,7 +196,7 @@ export default function JudgingPage() {
   const handleStopTimer = () => {
     if(!isReadOnly) {
         setIsTimerRunning(false);
-        form.setValue('totalTime', elapsedTime, { shouldDirty: true });
+        form.setValue('totalTime', elapsedTime / 1000, { shouldDirty: true });
     }
   }
 
@@ -209,7 +208,7 @@ export default function JudgingPage() {
     if (isTimerRunning) {
         setIsTimerRunning(false);
     }
-    const finalTime = isTimerRunning ? elapsedTime : form.getValues('totalTime');
+    const finalTime = isTimerRunning ? (elapsedTime / 1000) : form.getValues('totalTime');
 
     try {
         const runRef = doc(db, `events/${eventId}/schedule`, runId);
@@ -263,9 +262,10 @@ export default function JudgingPage() {
   }
   
   const formatTime = (time: number) => {
-    const minutes = Math.floor(time / 60);
-    const seconds = Math.floor(time % 60);
-    const milliseconds = Math.floor((time * 10) % 10);
+    const totalSeconds = time / 1000;
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = Math.floor(totalSeconds % 60);
+    const milliseconds = Math.floor((totalSeconds * 10) % 10);
     return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}.${milliseconds}`;
   };
 
@@ -387,7 +387,7 @@ export default function JudgingPage() {
                                     {(exercise.score === 1 || exercise.score === true) ? (exercise.maxPoints || 1) : 0}
                                 </span>
                                 <span className="text-sm text-muted-foreground">
-                                    / {exercise.maxPoints} pts
+                                    / {exercise.maxPoints || 1} pts
                                 </span>
                             </div>
                           ) : (
@@ -405,7 +405,7 @@ export default function JudgingPage() {
                                         />
                                     )}
                                 />
-                                <Label htmlFor={`switch-${phaseIndex}-${exerciseIndex}`} className="text-sm font-normal">Pass</Label>
+                                <Label htmlFor={`switch-${phaseIndex}-${exerciseIndex}`} className="text-sm font-normal">Pass (+{exercise.maxPoints || 1} pts)</Label>
                             </div>
                          )
                       )}
@@ -437,5 +437,6 @@ export default function JudgingPage() {
     </div>
   );
 }
+
 
     
