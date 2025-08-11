@@ -12,7 +12,6 @@
 import {ai} from '@/ai/genkit';
 import {z} from 'zod';
 import Papa from 'papaparse';
-import { gemini15Pro } from '@genkit-ai/googleai';
 
 const ProcessCompetitorCsvInputSchema = z.object({
   csvData: z.string().describe('The raw text content of a CSV file.'),
@@ -46,7 +45,6 @@ const HeaderMapOutputSchema = z.object({
 
 const headerMappingPrompt = ai.definePrompt({
     name: 'mapCompetitorCsvHeaders',
-    model: 'googleai/gemini-1.5-pro-latest',
     input: { schema: z.object({ headers: z.array(z.string()) }) },
     output: { schema: HeaderMapOutputSchema },
     prompt: `You are a data mapping expert. Given the following CSV headers, map them to the required fields.
