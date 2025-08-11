@@ -80,6 +80,7 @@ export function AppSidebar() {
 
   const eventMenuItems = [
     { href: `/dashboard/events/${eventId}/schedule`, label: "Schedule", icon: ClipboardCheck, roles: ['admin', 'judge', 'competitor', 'spectator'] },
+    { href: `/dashboard/events/${eventId}/competitors`, label: "Competitors", icon: Users, roles: ['admin', 'judge', 'competitor', 'spectator'] },
     { href: `/dashboard/events/${eventId}/leaderboard`, label: "Leaderboard", icon: Trophy, roles: ['admin', 'judge', 'competitor', 'spectator'] },
   ].filter(item => {
     if (!currentRole) return false;
@@ -208,3 +209,4 @@ export function AppSidebar() {
     </Sidebar>
   );
 }
+

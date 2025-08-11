@@ -82,6 +82,7 @@ export function AppHeader() {
        <nav className="hidden md:flex items-center gap-2 mx-auto">
             <NavLink href="/dashboard/events" isActive={pathname.startsWith('/dashboard/events')}><Calendar className="mr-2"/> Events</NavLink>
             {eventId && <NavLink href={`/dashboard/events/${eventId}/schedule`} isActive={isActive('schedule')}><ClipboardCheck className="mr-2"/> Schedule</NavLink>}
+            {eventId && <NavLink href={`/dashboard/events/${eventId}/competitors`} isActive={isActive('competitors')}><Users className="mr-2"/> Competitors</NavLink>}
             {eventId && <NavLink href={`/dashboard/events/${eventId}/leaderboard`} isActive={isActive('leaderboard')}><Trophy className="mr-2"/> Leaderboard</NavLink>}
        </nav>
       <div className="ml-auto">
