@@ -1,3 +1,4 @@
+
 import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
@@ -24,6 +25,17 @@ const nextConfig: NextConfig = {
       }
     ],
   },
+  async rewrites() {
+    return [
+      {
+        source: '/google.ai.generativelanguage.v1beta.GenerativeService/:path*',
+        destination:
+          'https://generativelanguage.googleapis.com/v1beta/models/:path*',
+      },
+    ];
+  },
 };
 
 export default nextConfig;
+
+    
