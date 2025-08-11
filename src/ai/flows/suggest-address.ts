@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview An AI agent that suggests addresses based on a partial query.
@@ -9,6 +10,7 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'zod';
+import { gemini15Flash } from '@genkit-ai/googleai';
 
 const SuggestAddressInputSchema = z.object({
   query: z.string().describe('A partial address string or location name.'),
@@ -30,6 +32,7 @@ export async function suggestAddress(
 
 const prompt = ai.definePrompt({
   name: 'suggestAddressPrompt',
+  model: 'googleai/gemini-1.5-flash',
   input: {schema: SuggestAddressInputSchema},
   output: {schema: SuggestAddressOutputSchema},
   prompt: `You are an address and location autocompletion service. Given a partial address or location name query, provide a list of up to 5 likely complete address or location suggestions. Return real addresses and well-known locations.
