@@ -117,15 +117,11 @@ export default function LeaderboardPage() {
           phase.exercises.forEach(exercise => {
             if (exercise.type === 'points') {
               runScore += Number(exercise.score) || 0;
-            } else if (exercise.type === 'time') {
-              // Lower time is better, but for simplicity we'll add it.
-              // A real system would need a better scoring algorithm for time.
-              runScore += Number(exercise.score) || 0;
             } else if (exercise.type === 'pass/fail') {
               const passed = exercise.score === 1 || exercise.score === true;
-              // Assuming pass gives some points, e.g. 1, or a configured value
-              runScore += passed ? (exercise.maxPoints || 1) : 0;
+              runScore += passed ? (Number(exercise.maxPoints) || 0) : 0;
             }
+            // Time-based scores are ignored in the total
           });
         });
       }
