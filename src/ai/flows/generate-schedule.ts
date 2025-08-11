@@ -62,6 +62,7 @@ const scheduleInputSchema = z.object({
 
 const prompt = ai.definePrompt({
   name: 'generateSchedulePrompt',
+  model: 'googleai/gemini-1.5-flash',
   input: { 
     schema: scheduleInputSchema
   },
