@@ -47,6 +47,7 @@ const headerMappingPrompt = ai.definePrompt({
     name: 'mapCompetitorCsvHeaders',
     input: { schema: z.object({ headers: z.array(z.string()) }) },
     output: { schema: HeaderMapOutputSchema },
+    model: 'gemini-1.5-flash',
     prompt: `You are a data mapping expert. Given the following CSV headers, map them to the required fields.
 
 CSV Headers:
