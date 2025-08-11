@@ -3,7 +3,7 @@
 
 import { useForm, Controller } from "react-hook-form";
 import Link from "next/link";
-import { ChevronLeft, Save, Loader2 } from "lucide-react";
+import { ChevronLeft, Save, Loader2, Play, Square, TimerIcon } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -20,11 +20,12 @@ import { useToast } from "@/hooks/use-toast";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/components/auth-provider";
+import { cn } from "@/lib/utils";
 
 interface JudgingFormValues {
     scores: {
@@ -37,6 +38,7 @@ interface JudgingFormValues {
         }[];
     }[];
     notes: string;
+    totalTime: number;
 }
 
 export default function JudgingPage() {
@@ -54,14 +56,41 @@ export default function JudgingPage() {
   const [competitorData, setCompetitorData] = useState<any>(null);
   const [arenaData, setArenaData] = useState<any>(null);
   const [rubricData, setRubricData] = useState<any>(null);
+  
+  // Stopwatch state
+  const [isTimerRunning, setIsTimerRunning] = useState(false);
+  const [elapsedTime, setElapsedTime] = useState(0);
+  const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
 
   const isReadOnly = role === 'spectator' || role === 'competitor';
   const pageTitle = isReadOnly ? "View Scorecard" : "Judge Scoring Interface";
 
 
   const form = useForm<JudgingFormValues>({
-      defaultValues: { scores: [], notes: "" }
+      defaultValues: { scores: [], notes: "", totalTime: 0 }
   });
+  
+  useEffect(() => {
+      return () => {
+          if (timerIntervalRef.current) {
+              clearInterval(timerIntervalRef.current);
+          }
+      };
+  }, []);
+  
+  useEffect(() => {
+    if (isTimerRunning) {
+        const startTime = Date.now() - (elapsedTime * 1000);
+        timerIntervalRef.current = setInterval(() => {
+            setElapsedTime((Date.now() - startTime) / 1000);
+        }, 100);
+    } else {
+        if (timerIntervalRef.current) {
+            clearInterval(timerIntervalRef.current);
+        }
+    }
+  }, [isTimerRunning, elapsedTime]);
 
   useEffect(() => {
     if (!eventId || !runId) return;
@@ -133,9 +162,13 @@ export default function JudgingPage() {
           }),
         }));
         
+        const initialTime = run.totalTime || 0;
+        setElapsedTime(initialTime);
+
         form.reset({
             scores: initialScores,
-            notes: run.notes || ''
+            notes: run.notes || '',
+            totalTime: initialTime,
         });
 
       } catch (error) {
@@ -153,16 +186,31 @@ export default function JudgingPage() {
 
     fetchData();
   }, [eventId, runId, toast, form, router]);
+  
+  const handleStartTimer = () => {
+    if(!isReadOnly) setIsTimerRunning(true);
+  }
+
+  const handleStopTimer = () => {
+    if(!isReadOnly) {
+        setIsTimerRunning(false);
+        form.setValue('totalTime', elapsedTime);
+    }
+  }
 
   async function onSubmit(data: JudgingFormValues) {
     if(!runId || !eventId || isReadOnly) return;
     setIsSubmitting(true);
     
+    // Make sure timer is stopped and final time is recorded before submitting
+    handleStopTimer();
+
     try {
         const runRef = doc(db, `events/${eventId}/schedule`, runId);
         await updateDoc(runRef, {
             scores: data.scores,
             notes: data.notes,
+            totalTime: data.totalTime,
             status: 'scored' // Mark as scored
         });
         
@@ -205,6 +253,13 @@ export default function JudgingPage() {
         </div>
       )
   }
+  
+  const formatTime = (time: number) => {
+    const minutes = Math.floor(time / 60);
+    const seconds = Math.floor(time % 60);
+    const milliseconds = Math.floor((time * 10) % 10);
+    return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}.${milliseconds}`;
+  };
 
   return (
     <div className="flex flex-col gap-6 max-w-4xl mx-auto">
@@ -230,6 +285,27 @@ export default function JudgingPage() {
           </CardDescription>
         </CardHeader>
       </Card>
+
+       <Card className={cn("border-primary/50", isTimerRunning && "bg-yellow-50 dark:bg-yellow-900/10")}>
+            <CardContent className="pt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="flex items-center gap-3 text-primary">
+                    <TimerIcon className="h-8 w-8" />
+                    <span className="font-mono text-5xl tracking-tighter">
+                        {formatTime(elapsedTime)}
+                    </span>
+                </div>
+                {!isReadOnly && (
+                  <div className="flex items-center gap-2">
+                    <Button onClick={handleStartTimer} disabled={isTimerRunning} size="lg" className="w-40 bg-green-600 hover:bg-green-700">
+                        <Play className="mr-2" /> Start Run
+                    </Button>
+                    <Button onClick={handleStopTimer} disabled={!isTimerRunning} size="lg" variant="destructive" className="w-40">
+                        <Square className="mr-2" /> Stop Run
+                    </Button>
+                  </div>
+                )}
+            </CardContent>
+        </Card>
 
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         {!rubricData?.phases || rubricData.phases.length === 0 ? (
@@ -334,9 +410,9 @@ export default function JudgingPage() {
             </CardContent>
             {!isReadOnly && (
                 <CardFooter className="flex justify-end">
-                    <Button type="submit" disabled={isSubmitting || !rubricData}>
+                    <Button type="submit" disabled={isSubmitting || !rubricData || isTimerRunning}>
                         {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Submit Scores
+                        {isTimerRunning ? 'Stop Timer to Submit' : 'Submit Scores'}
                     </Button>
                 </CardFooter>
             )}
