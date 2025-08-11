@@ -17,6 +17,7 @@ import {
   ListChecks,
   Eye,
   ClipboardList,
+  ClipboardCheck,
 } from "lucide-react";
 
 import {
@@ -61,34 +62,48 @@ export function AppSidebar() {
   const currentRole = viewAsRole || role;
   
   const menuItems = [
-      { href: "/dashboard", label: "Dashboard", icon: LayoutGrid, roles: ['admin', 'competitor'] },
+      { href: "/dashboard", label: "Dashboard", icon: LayoutGrid, roles: ['admin', 'competitor', 'judge'] },
       { href: "/dashboard/events", label: "Events", icon: Calendar, roles: ['admin', 'judge', 'competitor', 'spectator'] },
-      { href: `/dashboard/events/${eventId}/leaderboard`, label: "Leaderboard", icon: Trophy, eventSpecific: true, roles: ['admin', 'judge', 'competitor', 'spectator'] },
       { href: "/dashboard/rubrics", label: "Manage Rubrics", icon: ListChecks, roles: ['admin'] },
       { href: "/dashboard/reports", label: "Reports", icon: ClipboardList, roles: ['admin'] },
       { href: "/dashboard/users", label: "Users", icon: Users, roles: ['admin'] },
       { href: "/dashboard/settings", label: "Settings", icon: Settings, roles: ['admin', 'judge', 'competitor', 'spectator'] },
   ].filter(item => {
       if (!currentRole) return false;
-      if (currentRole === 'spectator' && item.href === '/dashboard') return false;
-      if (currentRole === 'judge' && (item.href === '/dashboard' || item.href === '/dashboard/rubrics')) return false;
+      // Hide dashboard for roles that don't need a central hub
+      if (['spectator'].includes(currentRole) && item.href === '/dashboard') return false;
 
       const hasRole = item.roles.includes(currentRole);
       return hasRole;
   });
 
+  const eventMenuItems = [
+    { href: `/dashboard/events/${eventId}/schedule`, label: "Schedule", icon: ClipboardCheck, roles: ['admin', 'judge', 'competitor', 'spectator'] },
+    { href: `/dashboard/events/${eventId}/leaderboard`, label: "Leaderboard", icon: Trophy, roles: ['admin', 'judge', 'competitor', 'spectator'] },
+  ].filter(item => {
+    if (!currentRole) return false;
+    return item.roles.includes(currentRole);
+  });
+
+
   const isActive = (href: string) => {
     if (!href) return false;
-    // Special case for create page to highlight events tab
-    if (pathname === '/dashboard/events/create' && href === '/dashboard/events') return true;
+    
+    // Handle specific event pages
+    if (eventId) {
+        if(pathname === href) return true;
+        if(pathname.startsWith(href) && href !== `/dashboard/events/${eventId}`) return true;
+    }
+
+    // Handle non-event pages
+    if (pathname === '/dashboard/events' && href === '/dashboard/events') return true;
     if (pathname.startsWith('/dashboard/rubrics') && href === '/dashboard/rubrics') return true;
     if (pathname.startsWith('/dashboard/reports') && href === '/dashboard/reports') return true;
-    // For event specific pages, we need to match the base path
-    if (eventId && href.includes('[id]')) {
-        const basePath = href.replace('[id]', eventId);
-        return pathname.startsWith(basePath);
-    }
-    return pathname === href || pathname.startsWith(`${href}/`);
+    if (pathname.startsWith('/dashboard/users') && href === '/dashboard/users') return true;
+    if (pathname.startsWith('/dashboard/settings') && href === '/dashboard/settings') return true;
+    if (pathname === '/dashboard' && href === '/dashboard') return true;
+    
+    return false;
   };
 
 
@@ -105,30 +120,50 @@ export function AppSidebar() {
       </SidebarHeader>
       <SidebarContent className="p-0">
         <SidebarMenu>
-          {menuItems.map((item) => {
-             const disabled = item.eventSpecific && !eventId;
-             const finalHref = disabled ? '#' : (item.href || '');
-             return (
-                <SidebarMenuItem key={item.label}>
-                    <SidebarMenuButton
-                        asChild
-                        isActive={!disabled && isActive(finalHref)}
-                        tooltip={{
-                        children: item.label,
-                        side: "right",
-                        }}
-                        className="justify-start"
-                        disabled={disabled}
-                    >
-                        <Link href={finalHref}>
-                        <item.icon className="h-5 w-5" />
-                        <span className="group-data-[collapsible=icon]:hidden">{item.label}</span>
-                        </Link>
-                    </SidebarMenuButton>
-                </SidebarMenuItem>
-                )
-          })}
+          {menuItems.map((item) => (
+            <SidebarMenuItem key={item.label}>
+                <SidebarMenuButton
+                    asChild
+                    isActive={isActive(item.href)}
+                    tooltip={{
+                    children: item.label,
+                    side: "right",
+                    }}
+                    className="justify-start"
+                >
+                    <Link href={item.href}>
+                    <item.icon className="h-5 w-5" />
+                    <span className="group-data-[collapsible=icon]:hidden">{item.label}</span>
+                    </Link>
+                </SidebarMenuButton>
+            </SidebarMenuItem>
+          ))}
         </SidebarMenu>
+        {eventId && (
+             <SidebarGroup className="pt-4 group-data-[collapsible=icon]:hidden">
+                <SidebarGroupLabel>Event Menu</SidebarGroupLabel>
+                 <SidebarMenu>
+                    {eventMenuItems.map((item) => (
+                        <SidebarMenuItem key={item.label}>
+                            <SidebarMenuButton
+                                asChild
+                                isActive={isActive(item.href)}
+                                tooltip={{
+                                children: item.label,
+                                side: "right",
+                                }}
+                                className="justify-start"
+                            >
+                                <Link href={item.href}>
+                                <item.icon className="h-5 w-5" />
+                                <span className="group-data-[collapsible=icon]:hidden">{item.label}</span>
+                                </Link>
+                            </SidebarMenuButton>
+                        </SidebarMenuItem>
+                    ))}
+                </SidebarMenu>
+             </SidebarGroup>
+        )}
         {isTrueAdmin && (
             <SidebarGroup className="pt-4 group-data-[collapsible=icon]:hidden">
                 <div className="px-2 pt-4">

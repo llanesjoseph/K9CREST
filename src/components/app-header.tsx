@@ -14,6 +14,7 @@ import {
   Calendar,
   Trophy,
   ClipboardList,
+  ClipboardCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { auth } from "@/lib/firebase";
@@ -56,24 +57,20 @@ export function AppHeader() {
   
   const currentRole = viewAsRole || role;
 
-  const isEventPage = pathname.includes('/dashboard/events/');
-
   const isActive = (path: string) => {
     if (!path) return false;
     
-    // Check for event-specific paths
-    if (isEventPage && eventId) {
-      const basePath = `/dashboard/events/${eventId}`;
-      const fullPath = `${basePath}/${path}`;
-      if (pathname === fullPath || pathname.startsWith(`${fullPath}/`)) return true;
+    // Handle specific event pages
+    if (eventId) {
+        const basePath = `/dashboard/events/${eventId}`;
+        const fullPath = path.startsWith('/') ? path : `${basePath}/${path}`;
+         if (pathname === fullPath || pathname.startsWith(`${fullPath}/`)) return true;
     }
 
-    // Handle base paths and special cases
-    if (path === '/dashboard/events' && pathname.startsWith('/dashboard/events')) return true;
-    if (path === '/dashboard/rubrics' && pathname.startsWith('/dashboard/rubrics')) return true;
-    if (path === '/dashboard/reports' && pathname.startsWith('/dashboard/reports')) return true;
+    // Handle non-event pages
+    if (pathname.startsWith(path)) return true;
     
-    return pathname === path;
+    return false;
   };
   
   return (
@@ -83,10 +80,9 @@ export function AppHeader() {
         <span className="hidden sm:inline-block">K9 Trial Pro</span>
       </Link>
        <nav className="hidden md:flex items-center gap-2 mx-auto">
-            <NavLink href="/dashboard/events" isActive={isActive('/dashboard/events')}><Calendar className="mr-2"/> Events</NavLink>
-            {['admin'].includes(currentRole) && <NavLink href={`/dashboard/rubrics`} isActive={isActive(`/dashboard/rubrics`)}><ListChecks className="mr-2"/> Rubrics</NavLink>}
-            {['admin'].includes(currentRole) && <NavLink href={`/dashboard/reports`} isActive={isActive(`/dashboard/reports`)}><ClipboardList className="mr-2"/> Reports</NavLink>}
-            <NavLink href={`/dashboard/events/${eventId}/leaderboard`} isActive={isActive('leaderboard')} disabled={!eventId}><Trophy className="mr-2"/> Leaderboard</NavLink>
+            <NavLink href="/dashboard/events" isActive={pathname.startsWith('/dashboard/events')}><Calendar className="mr-2"/> Events</NavLink>
+            {eventId && <NavLink href={`/dashboard/events/${eventId}/schedule`} isActive={isActive('schedule')}><ClipboardCheck className="mr-2"/> Schedule</NavLink>}
+            {eventId && <NavLink href={`/dashboard/events/${eventId}/leaderboard`} isActive={isActive('leaderboard')}><Trophy className="mr-2"/> Leaderboard</NavLink>}
        </nav>
       <div className="ml-auto">
         <DropdownMenu>
