@@ -30,6 +30,7 @@ import {
   SidebarFooter,
   SidebarGroup,
   SidebarRail,
+  SidebarGroupLabel,
 } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";

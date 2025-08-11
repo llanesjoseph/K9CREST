@@ -30,7 +30,7 @@ function addMinutes(start: string, minutes: number) {
   return `${hh}:${mm}`;
 }
 
-type Slot = {
+export type Slot = {
   slotId: string; // `${date}|${start}|${arenaId}`
   date: string;
   startTime: string;
@@ -62,7 +62,7 @@ function compat(
   return false;
 }
 
-function buildAllSlots(input: GenerateScheduleInput, opts: Required<SolveOptions>): Slot[] {
+export function buildAllSlots(input: GenerateScheduleInput, opts: Required<SolveOptions>): Slot[] {
   const slots: Slot[] = [];
   const span = Math.max(1, Math.ceil(opts.runMinutes / opts.slotMinutes)); // e.g. 30/15 => 2
   for (const date of input.eventDays) {
@@ -86,7 +86,7 @@ function buildAllSlots(input: GenerateScheduleInput, opts: Required<SolveOptions
 }
 
 type RunReq = { competitorId: string; specialtyType: SpecialtyLabel };
-function allRequestedRuns(input: GenerateScheduleInput): RunReq[] {
+export function allRequestedRuns(input: GenerateScheduleInput): RunReq[] {
   const runs: RunReq[] = [];
   for (const c of input.competitors) {
     if (!c.specialties?.length) {

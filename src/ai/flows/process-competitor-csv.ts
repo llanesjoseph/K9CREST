@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview An AI agent that processes a CSV file of competitors,
@@ -10,6 +11,7 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'zod';
+import Papa from 'papaparse';
 
 const ProcessCompetitorCsvInputSchema = z.object({
   csvData: z.string().describe('The raw text content of a CSV file.'),
@@ -33,51 +35,71 @@ const ProcessCompetitorCsvOutputSchema = z.object({
 });
 export type ProcessCompetitorCsvOutput = z.infer<typeof ProcessCompetitorCsvOutputSchema>;
 
+
+const HeaderMapOutputSchema = z.object({
+  name: z.string().describe('The CSV header for the competitor/handler\'s name (e.g., "Handler Name").'),
+  dogName: z.string().describe('The CSV header for the K9\'s name (e.g., "K9").'),
+  agency: z.string().describe('The CSV header for the agency (e.g., "Department").'),
+  specialties: z.string().describe('The CSV header for specialties/events (e.g., "Events").')
+});
+
+const headerMappingPrompt = ai.definePrompt({
+    name: 'mapCompetitorCsvHeaders',
+    input: { schema: z.object({ headers: z.array(z.string()) }) },
+    output: { schema: HeaderMapOutputSchema },
+    prompt: `You are a data mapping expert. Given the following CSV headers, map them to the required fields.
+
+CSV Headers:
+{{#each headers}}
+- {{this}}
+{{/each}}
+
+Strictly return the JSON object with the mapped headers.
+`
+});
+
+
 export async function processCompetitorCsv(
   input: ProcessCompetitorCsvInput
 ): Promise<ProcessCompetitorCsvOutput> {
-  return processCompetitorCsvFlow(input);
+    const { data: rows, meta } = Papa.parse<Record<string, string>>(input.csvData, { header: true, skipEmptyLines: true });
+    
+    if (!meta.fields || meta.fields.length === 0) {
+        throw new Error("CSV has no headers or is empty.");
+    }
+
+    // 1. Use AI to map headers
+    const { output: headerMap } = await headerMappingPrompt({ headers: meta.fields });
+    if (!headerMap) {
+        throw new Error("AI failed to map CSV headers.");
+    }
+    
+    // 2. Use the map to parse rows locally
+    const competitors = rows.map(row => {
+        const specialtiesRaw = row[headerMap.specialties]?.toString() || '';
+        
+        const specialties: z.infer<typeof SpecialtySchema>[] = [];
+        if (specialtiesRaw.toLowerCase().includes('bite')) {
+            specialties.push({ type: 'Bite Work' });
+        }
+        if (specialtiesRaw.toLowerCase().includes('narcotics') || specialtiesRaw.toLowerCase().includes('drug')) {
+            specialties.push({ type: 'Detection', detectionType: 'Narcotics' });
+        }
+        if (specialtiesRaw.toLowerCase().includes('explosives') || specialtiesRaw.toLowerCase().includes('bomb')) {
+            specialties.push({ type: 'Detection', detectionType: 'Explosives' });
+        }
+        
+        return {
+            name: row[headerMap.name] || '',
+            dogName: row[headerMap.dogName] || '',
+            agency: row[headerMap.agency] || '',
+            specialties: specialties,
+        }
+    }).filter(c => c.name && c.dogName && c.agency); // Filter out potentially empty rows
+
+    if (competitors.length === 0) {
+        throw new Error("No valid competitor data could be extracted from the CSV using the mapped headers.");
+    }
+
+    return { competitors };
 }
-
-const prompt = ai.definePrompt({
-  name: 'processCompetitorCsvPrompt',
-  input: {schema: ProcessCompetitorCsvInputSchema},
-  output: {schema: ProcessCompetitorCsvOutputSchema},
-  prompt: `You are a data processing expert. Your task is to analyze the provided CSV data and extract a list of competitors, including their specialties.
-
-The CSV may have different headers, but you must intelligently map them to the required fields: 'name', 'dogName', 'agency', and 'specialties'.
-
-Common header variations to expect:
-- For 'name': "Handler", "Handler Name", "Competitor", "Competitor Name"
-- For 'dogName': "K9", "Dog's Name", "K9 Name"
-- For 'agency': "Department", "Organization", "Team"
-- For 'specialties': "Specialty", "Discipline", "Events", "Type"
-
-Specialty parsing rules:
-- The value can be a simple string like "Bite Work" or "Detection".
-- If it's a detection specialty, it might be more specific, like "Detection - Narcotics", "Explosives Detection", or just "Narcotics".
-- A competitor can have multiple specialties. If they are in the same cell, they are often separated by commas or semicolons (e.g., "Bite Work, Narcotics Detection").
-- Map "Narcotics" or "Drugs" to the detectionType "Narcotics".
-- Map "Explosives" or "Bombs" to the detectionType "Explosives".
-- The final output for each specialty must be an object with a 'type' and an optional 'detectionType'.
-
-Analyze the headers and the data rows to determine the correct mapping. Then, return a clean JSON object that follows the specified output schema. Ignore any empty rows.
-
-CSV Data:
-\`\`\`csv
-{{{csvData}}}
-\`\`\`
-`,
-});
-
-const processCompetitorCsvFlow = ai.defineFlow(
-  {
-    name: 'processCompetitorCsvFlow',
-    inputSchema: ProcessCompetitorCsvInputSchema,
-    outputSchema: ProcessCompetitorCsvOutputSchema,
-  },
-  async (input) => {
-    const {output} = await prompt(input);
-    return output!;
-  }
-);

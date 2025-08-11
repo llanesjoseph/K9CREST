@@ -16,7 +16,6 @@ const OutputSchema = z.object({
       competitorId: z.string(),
       arenaId: z.string(),
       startTime: z.string().regex(/^\d{2}:\d{2}$/),
-      endTime: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
       date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
     }).strict()
   )
@@ -94,11 +93,11 @@ RULES:
 
 OUTPUT:
 Return ONLY the final JSON object. Do not include any other text.
-{"schedule":[{"competitorId":"","arenaId":"","startTime":"","endTime":"","date":""}]}
+{"schedule":[{"competitorId":"","arenaId":"","startTime":"","date":""}]}
 
 SELECTION PROCEDURE:
 - For each run in 'runAllowlist', pick one slotId from its 'allowedSlotIds' that has not yet been used by another run.
-- Use the 'allSlots' data to get the date, startTime, endTime, and arenaId for the chosen slotId.
+- Use the 'allSlots' data to get the date, startTime, and arenaId for the chosen slotId.
 - Do not invent slots. Do not deviate from 'allowedSlotIds'.
 `
 });
