@@ -4,7 +4,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Wand2, Loader2, AlertTriangle, FileCheck2 } from 'lucide-react';
 import { format } from 'date-fns';
-import { collection, writeBatch, doc } from 'firebase/firestore';
+import { collection, writeBatch, doc, getDocs } from 'firebase/firestore';
 
 import {
   Dialog,
