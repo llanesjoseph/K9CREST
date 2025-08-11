@@ -194,7 +194,7 @@ export default function JudgingPage() {
   const handleStopTimer = () => {
     if(!isReadOnly) {
         setIsTimerRunning(false);
-        form.setValue('totalTime', elapsedTime);
+        form.setValue('totalTime', elapsedTime, { shouldDirty: true });
     }
   }
 
@@ -203,14 +203,17 @@ export default function JudgingPage() {
     setIsSubmitting(true);
     
     // Make sure timer is stopped and final time is recorded before submitting
-    handleStopTimer();
+    const finalTime = isTimerRunning ? elapsedTime : data.totalTime;
+    if (isTimerRunning) {
+        handleStopTimer();
+    }
 
     try {
         const runRef = doc(db, `events/${eventId}/schedule`, runId);
         await updateDoc(runRef, {
             scores: data.scores,
             notes: data.notes,
-            totalTime: data.totalTime,
+            totalTime: finalTime,
             status: 'scored' // Mark as scored
         });
         
