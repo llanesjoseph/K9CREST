@@ -90,7 +90,7 @@ export default function JudgingPage() {
             clearInterval(timerIntervalRef.current);
         }
     }
-  }, [isTimerRunning, elapsedTime]);
+  }, [isTimerRunning]);
 
   useEffect(() => {
     if (!eventId || !runId) return;
@@ -203,10 +203,10 @@ export default function JudgingPage() {
     setIsSubmitting(true);
     
     // Make sure timer is stopped and final time is recorded before submitting
-    const finalTime = isTimerRunning ? elapsedTime : data.totalTime;
     if (isTimerRunning) {
-        handleStopTimer();
+        setIsTimerRunning(false);
     }
+    const finalTime = form.getValues('totalTime');
 
     try {
         const runRef = doc(db, `events/${eventId}/schedule`, runId);
@@ -424,3 +424,5 @@ export default function JudgingPage() {
     </div>
   );
 }
+
+    
