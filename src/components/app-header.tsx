@@ -15,6 +15,7 @@ import {
   Trophy,
   ClipboardList,
   ClipboardCheck,
+  Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { auth } from "@/lib/firebase";
