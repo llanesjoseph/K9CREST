@@ -189,7 +189,7 @@ const TimeSlot = ({
     competitors,
     removeScheduledEvent,
     isDraggable,
-    isJudge,
+    isAdmin,
     eventId
 }: {
     arenaId: string;
@@ -200,7 +200,7 @@ const TimeSlot = ({
     competitors: Competitor[];
     removeScheduledEvent: (eventId: string) => void;
     isDraggable: boolean;
-    isJudge: boolean;
+    isAdmin: boolean;
     eventId: string;
 }) => {
     const [isOver, setIsOver] = useState(false);
@@ -231,16 +231,15 @@ const TimeSlot = ({
     };
 
     const eventCompetitor = scheduledEvent ? competitors.find(c => c.id === scheduledEvent.competitorId) : null;
-    const canDragEvent = isDraggable && !!scheduledEvent;
+    const isScored = scheduledEvent?.status === 'scored';
+    const canDragEvent = isDraggable && (!isScored || isAdmin);
     const slotId = `slot-${arenaId}-${date}-${startTime}`;
     
-    const isScored = scheduledEvent?.status === 'scored';
-
     const scheduledContent = scheduledEvent && eventCompetitor ? (
         <div className="flex flex-col items-center justify-center p-1 group w-full h-full text-center">
             <span className="font-bold text-sm">{eventCompetitor.dogName}</span>
             <span className="text-xs text-muted-foreground">({eventCompetitor.name})</span>
-             {isDraggable && !isScored && (
+             {isDraggable && (!isScored || isAdmin) && (
                  <Button
                     variant="ghost"
                     size="icon"
@@ -252,7 +251,7 @@ const TimeSlot = ({
                 </Button>
             )}
             <div className="absolute bottom-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                {isScored ? <ClipboardCheck className="h-4 w-4 text-primary/70" /> : (isJudge && <Gavel className="h-4 w-4 text-primary/70" />) }
+                {isScored ? <ClipboardCheck className="h-4 w-4 text-primary/70" /> : <Gavel className="h-4 w-4 text-primary/70" /> }
             </div>
         </div>
     ) : null;
@@ -264,8 +263,8 @@ const TimeSlot = ({
             'bg-background hover:bg-muted/80': !scheduledEvent && isDraggable,
             'bg-secondary/50': !scheduledEvent && !isDraggable,
             'border-primary ring-2 ring-primary': isOver,
-            'cursor-grab': canDragEvent && !isScored,
-            'cursor-pointer': isJudge || isScored,
+            'cursor-grab': canDragEvent,
+            'cursor-pointer': !!scheduledEvent,
         }
     );
 
@@ -276,17 +275,13 @@ const TimeSlot = ({
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
             onDragStart={handleDragStart}
-            draggable={canDragEvent && !isScored}
+            draggable={canDragEvent}
             className={wrapperClasses}
         >
-            {scheduledEvent && (isJudge || isScored) ? (
+            {scheduledEvent ? (
                 <Link href={`/dashboard/events/${eventId}/judging/${scheduledEvent.id}`} className="w-full h-full flex items-center justify-center">
                     {scheduledContent}
                 </Link>
-            ) : scheduledEvent ? (
-                <div className="w-full h-full flex items-center justify-center">
-                    {scheduledContent}
-                </div>
             ) : isDraggable ? (
                 <span className="text-muted-foreground text-xs">Drop Here</span>
             ) : null}
@@ -887,7 +882,7 @@ export default function SchedulePage() {
 
     const isFullyLoading = loading.arenas || loading.schedule || loading.competitors || loading.event || authLoading || loading.rubrics;
     const timeSlots = generateTimeSlots({ duration: eventDetails?.scheduleBlockDuration, lunchBreak: eventDetails?.lunchBreak });
-    const isJudge = role === 'judge';
+    const isDraggable = isAdmin;
 
 
     // --- Render ---
@@ -931,11 +926,11 @@ export default function SchedulePage() {
                                         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
                                             <SortableContext items={sortedCompetitors.map(c => c.id)} strategy={verticalListSortingStrategy}>
                                                 {sortedCompetitors.map(comp => (
-                                                    <SortableCompetitorItem key={comp.id} competitor={comp} isDraggable={isAdmin} onRunClick={handleRunClick} allCompetitors={competitors} />
+                                                    <SortableCompetitorItem key={comp.id} competitor={comp} isDraggable={isDraggable} onRunClick={handleRunClick} allCompetitors={competitors} />
                                                 ))}
                                             </SortableContext>
                                              <DragOverlay>
-                                                {activeCompetitor ? <CompetitorItem competitor={activeCompetitor} isDraggable={isAdmin} onRunClick={() => {}} allCompetitors={competitors} /> : null}
+                                                {activeCompetitor ? <CompetitorItem competitor={activeCompetitor} isDraggable={isDraggable} onRunClick={() => {}} allCompetitors={competitors} /> : null}
                                             </DragOverlay>
                                         </DndContext>
                                       )}
@@ -1155,8 +1150,8 @@ export default function SchedulePage() {
                                                                             scheduledEvent={schedule.find(event => event.arenaId === arena.id && event.startTime === time && event.date === formattedDate)}
                                                                             competitors={competitors}
                                                                             removeScheduledEvent={removeScheduledEvent}
-                                                                            isDraggable={isAdmin}
-                                                                            isJudge={isJudge}
+                                                                            isDraggable={isDraggable}
+                                                                            isAdmin={isAdmin}
                                                                             eventId={eventId}
                                                                         />
                                                                     ))}
