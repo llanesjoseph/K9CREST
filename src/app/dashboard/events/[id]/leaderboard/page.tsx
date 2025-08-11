@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { ChevronLeft, Trophy } from "lucide-react";
+import { ChevronLeft, Trophy, Timer } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -44,6 +44,7 @@ interface Standing {
   dog: string;
   agency: string;
   score: number;
+  time: number;
 }
 
 interface AgencyStanding {
@@ -98,6 +99,14 @@ export default function LeaderboardPage() {
         clearTimeout(timer);
     };
   }, [eventId]);
+  
+  const formatTime = (timeInSeconds: number) => {
+    if (isNaN(timeInSeconds) || timeInSeconds === 0) return '00:00.0';
+    const minutes = Math.floor(timeInSeconds / 60);
+    const seconds = Math.floor(timeInSeconds % 60);
+    const milliseconds = Math.floor((timeInSeconds * 10) % 10);
+    return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}.${milliseconds}`;
+  };
 
   useEffect(() => {
     if (!competitors.length && !runs.length && loading) {
@@ -105,7 +114,7 @@ export default function LeaderboardPage() {
     }
 
     const competitorMap = new Map(competitors.map(c => [c.id, c]));
-    const competitorScores: Record<string, { totalScore: number; data: any }> = {};
+    const competitorStats: Record<string, { totalScore: number; totalTime: number; data: any }> = {};
 
     runs.forEach(run => {
       const competitor = competitorMap.get(run.competitorId);
@@ -118,29 +127,37 @@ export default function LeaderboardPage() {
             if (exercise.type === 'points') {
               runScore += Number(exercise.score) || 0;
             } else if (exercise.type === 'pass/fail') {
-              const passed = exercise.score === 1 || exercise.score === true;
+              const passed = Number(exercise.score) > 0;
               runScore += passed ? (Number(exercise.maxPoints) || 0) : 0;
             }
-            // Time-based scores are ignored in the total
           });
         });
       }
+      
+      const runTime = Number(run.totalTime) || 0;
 
-      if (!competitorScores[run.competitorId]) {
-        competitorScores[run.competitorId] = { totalScore: 0, data: competitor };
+      if (!competitorStats[run.competitorId]) {
+        competitorStats[run.competitorId] = { totalScore: 0, totalTime: 0, data: competitor };
       }
-      competitorScores[run.competitorId].totalScore += runScore;
+      competitorStats[run.competitorId].totalScore += runScore;
+      competitorStats[run.competitorId].totalTime += runTime;
     });
 
-    const calculatedStandings = Object.values(competitorScores)
+    const calculatedStandings = Object.values(competitorStats)
       .map(item => ({
         competitorId: item.data.id,
         competitor: item.data.name,
         dog: item.data.dogName,
         agency: item.data.agency,
-        score: item.totalScore
+        score: item.totalScore,
+        time: item.totalTime,
       }))
-      .sort((a, b) => b.score - a.score)
+      .sort((a, b) => {
+          if(b.score !== a.score) {
+              return b.score - a.score;
+          }
+          return a.time - b.time; // Lower time is better
+      })
       .map((s, index) => ({ ...s, rank: index + 1 }));
 
     setOverallStandings(calculatedStandings);
@@ -171,13 +188,14 @@ export default function LeaderboardPage() {
           <TableCell><Skeleton className="h-6 w-3/4" /></TableCell>
           <TableCell><Skeleton className="h-6 w-1/2" /></TableCell>
           <TableCell><Skeleton className="h-6 w-1/4" /></TableCell>
+          <TableCell><Skeleton className="h-6 w-1/4" /></TableCell>
         </TableRow>
       ));
     }
     if (overallStandings.length === 0) {
       return (
         <TableRow>
-          <TableCell colSpan={4} className="h-24 text-center">
+          <TableCell colSpan={5} className="h-24 text-center">
             No scores submitted yet.
           </TableCell>
         </TableRow>
@@ -204,6 +222,7 @@ export default function LeaderboardPage() {
         </TableCell>
         <TableCell>{entry.agency}</TableCell>
         <TableCell className="text-right font-mono text-lg">{entry.score.toFixed(1)}</TableCell>
+        <TableCell className="text-right font-mono text-sm text-muted-foreground">{formatTime(entry.time)}</TableCell>
       </TableRow>
     ));
   }
@@ -269,6 +288,7 @@ export default function LeaderboardPage() {
                                 <TableHead>Competitor</TableHead>
                                 <TableHead>Agency</TableHead>
                                 <TableHead className="text-right">Score</TableHead>
+                                <TableHead className="text-right flex items-center gap-1 justify-end"><Timer className="h-4 w-4" />Time</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
