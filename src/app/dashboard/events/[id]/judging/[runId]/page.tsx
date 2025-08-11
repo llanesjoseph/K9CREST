@@ -3,7 +3,7 @@
 
 import { useForm, Controller } from "react-hook-form";
 import Link from "next/link";
-import { ChevronLeft, Save, Loader2, Play, Square, TimerIcon } from "lucide-react";
+import { ChevronLeft, Save, Loader2, Play, Square, TimerIcon, Gavel } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -45,7 +45,7 @@ export default function JudgingPage() {
   const { toast } = useToast();
   const router = useRouter();
   const params = useParams();
-  const { role } = useAuth();
+  const { user, isAdmin } = useAuth();
   const eventId = params.id as string;
   const runId = params.runId as string;
   
@@ -62,8 +62,7 @@ export default function JudgingPage() {
   const [elapsedTime, setElapsedTime] = useState(0);
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-
-  const isReadOnly = role === 'spectator' || role === 'competitor';
+  const [isReadOnly, setIsReadOnly] = useState(false);
   const pageTitle = isReadOnly ? "View Scorecard" : "Judge Scoring Interface";
 
 
@@ -79,18 +78,18 @@ export default function JudgingPage() {
       };
   }, []);
   
-  useEffect(() => {
-    if (isTimerRunning) {
-        const startTime = Date.now() - (elapsedTime * 1000);
-        timerIntervalRef.current = setInterval(() => {
-            setElapsedTime((Date.now() - startTime) / 1000);
-        }, 100);
-    } else {
-        if (timerIntervalRef.current) {
-            clearInterval(timerIntervalRef.current);
+    useEffect(() => {
+        if (isTimerRunning) {
+            const startTime = Date.now() - elapsedTime * 1000;
+            timerIntervalRef.current = setInterval(() => {
+                setElapsedTime((Date.now() - startTime) / 1000);
+            }, 100);
+        } else {
+            if (timerIntervalRef.current) {
+                clearInterval(timerIntervalRef.current);
+            }
         }
-    }
-  }, [isTimerRunning]);
+    }, [isTimerRunning]);
 
   useEffect(() => {
     if (!eventId || !runId) return;
@@ -105,6 +104,10 @@ export default function JudgingPage() {
         }
         
         const run = runSnap.data();
+        
+        if (run.status === 'scored' && !isAdmin) {
+            setIsReadOnly(true);
+        }
         
         const eventRef = doc(db, 'events', eventId);
         const eventSnap = await getDoc(eventRef);
@@ -185,7 +188,7 @@ export default function JudgingPage() {
     };
 
     fetchData();
-  }, [eventId, runId, toast, form, router]);
+  }, [eventId, runId, toast, form, router, isAdmin]);
   
   const handleStartTimer = () => {
     if(!isReadOnly) setIsTimerRunning(true);
@@ -199,14 +202,14 @@ export default function JudgingPage() {
   }
 
   async function onSubmit(data: JudgingFormValues) {
-    if(!runId || !eventId || isReadOnly) return;
+    if(!runId || !eventId || isReadOnly || !user) return;
     setIsSubmitting(true);
     
     // Make sure timer is stopped and final time is recorded before submitting
     if (isTimerRunning) {
         setIsTimerRunning(false);
     }
-    const finalTime = form.getValues('totalTime');
+    const finalTime = isTimerRunning ? elapsedTime : form.getValues('totalTime');
 
     try {
         const runRef = doc(db, `events/${eventId}/schedule`, runId);
@@ -214,7 +217,9 @@ export default function JudgingPage() {
             scores: data.scores,
             notes: data.notes,
             totalTime: finalTime,
-            status: 'scored' // Mark as scored
+            status: 'scored', // Mark as scored
+            judgeId: user.uid,
+            judgeName: user.displayName || user.email,
         });
         
         toast({
@@ -287,6 +292,14 @@ export default function JudgingPage() {
             <span className="font-bold">{competitorData?.dogName || '...'}</span> in Arena: <span className="font-bold">{arenaData?.name || '...'}</span>
           </CardDescription>
         </CardHeader>
+        {runData?.judgeName && (
+            <CardContent>
+                <div className="text-sm text-muted-foreground flex items-center gap-2 bg-muted/50 p-3 rounded-lg">
+                    <Gavel className="h-4 w-4" />
+                    <span>Scored by: <span className="font-medium text-foreground">{runData.judgeName}</span></span>
+                </div>
+            </CardContent>
+        )}
       </Card>
 
        <Card className={cn("border-primary/50", isTimerRunning && "bg-yellow-50 dark:bg-yellow-900/10")}>
