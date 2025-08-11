@@ -37,10 +37,14 @@ export type ProcessCompetitorCsvOutput = z.infer<typeof ProcessCompetitorCsvOutp
 
 
 const HeaderMapOutputSchema = z.object({
-  name: z.string().describe('The CSV header for the competitor/handler\'s name (e.g., "Handler Name").'),
+  name: z.string().optional().describe('The CSV header for the competitor\'s full name (e.g., "Handler Name"). Use this if the name is in a single column.'),
+  firstName: z.string().optional().describe('The CSV header for the competitor\'s first name (e.g., "First Name").'),
+  lastName: z.string().optional().describe('The CSV header for the competitor\'s last name (e.g., "Last Name").'),
   dogName: z.string().describe('The CSV header for the K9\'s name (e.g., "K9").'),
   agency: z.string().describe('The CSV header for the agency (e.g., "Department").'),
   specialties: z.string().describe('The CSV header for specialties/events (e.g., "Events").')
+}).refine(data => data.name || (data.firstName && data.lastName), {
+    message: "Either a full 'name' header or both 'firstName' and 'lastName' headers must be mapped.",
 });
 
 const headerMappingPrompt = ai.definePrompt({
@@ -53,6 +57,8 @@ CSV Headers:
 {{#each headers}}
 - {{this}}
 {{/each}}
+
+Prioritize mapping 'firstName' and 'lastName' if they exist as separate columns. Otherwise, map the single full 'name' column.
 
 Strictly return the JSON object with the mapped headers.
 `
@@ -88,9 +94,16 @@ export async function processCompetitorCsv(
         if (specialtiesRaw.toLowerCase().includes('explosives') || specialtiesRaw.toLowerCase().includes('bomb')) {
             specialties.push({ type: 'Detection', detectionType: 'Explosives' });
         }
+
+        let fullName = '';
+        if (headerMap.firstName && headerMap.lastName) {
+            fullName = `${row[headerMap.firstName] || ''} ${row[headerMap.lastName] || ''}`.trim();
+        } else if (headerMap.name) {
+            fullName = row[headerMap.name] || '';
+        }
         
         return {
-            name: row[headerMap.name] || '',
+            name: fullName,
             dogName: row[headerMap.dogName] || '',
             agency: row[headerMap.agency] || '',
             specialties: specialties,
