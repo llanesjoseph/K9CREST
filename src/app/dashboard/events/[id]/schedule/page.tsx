@@ -878,12 +878,12 @@ export default function SchedulePage() {
 
                 {/* Right Panel: Scheduler */}
                 <div className="flex-1 flex flex-col">
-                    <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b">
+                    <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center gap-4 border-b">
                         <div>
                             <CardTitle className="text-2xl">{eventDetails?.name || <Skeleton className="h-8 w-64 inline-block" />}</CardTitle>
                             <CardDescription>Drag and drop competitors into time slots to build the schedule.</CardDescription>
                         </div>
-                        <div className="flex w-full sm:w-auto items-center justify-end gap-2 flex-wrap">
+                        <div className="flex w-full sm:w-auto items-center justify-end gap-2 flex-wrap ml-auto">
                             <Popover>
                                 <PopoverTrigger asChild>
                                     <Button variant="outline" size="sm"><HelpCircle className="mr-2 h-4 w-4" />Legend</Button>
