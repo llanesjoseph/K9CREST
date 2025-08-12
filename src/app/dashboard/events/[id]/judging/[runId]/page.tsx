@@ -124,7 +124,7 @@ export default function JudgingPage() {
     });
 
     const unsubFinds = onSnapshot(query(collection(runRef, "finds"), orderBy("createdAt", "asc")), s => 
-        setFinds(s.docs.map(d => ({ id: d.id, ...(d.data() as any) }))
+        setFinds(s.docs.map(d => ({ id: d.id, ...(d.data() as any) })))
     );
     
     const unsubDeductions = onSnapshot(query(collection(runRef, "deductions"), orderBy("createdAt", "asc")), s => 
@@ -416,6 +416,3 @@ function DeductionItem({ deduction, onRemove, onNoteChange, isReadOnly }: { dedu
         </div>
     )
 }
-
-
-    
