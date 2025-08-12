@@ -61,6 +61,8 @@ const formSchema = z.object({
   description: z.string().optional(),
   bannerImage: z.any().optional(),
   scheduleBlockDuration: z.coerce.number().min(5, "Duration must be at least 5 minutes.").max(60, "Duration cannot exceed 60 minutes.").default(30),
+  eventStartTime: z.string().optional(),
+  eventEndTime: z.string().optional(),
   lunchBreakStart: z.string().optional(),
   lunchBreakEnd: z.string().optional(),
 }).refine(data => {
@@ -71,9 +73,31 @@ const formSchema = z.object({
     }
     return true;
 }, {
-    message: "End time must be after start time.",
+    message: "Lunch end time must be after start time.",
     path: ['lunchBreakEnd'],
+}).refine(data => {
+    if (data.eventStartTime && data.eventEndTime && data.eventStartTime >= data.eventEndTime) {
+        return false;
+    }
+    return true;
+}, {
+    message: "Event end time must be after start time.",
+    path: ['eventEndTime']
 });
+
+const generateDayTimeSlots = () => {
+    const slots = [];
+    for (let i = 8; i <= 18; i++) {
+        const hour = String(i).padStart(2, '0');
+        slots.push(`${hour}:00`);
+        if (i < 18) {
+             slots.push(`${hour}:30`);
+        }
+    }
+    return slots;
+};
+
+const dayTimeSlots = generateDayTimeSlots();
 
 const lunchTimeSlots = [
   '11:00', '11:30', '12:00', '12:30', '13:00', '13:30', '14:00'
@@ -104,6 +128,8 @@ export default function CreateEventPage() {
         location: values.location,
         description: values.description,
         scheduleBlockDuration: values.scheduleBlockDuration,
+        eventStartTime: values.eventStartTime || null,
+        eventEndTime: values.eventEndTime || null,
         lunchBreak: (values.lunchBreakStart && values.lunchBreakEnd) 
             ? { start: values.lunchBreakStart, end: values.lunchBreakEnd }
             : null,
@@ -221,22 +247,70 @@ export default function CreateEventPage() {
                     </FormItem>
                   )}
                 />
-                 <FormField
-                  control={form.control}
-                  name="scheduleBlockDuration"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Schedule Block Duration</FormLabel>
-                        <FormControl>
-                            <Input type="number" min="5" max="60" {...field} />
-                        </FormControl>
-                        <FormDescription>
-                            Enter a value in minutes (e.g., 20).
-                        </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                     <FormField
+                      control={form.control}
+                      name="scheduleBlockDuration"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Run Duration</FormLabel>
+                            <FormControl>
+                                <Input type="number" min="5" max="60" {...field} />
+                            </FormControl>
+                            <FormDescription>
+                                Minutes per run.
+                            </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                </div>
+
+                <div className="space-y-2">
+                    <FormLabel>Event Hours (Optional)</FormLabel>
+                     <FormDescription>Defaults to 9am - 5pm if not set.</FormDescription>
+                    <div className="grid grid-cols-2 gap-4">
+                       <FormField
+                          control={form.control}
+                          name="eventStartTime"
+                          render={({ field }) => (
+                            <FormItem>
+                              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Daily start time" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {dayTimeSlots.map(time => <SelectItem key={`start-${time}`} value={time}>{time}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
+                            </FormItem>
+                          )}
+                        />
+                       <FormField
+                          control={form.control}
+                          name="eventEndTime"
+                          render={({ field }) => (
+                            <FormItem>
+                               <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Daily end time" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {dayTimeSlots.map(time => <SelectItem key={`end-${time}`} value={time}>{time}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
+                            </FormItem>
+                          )}
+                        />
+                    </div>
+                     <FormMessage>{form.formState.errors.eventEndTime?.message}</FormMessage>
+                </div>
+
               </div>
               <div className="space-y-8 flex flex-col">
                 <FormField

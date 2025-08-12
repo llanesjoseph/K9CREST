@@ -62,6 +62,8 @@ interface EventDetails {
     startDate: Timestamp;
     endDate?: Timestamp;
     scheduleBlockDuration?: number;
+    eventStartTime?: string;
+    eventEndTime?: string;
     lunchBreak?: { start: string; end: string };
 }
 
@@ -848,7 +850,12 @@ export default function SchedulePage() {
     const activeCompetitor = useMemo(() => sortedCompetitors.find(c => c.id === activeId), [activeId, sortedCompetitors]);
 
     const isFullyLoading = loading.arenas || loading.schedule || loading.competitors || loading.event || authLoading || loading.rubrics;
-    const timeSlots = generateTimeSlots({ duration: eventDetails?.scheduleBlockDuration, lunchBreak: eventDetails?.lunchBreak });
+    const timeSlots = generateTimeSlots({ 
+        duration: eventDetails?.scheduleBlockDuration, 
+        lunchBreak: eventDetails?.lunchBreak,
+        eventStartTime: eventDetails?.eventStartTime,
+        eventEndTime: eventDetails?.eventEndTime,
+    });
     const isDraggable = isAdmin;
 
 
