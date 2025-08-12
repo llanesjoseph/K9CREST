@@ -229,11 +229,11 @@ export default function JudgingPage() {
     });
 
     const unsubFinds = onSnapshot(query(collection(runRef, "finds"), orderBy("createdAt", "asc")), s => {
-        setFinds(s.docs.map(d => ({ id: d.id, ...(d.data() as any) })))
+        setFinds(s.docs.map(d => ({ id: d.id, ...(d.data() as any) })));
     });
     
     const unsubDeductions = onSnapshot(query(collection(runRef, "deductions"), orderBy("createdAt", "asc")), s => {
-        setDeductions(s.docs.map(d => ({ id: d.id, ...(d.data() as any) })))
+        setDeductions(s.docs.map(d => ({ id: d.id, ...(d.data() as any) })));
     });
 
     return () => { unsubRun(); unsubFinds(); unsubDeductions(); };
@@ -364,7 +364,6 @@ export default function JudgingPage() {
             </div>
       </div>
       
-      {/* Timer Card */}
        <Card className={cn(canStopRun && "bg-destructive/5 border-destructive/20")}>
           <CardContent className="pt-6 flex items-center justify-center gap-4 md:gap-8">
               <div className="font-mono text-6xl md:text-7xl font-bold text-primary tracking-tighter flex items-center gap-3">
@@ -399,7 +398,6 @@ export default function JudgingPage() {
           </CardContent>
       </Card>
       
-      {/* Header Card */}
       <Card>
         <CardContent className="pt-6">
            <div className="text-center md:text-left">
@@ -423,7 +421,6 @@ export default function JudgingPage() {
         </CardContent>
       </Card>
       
-      {/* Main Content */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <Card>
             <CardHeader>
@@ -470,13 +467,13 @@ export default function JudgingPage() {
               <CardDescription>Check items to apply a 1-point deduction.</CardDescription>
           </CardHeader>
           <CardContent>
-              <Accordion type="multiple" className="w-full space-y-2">
-                   {deductionCategories.map((cat, catIndex) => (
-                       <AccordionItem value={`item-${catIndex}`} key={cat.category} className="border rounded-md px-4">
-                          <AccordionTrigger>{cat.category}</AccordionTrigger>
-                          <AccordionContent className="space-y-2 pt-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                   {deductionCategories.map((cat) => (
+                       <div key={cat.category} className="border rounded-md p-4">
+                          <h4 className="font-semibold mb-2">{cat.category}</h4>
+                          <div className="space-y-2">
                                {cat.items.map(item => (
-                                  <div key={item} className="flex items-center space-x-2 pl-2">
+                                  <div key={item} className="flex items-center space-x-2">
                                       <Checkbox 
                                           id={`deduction-${item.replace(/\s+/g, '-')}`}
                                           checked={existingDeductionNotes.has(item)}
@@ -491,10 +488,10 @@ export default function JudgingPage() {
                                       </label>
                                   </div>
                                ))}
-                          </AccordionContent>
-                       </AccordionItem>
+                          </div>
+                       </div>
                    ))}
-              </Accordion>
+              </div>
           </CardContent>
       </Card>
       
@@ -521,5 +518,3 @@ function Stat({ label, value, big }: { label: string; value: string; big?: boole
     </div>
   );
 }
-
-    
