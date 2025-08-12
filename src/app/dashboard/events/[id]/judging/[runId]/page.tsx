@@ -177,7 +177,6 @@ export default function JudgingPage() {
 
   const tickRef = useRef<number | null>(null);
   
-    // --- Hook calls moved to top ---
   const isReadOnly = useMemo(() => {
       if (!run) return true;
       if (isAdmin) return false;
@@ -219,7 +218,6 @@ export default function JudgingPage() {
   const canStopRun = !isReadOnly && run?.status === 'in_progress';
   const canSubmitScores = !isReadOnly && run?.status === 'paused';
 
-  // --- Data Fetching ---
   useEffect(() => {
     if (!eventId || !runId) return;
     
@@ -275,7 +273,6 @@ export default function JudgingPage() {
     return () => { unsubRun(); unsubFinds(); unsubDeductions(); };
   }, [eventId, runId, router, toast, competitorData, arenaData]);
 
-  // --- Timer Logic ---
   useEffect(() => {
     if (run?.status === "in_progress") {
       tickRef.current = window.setInterval(() => setNow(Date.now()), 200);
@@ -286,7 +283,6 @@ export default function JudgingPage() {
     return () => { if (tickRef.current) window.clearInterval(tickRef.current); };
   }, [run?.status]);
 
-  // --- Actions ---
   const runRef = doc(db, `events/${eventId}/runs`, runId);
 
   const startRun = async () => {
@@ -392,7 +388,7 @@ export default function JudgingPage() {
         </CardContent>
       </Card>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Card className={cn("transition-all", allAidsFound && "bg-green-50 border border-green-200 dark:bg-green-900/20 dark:border-green-800")}>
             <CardHeader className="py-2">
                 <CardTitle className="text-base">Finds</CardTitle>
@@ -445,12 +441,12 @@ export default function JudgingPage() {
               <CardTitle>Teamwork Deductions</CardTitle>
               <CardDescription>Check items to apply a 1-point deduction.</CardDescription>
           </CardHeader>
-          <CardContent className="p-2">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-1">
+          <CardContent className="p-1">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-1 gap-y-1">
                    {deductionCategories.map((cat) => (
-                       <div key={cat.category} className="border rounded-md p-1">
-                          <h4 className="font-semibold text-sm mb-1">{cat.category}</h4>
-                          <div className="space-y-0">
+                       <div key={cat.category} className="border rounded-md p-2">
+                          <h4 className="font-semibold text-sm mb-2">{cat.category}</h4>
+                          <div className="space-y-1.5">
                                {cat.items.map((item, index) => (
                                   <div key={item} className="flex items-center space-x-2">
                                       <Checkbox 
@@ -475,69 +471,60 @@ export default function JudgingPage() {
       </Card>
       
       <div className="fixed bottom-0 left-0 right-0 z-40">
-        <div className="bg-background/95 backdrop-blur-sm border-t -mx-4 sm:-mx-6 lg:-mx-8">
-            <div className="max-w-4xl mx-auto py-1 px-4 md:px-6">
-                 <div className="grid grid-cols-3 md:grid-cols-5 gap-1 text-center items-center">
-                    <div className="md:col-span-1 flex items-center justify-center gap-2">
-                        <div className="font-mono text-xl font-bold text-primary tracking-tighter flex items-center justify-center gap-1">
-                            <TimerIcon className="h-4 w-4 text-muted-foreground" />
-                            {formatClock(elapsed)}
-                        </div>
-                         {canStartRun ? (
-                            <Button onClick={startRun} disabled={!canStartRun} size="sm" className="h-7 bg-green-600 hover:bg-green-700">
-                                <Play className="mr-2 h-4 w-4"/> Start
+          <div className="bg-background/95 backdrop-blur-sm border-t -mx-4 sm:-mx-6 lg:-mx-8">
+              <div className="max-w-4xl mx-auto py-2 px-4 md:px-6">
+                   <div className="flex items-center justify-between gap-4">
+                      {/* Left Side: Actions */}
+                      <div className="flex items-center gap-2">
+                          <div className="font-mono text-xl font-bold text-primary tracking-tighter flex items-center gap-2">
+                              <TimerIcon className="h-5 w-5 text-muted-foreground" />
+                              <span className="w-20">{formatClock(elapsed)}</span>
+                          </div>
+                           {canStartRun ? (
+                              <Button onClick={startRun} disabled={!canStartRun} size="sm" className="h-8 bg-green-600 hover:bg-green-700">
+                                  <Play className="mr-2 h-4 w-4"/> Start
+                              </Button>
+                          ) : canStopRun ? (
+                              <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                      <Button size="sm" variant="destructive" className="h-8 animate-pulse" disabled={!canStopRun}>
+                                          <Square className="mr-2 h-4 w-4"/> Stop
+                                      </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                      <AlertDialogHeader><AlertDialogTitle>Stop Timer?</AlertDialogTitle><AlertDialogDescription>This will stop the timer but allow you to continue making adjustments to the scores.</AlertDialogDescription></AlertDialogHeader>
+                                      <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={stopRun}>Yes, Stop Timer</AlertDialogAction></AlertDialogFooter>
+                                  </AlertDialogContent>
+                              </AlertDialog>
+                          ) : (
+                            <Button onClick={submitScores} disabled={!canSubmitScores} className="h-8" size="sm">
+                                <Save className="mr-2 h-4 w-4"/> Submit
                             </Button>
-                        ) : canStopRun ? (
-                            <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                    <Button size="sm" variant="destructive" className="h-7 animate-pulse" disabled={!canStopRun}>
-                                        <Square className="mr-2 h-4 w-4"/> Stop
-                                    </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                        <AlertDialogTitle>Stop Timer?</AlertDialogTitle>
-                                        <AlertDialogDescription>
-                                            This will stop the timer but allow you to continue making adjustments to the scores.
-                                        </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                        <AlertDialogAction onClick={stopRun}>Yes, Stop Timer</AlertDialogAction>
-                                    </AlertDialogFooter>
-                                </AlertDialogContent>
-                            </AlertDialog>
-                        ) : null }
-                    </div>
-                    <div className="grid grid-cols-3 md:grid-cols-5 col-span-2 md:col-span-4 gap-1">
-                        <Stat label="Detection" value={`${detectionScore} / ${run.detectionMax || 0}`} />
-                        <Stat label="Teamwork" value={`${teamworkScore} / ${run.teamworkMax || 0}`} />
-                        <Stat label="Preliminary" value={`${preliminary}`} />
-                        <Stat label="Minus False" value={`-${falseTotal}`} />
-                        <div className="flex flex-col items-center justify-center gap-1 col-span-3 md:col-span-1">
-                            <Stat label="Total Score" value={`${totalScore} / ${totalMax}`} big />
-                            <Button onClick={submitScores} disabled={!canSubmitScores} className="w-full h-7" size="sm">
-                                {canSubmitScores ? <Save className="mr-2 h-4 w-4"/> : <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
-                                Submit
-                            </Button>
-                        </div>
-                    </div>
-                </div>
-            </div>
+                          )}
+                      </div>
+
+                      {/* Right Side: Scores */}
+                      <div className="flex items-center gap-2 md:gap-3">
+                          <Stat label="Detection" value={`${detectionScore} / ${run.detectionMax || 0}`} />
+                          <Stat label="Teamwork" value={`${teamworkScore} / ${run.teamworkMax || 0}`} />
+                          <Stat label="Preliminary" value={`${preliminary}`} />
+                          <Stat label="Minus False" value={`-${falseTotal}`} />
+                          <div className="h-8 w-px bg-border mx-1"></div>
+                          <Stat label="Total Score" value={`${totalScore} / ${totalMax}`} big />
+                      </div>
+                  </div>
+              </div>
+          </div>
         </div>
-      </div>
     </div>
   );
 }
 
 function Stat({ label, value, big }: { label: string; value: string; big?: boolean }) {
   return (
-    <div className={cn("bg-muted/50 p-1 rounded-md", big && "bg-primary/10 text-primary w-full")}>
+    <div className={cn("text-center", big && "bg-primary/10 text-primary p-1.5 rounded-md")}>
       <div className={cn("text-[10px] uppercase tracking-wider text-muted-foreground", big && "text-primary/80")}>{label}</div>
-      <div className={cn("text-base font-bold", big && "text-lg")}>{value}</div>
+      <div className={cn("text-sm font-bold", big && "text-lg")}>{value}</div>
     </div>
   );
 }
-
-
-    
