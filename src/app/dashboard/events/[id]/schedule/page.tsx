@@ -844,6 +844,72 @@ export default function SchedulePage() {
                             )}
                         </ScrollArea>
                      </div>
+                     <div className="px-4 py-3 border-t">
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button variant="outline" size="sm"><HelpCircle className="mr-2 h-4 w-4" />Legend</Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-80">
+                                    <div className="grid gap-4">
+                                        <div className="space-y-2">
+                                            <h4 className="font-medium leading-none">Competitor Status</h4>
+                                            <p className="text-sm text-muted-foreground">
+                                                Indicates how many required runs are scheduled.
+                                            </p>
+                                        </div>
+                                        <div className="grid gap-2 text-sm">
+                                            <div className="flex items-center gap-2"><div className="w-4 h-4 rounded-full border-2 border-l-green-500 border-transparent bg-green-500/20" /> Fully Scheduled</div>
+                                            <div className="flex items-center gap-2"><div className="w-4 h-4 rounded-full border-2 border-l-yellow-400 border-transparent bg-yellow-400/20" /> Partially Scheduled</div>
+                                            <div className="flex items-center gap-2"><div className="w-4 h-4 rounded-full border-2 border-l-orange-400 border-transparent bg-orange-400/20" /> Unscheduled</div>
+                                        </div>
+                                        <Separator />
+                                         <div className="space-y-2">
+                                            <h4 className="font-medium leading-none">Run Specialty</h4>
+                                            <p className="text-sm text-muted-foreground">
+                                                The color of a scheduled run in the timeline.
+                                            </p>
+                                        </div>
+                                         <div className="grid gap-2 text-sm">
+                                            <div className="flex items-center gap-2"><div className="w-4 h-4 rounded-full bg-orange-500/20" /> Bite Work</div>
+                                            <div className="flex items-center gap-2"><div className="w-4 h-4 rounded-full bg-blue-500/20" /> Detection (Narcotics)</div>
+                                            <div className="flex items-center gap-2"><div className="w-4 h-4 rounded-full bg-green-500/20" /> Detection (Explosives)</div>
+                                            <div className="flex items-center gap-2"><div className="w-4 h-4 rounded-full bg-gray-500/20" /> Any / Unspecified</div>
+                                        </div>
+                                    </div>
+                                </PopoverContent>
+                            </Popover>
+                            {isAdmin && (
+                            <div className="flex items-center gap-2">
+                                <Button onClick={handleAssignBibs} variant="outline" disabled={competitors.length === 0} size="sm"> <Hash className="mr-2 h-4 w-4"/> Assign BIBs </Button>
+                                    <AiScheduleDialog eventId={eventId} arenas={arenas} competitors={sortedCompetitors} eventDays={eventDays} currentSchedule={schedule} />
+                            </div>
+                            )}
+                            <div className="flex items-center gap-2">
+                            <Button onClick={handleGeneratePdf} variant="outline" size="sm" disabled={isGeneratingPdf || schedule.length === 0}>
+                                {isGeneratingPdf ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <FileDown className="mr-2 h-4 w-4"/>}
+                                PDF
+                            </Button>
+                            {isAdmin && (
+                                    <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                            <Button variant="destructive" size="sm" disabled={schedule.length === 0}> <Eraser className="mr-2 h-4 w-4"/> Clear </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                            <AlertDialogDescription> This will remove all scheduled runs for this event. This action cannot be undone. </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                            <AlertDialogAction onClick={handleClearSchedule} className="bg-destructive hover:bg-destructive/90"> Yes, clear schedule </AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
+                            )}
+                            </div>
+                        </div>
+                    </div>
                      {isAdmin && (
                          <div className="p-4 border-t space-y-4">
                              <h3 className="text-lg font-semibold">Manage Arenas</h3>
@@ -882,70 +948,6 @@ export default function SchedulePage() {
                         <div>
                             <CardTitle className="text-2xl">{eventDetails?.name || <Skeleton className="h-8 w-64 inline-block" />}</CardTitle>
                             <CardDescription>Drag and drop competitors into time slots to build the schedule.</CardDescription>
-                        </div>
-                        <div className="flex w-full sm:w-auto items-center justify-end gap-2 flex-wrap ml-auto">
-                            <Popover>
-                                <PopoverTrigger asChild>
-                                    <Button variant="outline" size="sm"><HelpCircle className="mr-2 h-4 w-4" />Legend</Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-80">
-                                    <div className="grid gap-4">
-                                        <div className="space-y-2">
-                                            <h4 className="font-medium leading-none">Competitor Status</h4>
-                                            <p className="text-sm text-muted-foreground">
-                                                Indicates how many required runs are scheduled.
-                                            </p>
-                                        </div>
-                                        <div className="grid gap-2 text-sm">
-                                            <div className="flex items-center gap-2"><div className="w-4 h-4 rounded-full border-2 border-l-green-500 border-transparent bg-green-500/20" /> Fully Scheduled</div>
-                                            <div className="flex items-center gap-2"><div className="w-4 h-4 rounded-full border-2 border-l-yellow-400 border-transparent bg-yellow-400/20" /> Partially Scheduled</div>
-                                            <div className="flex items-center gap-2"><div className="w-4 h-4 rounded-full border-2 border-l-orange-400 border-transparent bg-orange-400/20" /> Unscheduled</div>
-                                        </div>
-                                        <Separator />
-                                         <div className="space-y-2">
-                                            <h4 className="font-medium leading-none">Run Specialty</h4>
-                                            <p className="text-sm text-muted-foreground">
-                                                The color of a scheduled run in the timeline.
-                                            </p>
-                                        </div>
-                                         <div className="grid gap-2 text-sm">
-                                            <div className="flex items-center gap-2"><div className="w-4 h-4 rounded-full bg-orange-500/20" /> Bite Work</div>
-                                            <div className="flex items-center gap-2"><div className="w-4 h-4 rounded-full bg-blue-500/20" /> Detection (Narcotics)</div>
-                                            <div className="flex items-center gap-2"><div className="w-4 h-4 rounded-full bg-green-500/20" /> Detection (Explosives)</div>
-                                            <div className="flex items-center gap-2"><div className="w-4 h-4 rounded-full bg-gray-500/20" /> Any / Unspecified</div>
-                                        </div>
-                                    </div>
-                                </PopoverContent>
-                            </Popover>
-                            {isAdmin && (
-                            <div className="flex-grow sm:flex-grow-0 flex items-center gap-2">
-                                <Button onClick={handleAssignBibs} variant="outline" disabled={competitors.length === 0} size="sm"> <Hash className="mr-2 h-4 w-4"/> Assign BIBs </Button>
-                                    <AiScheduleDialog eventId={eventId} arenas={arenas} competitors={sortedCompetitors} eventDays={eventDays} currentSchedule={schedule} />
-                            </div>
-                            )}
-                            <div className="flex items-center gap-2">
-                            <Button onClick={handleGeneratePdf} variant="outline" size="sm" className="w-full" disabled={isGeneratingPdf || schedule.length === 0}>
-                                {isGeneratingPdf ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <FileDown className="mr-2 h-4 w-4"/>}
-                                Download PDF
-                            </Button>
-                            {isAdmin && (
-                                    <AlertDialog>
-                                    <AlertDialogTrigger asChild>
-                                            <Button variant="destructive" size="sm" className="w-full" disabled={schedule.length === 0}> <Eraser className="mr-2 h-4 w-4"/> Clear </Button>
-                                    </AlertDialogTrigger>
-                                    <AlertDialogContent>
-                                        <AlertDialogHeader>
-                                            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                                            <AlertDialogDescription> This will remove all scheduled runs for this event. This action cannot be undone. </AlertDialogDescription>
-                                        </AlertDialogHeader>
-                                        <AlertDialogFooter>
-                                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                            <AlertDialogAction onClick={handleClearSchedule} className="bg-destructive hover:bg-destructive/90"> Yes, clear schedule </AlertDialogAction>
-                                        </AlertDialogFooter>
-                                    </AlertDialogContent>
-                                </AlertDialog>
-                            )}
-                            </div>
                         </div>
                     </CardHeader>
                     <div className="flex-1 overflow-auto">
