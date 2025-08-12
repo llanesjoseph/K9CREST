@@ -183,6 +183,37 @@ export default function JudgingPage() {
       return run.status === 'scored' || run.status === 'locked';
   }, [run, isAdmin]);
 
+  // --- Scoring Calculations ---
+  const perAid = useMemo(() => {
+    if (!run?.aidsPlanted || !run.detectionMax) return 0;
+    return run.aidsPlanted > 0 ? run.detectionMax / run.aidsPlanted : 0;
+  }, [run]);
+  
+  const deductionsTotal = useMemo(() => deductions.reduce((sum, d) => sum + d.points, 0), [deductions]);
+
+  const detectionScore = useMemo(() => two(Math.min(finds.length, run?.aidsPlanted || 0) * perAid), [finds, run, perAid]);
+  const teamworkScore = useMemo(() => two(clamp((run?.teamworkMax || 0) - deductionsTotal, 0, run?.teamworkMax || 0)), [run, deductionsTotal]);
+  const falseTotal = useMemo(() => two((run?.falseAlerts || 0) * (run?.falseAlertPenalty || 0)), [run]);
+  const preliminary = useMemo(() => two(detectionScore + teamworkScore), [detectionScore, teamworkScore]);
+  const totalMax = (run?.detectionMax || 0) + (run?.teamworkMax || 0);
+  const totalScore = useMemo(() => two(clamp(preliminary - falseTotal, 0, totalMax)), [preliminary, falseTotal, totalMax]);
+
+  const elapsed = useMemo(() => {
+    if (!run?.startAt) return 0;
+    const startMs = run.startAt.toMillis ? run.startAt.toMillis() : Date.parse(run.startAt);
+    const endMs = run?.endAt ? (run.endAt.toMillis ? run.endAt.toMillis() : Date.parse(run.endAt)) : now;
+    return Math.max(Math.floor((endMs - startMs) / 1000), 0);
+  }, [run?.startAt, run?.endAt, now]);
+  
+  const getRelativeTime = useCallback((timestamp: any) => {
+    if (!timestamp || !run?.startAt) return null;
+    const startMs = run.startAt.toMillis ? run.startAt.toMillis() : Date.parse(run.startAt);
+    const eventMs = timestamp.toMillis ? timestamp.toMillis() : Date.parse(timestamp);
+    return Math.max(Math.floor((eventMs - startMs) / 1000), 0);
+  }, [run?.startAt]);
+  
+  const allAidsFound = useMemo(() => finds.length >= (run?.aidsPlanted || 0), [finds, run?.aidsPlanted]);
+
   // --- Data Fetching ---
   useEffect(() => {
     if (!eventId || !runId) return;
@@ -249,35 +280,6 @@ export default function JudgingPage() {
     }
     return () => { if (tickRef.current) window.clearInterval(tickRef.current); };
   }, [run?.status]);
-
-  // --- Scoring Calculations ---
-  const perAid = useMemo(() => {
-    if (!run?.aidsPlanted || !run.detectionMax) return 0;
-    return run.aidsPlanted > 0 ? run.detectionMax / run.aidsPlanted : 0;
-  }, [run]);
-  
-  const deductionsTotal = useMemo(() => deductions.reduce((sum, d) => sum + d.points, 0), [deductions]);
-
-  const detectionScore = useMemo(() => two(Math.min(finds.length, run?.aidsPlanted || 0) * perAid), [finds, run, perAid]);
-  const teamworkScore = useMemo(() => two(clamp((run?.teamworkMax || 0) - deductionsTotal, 0, run?.teamworkMax || 0)), [run, deductionsTotal]);
-  const falseTotal = useMemo(() => two((run?.falseAlerts || 0) * (run?.falseAlertPenalty || 0)), [run]);
-  const preliminary = useMemo(() => two(detectionScore + teamworkScore), [detectionScore, teamworkScore]);
-  const totalMax = (run?.detectionMax || 0) + (run?.teamworkMax || 0);
-  const totalScore = useMemo(() => two(clamp(preliminary - falseTotal, 0, totalMax)), [preliminary, falseTotal, totalMax]);
-
-  const elapsed = useMemo(() => {
-    if (!run?.startAt) return 0;
-    const startMs = run.startAt.toMillis ? run.startAt.toMillis() : Date.parse(run.startAt);
-    const endMs = run?.endAt ? (run.endAt.toMillis ? run.endAt.toMillis() : Date.parse(run.endAt)) : now;
-    return Math.max(Math.floor((endMs - startMs) / 1000), 0);
-  }, [run?.startAt, run?.endAt, now]);
-  
-  const getRelativeTime = useCallback((timestamp: any) => {
-    if (!timestamp || !run?.startAt) return null;
-    const startMs = run.startAt.toMillis ? run.startAt.toMillis() : Date.parse(run.startAt);
-    const eventMs = timestamp.toMillis ? timestamp.toMillis() : Date.parse(timestamp);
-    return Math.max(Math.floor((eventMs - startMs) / 1000), 0);
-  }, [run?.startAt]);
 
   // --- Actions ---
   const runRef = doc(db, `events/${eventId}/runs`, runId);
@@ -349,8 +351,7 @@ export default function JudgingPage() {
   const canStartRun = !isReadOnly && run.status === 'scheduled';
   const canStopRun = !isReadOnly && run.status === 'in_progress';
   const canSubmitScores = !isReadOnly && run.status === 'paused';
-  const allAidsFound = useMemo(() => finds.length >= (run?.aidsPlanted || 0), [finds, run?.aidsPlanted]);
-
+  
   const existingDeductionNotes = new Set(deductions.map(d => d.note));
 
   return (
@@ -485,7 +486,7 @@ export default function JudgingPage() {
                        <div key={cat.category} className="border rounded-md p-2">
                           <h4 className="font-semibold text-sm mb-2">{cat.category}</h4>
                           <div className="space-y-1">
-                               {cat.items.map((item) => (
+                               {cat.items.map((item, index) => (
                                   <div key={item} className="flex items-center space-x-2">
                                       <Checkbox 
                                           id={`deduction-${item.replace(/\s+/g, '-')}`}
@@ -545,3 +546,5 @@ function Stat({ label, value, big }: { label: string; value: string; big?: boole
     </div>
   );
 }
+
+    
