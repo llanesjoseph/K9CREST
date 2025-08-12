@@ -13,7 +13,7 @@ import { useAuth } from "@/components/auth-provider";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import {
   AlertDialog,
@@ -39,6 +39,8 @@ type RunData = {
   aidsPlanted?: number;
   falseAlertPenalty?: number;
   falseAlerts?: number;
+  teamworkDeductionPoints?: number;
+  teamworkNotes?: string;
   startAt?: any; // Firestore Timestamp
   endAt?: any;   // Firestore Timestamp
   status: "scheduled" | "in_progress" | "scored" | "locked";
@@ -48,7 +50,6 @@ type RunData = {
   totalTime?: number;
 };
 
-type Deduction = { id: string; label: string; points: number; applied: boolean };
 type Find = { id: string; createdAt?: any };
 
 export default function JudgingPage() {
@@ -61,7 +62,6 @@ export default function JudgingPage() {
   const runId = params.runId as string;
 
   const [run, setRun] = useState<RunData | null>(null);
-  const [deductions, setDeductions] = useState<Deduction[]>([]);
   const [finds, setFinds] = useState<Find[]>([]);
   const [now, setNow] = useState(Date.now());
   const [loading, setLoading] = useState(true);
@@ -81,29 +81,26 @@ export default function JudgingPage() {
   useEffect(() => {
     if (!eventId || !runId) return;
     
-    // This will become the new "run" document reference
     const runRef = doc(db, `events/${eventId}/runs`, runId);
     
     const unsubRun = onSnapshot(runRef, async (s) => {
         if (!s.exists()) {
-            // Check the old location for compatibility
             const oldRunRef = doc(db, `events/${eventId}/schedule`, runId);
             const oldRunSnap = await getDoc(oldRunRef);
             if (oldRunSnap.exists()) {
                 const oldData = oldRunSnap.data();
-                // Migrate to new structure
                 const newRunData = {
-                    ...oldData, // Carry over essential fields
+                    ...oldData,
                     status: oldData.status === 'scored' ? 'scored' : 'scheduled',
-                    detectionMax: 75, // Default value
-                    teamworkMax: 25, // Default value
-                    aidsPlanted: 5, // Default value
-                    falseAlertPenalty: 5, // Default value
+                    detectionMax: 75,
+                    teamworkMax: 25,
+                    aidsPlanted: 5,
+                    falseAlertPenalty: 5,
                     falseAlerts: 0,
+                    teamworkDeductionPoints: 0,
+                    teamworkNotes: '',
                 };
                 await setDoc(runRef, newRunData);
-                // Optionally delete the old one after migration if desired
-                // await deleteDoc(oldRunRef);
             } else {
                  toast({ variant: "destructive", title: "Error", description: "Run not found." });
                  router.push(`/dashboard/events/${eventId}/schedule`);
@@ -124,16 +121,12 @@ export default function JudgingPage() {
         setLoading(false);
     });
 
-    const unsubDed = onSnapshot(collection(runRef, "deductions"), s => 
-        setDeductions(s.docs.map(d => ({ id: d.id, ...(d.data() as any) })))
-    );
-
     const unsubFinds = onSnapshot(query(collection(runRef, "finds")), s => 
         setFinds(s.docs.map(d => ({ id: d.id, ...(d.data() as any) }))
             .sort((a,b) => (a.createdAt?.toMillis?.() || 0) - (b.createdAt?.toMillis?.() || 0))
     ));
     
-    return () => { unsubRun(); unsubDed(); unsubFinds(); };
+    return () => { unsubRun(); unsubFinds(); };
   }, [eventId, runId, router, toast, competitorData, arenaData]);
 
   // --- Timer Logic ---
@@ -154,8 +147,7 @@ export default function JudgingPage() {
   }, [run]);
 
   const detectionScore = useMemo(() => two(Math.min(finds.length, run?.aidsPlanted || 0) * perAid), [finds, run, perAid]);
-  const deductionsTotal = useMemo(() => two(deductions.filter(d => d.applied).reduce((s, d) => s + (d.points || 0), 0)), [deductions]);
-  const teamworkScore = useMemo(() => two(clamp((run?.teamworkMax || 0) - deductionsTotal, 0, run?.teamworkMax || 0)), [run, deductionsTotal]);
+  const teamworkScore = useMemo(() => two(clamp((run?.teamworkMax || 0) - (run?.teamworkDeductionPoints || 0), 0, run?.teamworkMax || 0)), [run]);
   const falseTotal = useMemo(() => two((run?.falseAlerts || 0) * (run?.falseAlertPenalty || 0)), [run]);
   const preliminary = useMemo(() => two(detectionScore + teamworkScore), [detectionScore, teamworkScore]);
   const totalMax = (run?.detectionMax || 0) + (run?.teamworkMax || 0);
@@ -183,10 +175,9 @@ export default function JudgingPage() {
   };
   const endRun = async () => {
       if(isReadOnly) return;
-      // Also update the old schedule item for leaderboard compatibility
       const oldRunRef = doc(db, `events/${eventId}/schedule`, runId);
       await updateDoc(runRef, { status: "scored", endAt: serverTimestamp(), totalTime: elapsed });
-      await updateDoc(oldRunRef, { status: "scored", totalTime: elapsed, actualStartTime: run?.startAt, scores: [] }); // Empty scores to prevent double counting
+      await updateDoc(oldRunRef, { status: "scored", totalTime: elapsed, actualStartTime: run?.startAt, scores: [] });
   };
   const addFind = async () => {
       if(isReadOnly) return;
@@ -197,18 +188,21 @@ export default function JudgingPage() {
       const next = Math.max((run?.falseAlerts || 0) + delta, 0);
       await updateDoc(runRef, { falseAlerts: next });
   };
-  const setDeduction = async (id: string, patch: Partial<Deduction>) => {
+  const addTeamworkDeduction = async (delta: number) => {
       if(isReadOnly) return;
-      await setDoc(doc(runRef, "deductions", id), patch, { merge: true });
+      const next = Math.max((run?.teamworkDeductionPoints || 0) + delta, 0);
+      await updateDoc(runRef, { teamworkDeductionPoints: next });
   };
-  const addDeductionRow = async () => {
-    if(isReadOnly) return;
-    await addDoc(collection(runRef, "deductions"), { label: "Custom deduction", points: 0, applied: false });
-  };
-   const removeDeductionRow = async (id: string) => {
-    if(isReadOnly) return;
-    await deleteDoc(doc(runRef, "deductions", id));
-  };
+
+  const handleNotesChange = useCallback(
+    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      const value = e.target.value;
+      // This uses a debounced update in a real scenario, but for simplicity here we update directly.
+      updateDoc(runRef, { teamworkNotes: value });
+    },
+    [runRef]
+  );
+
 
   if (loading || !run) {
       return (
@@ -285,7 +279,6 @@ export default function JudgingPage() {
       
       {/* Main Content */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column */}
         <div className="lg:col-span-2 space-y-6">
             <Card>
                 <CardHeader>
@@ -308,48 +301,30 @@ export default function JudgingPage() {
                     </div>
                 </CardContent>
             </Card>
-
-            <Card>
+             <Card>
                 <CardHeader>
-                    <CardTitle>Teamwork Deductions</CardTitle>
+                    <CardTitle>Teamwork Deductions & Notes</CardTitle>
                 </CardHeader>
-                <CardContent>
-                    <div className="space-y-3">
-                         {deductions.map(d => (
-                            <div key={d.id} className="grid grid-cols-[auto_1fr_auto_auto] items-center gap-3">
-                               <Checkbox 
-                                    checked={!!d.applied} 
-                                    onCheckedChange={c => setDeduction(d.id, { applied: !!c })} 
-                                    disabled={isReadOnly}
-                                />
-                               <Input 
-                                    value={d.label} 
-                                    onChange={e => setDeduction(d.id, { label: e.target.value })} 
-                                    placeholder="Deduction reason..."
-                                    className="h-9"
-                                    readOnly={isReadOnly}
-                                />
-                               <Input 
-                                    type="number" 
-                                    min={0} value={d.points || 0} 
-                                    onChange={e => setDeduction(d.id, { points: Number(e.target.value) || 0 })} 
-                                    className="w-24 h-9 text-right"
-                                    readOnly={isReadOnly}
-                                />
-                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => removeDeductionRow(d.id)} disabled={isReadOnly}>
-                                    <Trash2 className="h-4 w-4 text-muted-foreground" />
-                                </Button>
-                            </div>
-                         ))}
+                <CardContent className="space-y-4">
+                     <div className="flex items-center justify-center gap-2">
+                        <Button onClick={() => addTeamworkDeduction(-1)} variant="outline" size="icon" className="h-12 w-12" disabled={isReadOnly}><Minus/></Button>
+                        <Input 
+                            readOnly 
+                            value={`${run.teamworkDeductionPoints || 0} pts`}
+                            className="font-mono text-xl font-bold w-32 text-center h-12"
+                        />
+                        <Button onClick={() => addTeamworkDeduction(1)} variant="outline" size="icon" className="h-12 w-12" disabled={isReadOnly}><Plus/></Button>
                     </div>
-                    {!isReadOnly && <Button onClick={addDeductionRow} variant="outline" size="sm" className="mt-4" disabled={isReadOnly}>
-                        <Plus className="mr-2 h-4 w-4" /> Add Deduction
-                    </Button>}
+                    <Textarea 
+                        placeholder="Add notes for teamwork deductions..."
+                        defaultValue={run.teamworkNotes}
+                        onBlur={handleNotesChange}
+                        readOnly={isReadOnly}
+                    />
                 </CardContent>
             </Card>
         </div>
         
-        {/* Right Column */}
         <div className="space-y-6">
             <Card>
                 <CardHeader>
@@ -367,7 +342,6 @@ export default function JudgingPage() {
         </div>
       </div>
       
-      {/* Sticky Footer */}
       <div className="sticky bottom-0 bg-background/95 backdrop-blur-sm border-t -mx-4 -mb-4 sm:-mx-6 sm:-mb-6 lg:-mx-8 lg:-mb-8">
         <div className="max-w-4xl mx-auto p-4">
              <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-center">
@@ -391,5 +365,3 @@ function Stat({ label, value, big }: { label: string; value: string; big?: boole
     </div>
   );
 }
-
-    
