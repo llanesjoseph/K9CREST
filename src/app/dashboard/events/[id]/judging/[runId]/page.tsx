@@ -211,12 +211,12 @@ export default function JudgingPage() {
     return Math.max(Math.floor((eventMs - startMs) / 1000), 0);
   }, [run?.startAt]);
   
-  const allAidsFound = useMemo(() => finds.length >= (run?.aidsPlanted || 0), [finds, run?.aidsPlanted]);
+  const allAidsFound = useMemo(() => run ? finds.length >= (run.aidsPlanted || 0) : false, [finds, run]);
   const existingDeductionNotes = useMemo(() => new Set(deductions.map(d => d.note)), [deductions]);
   
-  const canStartRun = !isReadOnly && run?.status === 'scheduled';
-  const canStopRun = !isReadOnly && run?.status === 'in_progress';
-  const canSubmitScores = !isReadOnly && run?.status === 'paused';
+  const canStartRun = useMemo(() => !isReadOnly && run?.status === 'scheduled', [isReadOnly, run]);
+  const canStopRun = useMemo(() => !isReadOnly && run?.status === 'in_progress', [isReadOnly, run]);
+  const canSubmitScores = useMemo(() => !isReadOnly && run?.status === 'paused', [isReadOnly, run]);
 
   useEffect(() => {
     if (!eventId || !runId) return;
@@ -442,13 +442,13 @@ export default function JudgingPage() {
               <CardDescription>Check items to apply a 1-point deduction.</CardDescription>
           </CardHeader>
           <CardContent className="p-1">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-1 gap-y-1">
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-1 gap-y-1">
                    {deductionCategories.map((cat) => (
-                       <div key={cat.category} className="border rounded-md p-2">
-                          <h4 className="font-semibold text-sm mb-2">{cat.category}</h4>
-                          <div className="space-y-1.5">
-                               {cat.items.map((item, index) => (
-                                  <div key={item} className="flex items-center space-x-2">
+                       <div key={cat.category} className="border rounded-md p-1 space-y-1">
+                          <h4 className="font-semibold text-sm mb-1 px-1">{cat.category}</h4>
+                          <div className="space-y-0.5">
+                               {cat.items.map((item) => (
+                                  <div key={item} className="flex items-center space-x-2 p-1 rounded-sm hover:bg-muted">
                                       <Checkbox 
                                           id={`deduction-${item.replace(/\s+/g, '-')}`}
                                           checked={existingDeductionNotes.has(item)}
@@ -472,22 +472,23 @@ export default function JudgingPage() {
       
       <div className="fixed bottom-0 left-0 right-0 z-40">
           <div className="bg-background/95 backdrop-blur-sm border-t -mx-4 sm:-mx-6 lg:-mx-8">
-              <div className="max-w-4xl mx-auto py-2 px-4 md:px-6">
+              <div className="max-w-4xl mx-auto p-2 px-4 sm:px-6 lg:px-8">
                    <div className="flex items-center justify-between gap-4">
                       {/* Left Side: Actions */}
                       <div className="flex items-center gap-2">
-                          <div className="font-mono text-xl font-bold text-primary tracking-tighter flex items-center gap-2">
-                              <TimerIcon className="h-5 w-5 text-muted-foreground" />
-                              <span className="w-20">{formatClock(elapsed)}</span>
+                          <div className="font-mono text-lg font-bold text-primary tracking-tighter flex items-center gap-2">
+                              <TimerIcon className="h-4 w-4 text-muted-foreground" />
+                              <span className="w-16">{formatClock(elapsed)}</span>
                           </div>
-                           {canStartRun ? (
-                              <Button onClick={startRun} disabled={!canStartRun} size="sm" className="h-8 bg-green-600 hover:bg-green-700">
+                           {canStartRun && (
+                              <Button onClick={startRun} size="sm" className="h-8 bg-green-600 hover:bg-green-700">
                                   <Play className="mr-2 h-4 w-4"/> Start
                               </Button>
-                          ) : canStopRun ? (
+                          )}
+                          {canStopRun && (
                               <AlertDialog>
                                   <AlertDialogTrigger asChild>
-                                      <Button size="sm" variant="destructive" className="h-8 animate-pulse" disabled={!canStopRun}>
+                                      <Button size="sm" variant="destructive" className="h-8 animate-pulse">
                                           <Square className="mr-2 h-4 w-4"/> Stop
                                       </Button>
                                   </AlertDialogTrigger>
@@ -496,8 +497,9 @@ export default function JudgingPage() {
                                       <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={stopRun}>Yes, Stop Timer</AlertDialogAction></AlertDialogFooter>
                                   </AlertDialogContent>
                               </AlertDialog>
-                          ) : (
-                            <Button onClick={submitScores} disabled={!canSubmitScores} className="h-8" size="sm">
+                          )}
+                          {canSubmitScores && (
+                            <Button onClick={submitScores} className="h-8" size="sm">
                                 <Save className="mr-2 h-4 w-4"/> Submit
                             </Button>
                           )}
@@ -509,7 +511,7 @@ export default function JudgingPage() {
                           <Stat label="Teamwork" value={`${teamworkScore} / ${run.teamworkMax || 0}`} />
                           <Stat label="Preliminary" value={`${preliminary}`} />
                           <Stat label="Minus False" value={`-${falseTotal}`} />
-                          <div className="h-8 w-px bg-border mx-1"></div>
+                          <div className="h-6 w-px bg-border mx-1"></div>
                           <Stat label="Total Score" value={`${totalScore} / ${totalMax}`} big />
                       </div>
                   </div>
@@ -522,9 +524,9 @@ export default function JudgingPage() {
 
 function Stat({ label, value, big }: { label: string; value: string; big?: boolean }) {
   return (
-    <div className={cn("text-center", big && "bg-primary/10 text-primary p-1.5 rounded-md")}>
+    <div className={cn("text-center", big && "bg-primary/10 text-primary p-1 rounded-md")}>
       <div className={cn("text-[10px] uppercase tracking-wider text-muted-foreground", big && "text-primary/80")}>{label}</div>
-      <div className={cn("text-sm font-bold", big && "text-lg")}>{value}</div>
+      <div className={cn("text-xs font-bold", big && "text-base")}>{value}</div>
     </div>
   );
 }
