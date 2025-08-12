@@ -425,7 +425,7 @@ export default function JudgingPage() {
             <CardHeader className="py-2">
                 <CardTitle className="text-base">Finds</CardTitle>
             </CardHeader>
-            <CardContent className="flex flex-col gap-2 pt-0 p-3">
+            <CardContent className="flex flex-col gap-2 p-2 pt-0">
                 <Button onClick={addFind} disabled={isReadOnly || run.status !== 'in_progress'} size="sm">
                     Log Find
                 </Button>
@@ -448,7 +448,7 @@ export default function JudgingPage() {
             <CardHeader className="py-2">
                 <CardTitle className="text-base">False Alerts</CardTitle>
             </CardHeader>
-            <CardContent className="pt-0 p-3">
+            <CardContent className="pt-0 p-2">
                 <div className="flex items-center justify-center gap-2">
                     <Button onClick={() => addFalseAlert(-1)} variant="outline" size="icon" className="h-8 w-8" disabled={isReadOnly}><Minus/></Button>
                     <span className="font-mono text-3xl font-bold w-12 text-center">{run.falseAlerts || 0}</span>
@@ -468,10 +468,10 @@ export default function JudgingPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                    {deductionCategories.map((cat) => (
                        <div key={cat.category} className="border rounded-md p-3 space-y-1">
-                          <h4 className="font-semibold mb-1.5">{cat.category}</h4>
-                          <div>
-                               {cat.items.map((item, index) => (
-                                  <div key={item} className={cn("flex items-center space-x-2", index < cat.items.length - 1 && 'mb-2')}>
+                          <h4 className="font-semibold text-sm mb-1.5">{cat.category}</h4>
+                          <div className="space-y-1">
+                               {cat.items.map((item) => (
+                                  <div key={item} className="flex items-center space-x-2">
                                       <Checkbox 
                                           id={`deduction-${item.replace(/\s+/g, '-')}`}
                                           checked={existingDeductionNotes.has(item)}
@@ -495,7 +495,7 @@ export default function JudgingPage() {
       
       <div className="fixed bottom-0 left-0 right-0 z-40">
         <div className="bg-background/95 backdrop-blur-sm border-t -mx-4 sm:-mx-6 lg:-mx-8">
-            <div className="max-w-4xl mx-auto py-3 px-4 md:py-4 md:px-6">
+            <div className="max-w-4xl mx-auto py-2 px-4 md:px-6">
                 <div className="grid grid-cols-3 md:grid-cols-7 gap-2 md:gap-4 text-center items-center">
                     <div className="md:col-span-1">
                         <div className="font-mono text-3xl font-bold text-primary tracking-tighter flex items-center justify-center gap-2">
