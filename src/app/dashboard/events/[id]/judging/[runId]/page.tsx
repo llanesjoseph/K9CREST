@@ -349,7 +349,7 @@ export default function JudgingPage() {
   const existingDeductionNotes = new Set(deductions.map(d => d.note));
 
   return (
-    <div className="max-w-4xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
+    <div className="max-w-4xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6 pb-24">
         <div className="flex items-center gap-4">
             <Button variant="outline" size="icon" asChild>
             <Link href={`/dashboard/events/${eventId}/schedule`}>
@@ -366,10 +366,6 @@ export default function JudgingPage() {
       
        <Card className={cn(canStopRun && "bg-destructive/5 border-destructive/20")}>
           <CardContent className="pt-6 flex items-center justify-center gap-4 md:gap-8">
-              <div className="font-mono text-6xl md:text-7xl font-bold text-primary tracking-tighter flex items-center gap-3">
-                  <TimerIcon className="h-12 w-12 text-muted-foreground" />
-                  {formatClock(elapsed)}
-              </div>
               {canStopRun ? (
                   <AlertDialog>
                       <AlertDialogTrigger asChild>
@@ -494,15 +490,23 @@ export default function JudgingPage() {
           </CardContent>
       </Card>
       
-      <div className="sticky bottom-0 bg-background/95 backdrop-blur-sm border-t -mx-4 -mb-4 sm:-mx-6 sm:-mb-6 lg:-mx-8 lg:-mb-8">
-        <div className="max-w-4xl mx-auto p-4">
-             <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-center">
-                 <Stat label="Detection" value={`${detectionScore} / ${run.detectionMax || 0}`} />
-                 <Stat label="Teamwork" value={`${teamworkScore} / ${run.teamworkMax || 0}`} />
-                 <Stat label="Preliminary" value={`${preliminary}`} />
-                 <Stat label="Minus False Alerts" value={`-${falseTotal}`} />
-                 <Stat label="Total Score" value={`${totalScore} / ${totalMax}`} big />
-             </div>
+      <div className="fixed bottom-0 left-0 right-0 z-40">
+        <div className="bg-background/95 backdrop-blur-sm border-t -mx-4 sm:-mx-6 lg:-mx-8">
+            <div className="max-w-4xl mx-auto p-4">
+                <div className="grid grid-cols-3 md:grid-cols-6 gap-4 text-center items-center">
+                    <div className="md:col-span-1">
+                        <div className="font-mono text-3xl font-bold text-primary tracking-tighter flex items-center justify-center gap-2">
+                            <TimerIcon className="h-7 w-7 text-muted-foreground" />
+                            {formatClock(elapsed)}
+                        </div>
+                    </div>
+                    <Stat label="Detection" value={`${detectionScore} / ${run.detectionMax || 0}`} />
+                    <Stat label="Teamwork" value={`${teamworkScore} / ${run.teamworkMax || 0}`} />
+                    <Stat label="Preliminary" value={`${preliminary}`} />
+                    <Stat label="Minus False Alerts" value={`-${falseTotal}`} />
+                    <Stat label="Total Score" value={`${totalScore} / ${totalMax}`} big />
+                </div>
+            </div>
         </div>
       </div>
     </div>
@@ -511,10 +515,11 @@ export default function JudgingPage() {
 
 function Stat({ label, value, big }: { label: string; value: string; big?: boolean }) {
   return (
-    <div className={cn("bg-muted/50 p-3 rounded-lg", big && "bg-primary/10 text-primary")}>
+    <div className={cn("bg-muted/50 p-2 rounded-lg", big && "bg-primary/10 text-primary")}>
       <div className={cn("text-xs uppercase tracking-wider text-muted-foreground", big && "text-primary/80")}>{label}</div>
-      <div className={cn("text-2xl font-bold", big && "text-3xl")}>{value}</div>
+      <div className={cn("text-xl font-bold", big && "text-2xl")}>{value}</div>
     </div>
   );
 }
 
+    
