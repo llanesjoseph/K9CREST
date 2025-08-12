@@ -33,29 +33,98 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import { Checkbox } from "@/components/ui/checkbox";
 
-const commonDeductions = [
-    { category: "Communication", label: "Delayed response to command" },
-    { category: "Communication", label: "Misinterpreted command" },
-    { category: "Communication", label: "Handler over-commanding" },
-    { category: "Cohesion", label: "Dog forges/lags/drifts" },
-    { category: "Cohesion", label: "Frequent tight leash corrections" },
-    { category: "Cohesion", label: "Handler-dog out of sync" },
-    { category: "Task Flow", label: "Handler pulls dog off productive work" },
-    { category: "Task Flow", label: "Handler misses dog's change of behavior" },
-    { category: "Task Flow", label: "Dog abandons task" },
-    { category: "Emotional", label: "Dog shows stress signals" },
-    { category: "Emotional", label: "Handler shows visible frustration" },
-    { category: "Emotional", label: "Loss of enthusiasm" },
-    { category: "Handler Error", label: "Incorrect reward timing" },
-    { category: "Handler Error", label: "Inconsistent cues" },
-    { category: "Handler Error", label: "Handler positioning blocks dog" },
-    { category: "Trust", label: "Handler ignores dog's problem-solving" },
-    { category: "Trust", label: "Inappropriate correction" },
-    { category: "Awareness", label: "Dog distracted, not refocused" },
-    { category: "Awareness", label: "Handler steps outside boundaries" },
-    { category: "Professionalism", label: "Sloppy transitions" },
-    { category: "Professionalism", label: "Lack of confident entry/exit" },
+const deductionCategories = [
+    {
+        category: "Handler–Dog Communication Breakdowns",
+        items: [
+            "Delayed responses to commands",
+            "Misinterpreted commands",
+            "Handler over-commanding",
+            "Conflicting signals (body/voice)",
+            "Handler talking over the dog’s work",
+            "Tone mismatches",
+        ]
+    },
+    {
+        category: "Lack of Cohesion in Movement",
+        items: [
+            "Dog forges/lags/drifts",
+            "Frequent tight leash corrections",
+            "Dog crosses handler path unexpectedly",
+            "Handler out of sync with dog’s pace",
+            "Overhandling/micromanaging",
+            "Dog physically collides with handler",
+        ]
+    },
+    {
+        category: "Search / Task Flow Disruptions",
+        items: [
+            "Handler pulls dog off productive work",
+            "Dog ignores handler redirection",
+            "Handler misses dog’s change of behavior",
+            "Dog abandons task to look to handler",
+            "Overdependence on handler guidance",
+        ]
+    },
+    {
+        category: "Emotional Disconnection",
+        items: [
+            "Dog shows stress signals toward handler",
+            "Handler shows visible frustration",
+            "Dog avoids eye contact or engagement",
+            "Loss of enthusiasm in dog",
+            "Handler fails to praise/reinforce",
+        ]
+    },
+    {
+        category: "Overt Handler Errors",
+        items: [
+            "Incorrect reward timing",
+            "Inconsistent cues",
+            "Handler positioning blocks dog",
+            "Failure to read environmental stressors",
+            "Stepping into dog’s path",
+            "Not allowing sufficient lead length",
+        ]
+    },
+    {
+        category: "Breaks in Handler Trust / Leadership",
+        items: [
+            "Handler ignores dog’s problem-solving",
+            "Dog second-guesses handler commands",
+            "Inappropriate or harsh corrections",
+            "Handler safety violations",
+            "Dog hesitates to commit",
+        ]
+    },
+    {
+        category: "Ring / Field Awareness Lapses",
+        items: [
+            "Dog distracted, not refocused",
+            "Handler steps outside boundaries",
+            "Dog breaks formation without recall",
+            "Handler fails to maintain situational awareness",
+            "Mismatched start or stop timing",
+        ]
+    },
+    {
+        category: "Presentation & Professionalism Issues",
+        items: [
+            "Sloppy transitions between exercises",
+            "Handler posture conveys uncertainty",
+            "Unpreparedness (fumbling equipment)",
+            "Dog out of position at start/finish",
+            "Lack of confident entry/exit",
+        ]
+    }
 ];
 
 
@@ -79,7 +148,7 @@ type RunData = {
 };
 
 type Find = { id: string; createdAt?: any };
-type Deduction = { id: string; points: number; note?: string; createdAt?: any };
+type Deduction = { id: string; points: number; note: string; createdAt?: any };
 
 function formatClock(s: number) {
     if (!Number.isFinite(s)) return '00:00';
@@ -239,24 +308,24 @@ export default function JudgingPage() {
       await updateDoc(runRef, { aidsPlanted: next });
     };
 
-  const addDeduction = async (reason: string) => {
+  const handleDeductionChange = async (checked: boolean, note: string) => {
     if (isReadOnly || run?.status !== 'in_progress') return;
-    await addDoc(collection(runRef, "deductions"), {
-      points: 1,
-      note: reason,
-      createdAt: serverTimestamp(),
-    });
+    
+    if (checked) {
+      // Add a deduction
+      await addDoc(collection(runRef, "deductions"), {
+        points: 1,
+        note: note,
+        createdAt: serverTimestamp(),
+      });
+    } else {
+      // Remove a deduction with a matching note
+      const existing = deductions.find(d => d.note === note);
+      if (existing) {
+        await deleteDoc(doc(runRef, "deductions", existing.id));
+      }
+    }
   };
-
-  const removeDeduction = async (deductionId: string) => {
-    if (isReadOnly) return;
-    await deleteDoc(doc(runRef, "deductions", deductionId));
-  };
-  
-  const updateDeductionNote = (id: string, note: string) => {
-      if (isReadOnly) return;
-      updateDoc(doc(runRef, 'deductions', id), { note });
-  }
 
 
   if (loading || !run) {
@@ -277,6 +346,7 @@ export default function JudgingPage() {
   
   const canStartRun = !isReadOnly && run.status === 'scheduled';
   const canStopRun = !isReadOnly && run.status === 'in_progress';
+  const existingDeductionNotes = new Set(deductions.map(d => d.note));
 
   return (
     <div className="max-w-4xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
@@ -295,13 +365,13 @@ export default function JudgingPage() {
       </div>
       
       {/* Timer Card */}
-      <Card>
+       <Card className={cn(canStopRun && "bg-destructive/5 border-destructive/20")}>
           <CardContent className="pt-6 flex items-center justify-center gap-4 md:gap-8">
               <div className="font-mono text-6xl md:text-7xl font-bold text-primary tracking-tighter flex items-center gap-3">
                   <TimerIcon className="h-12 w-12 text-muted-foreground" />
                   {formatClock(elapsed)}
               </div>
-              {run.status === "in_progress" ? (
+              {canStopRun ? (
                   <AlertDialog>
                       <AlertDialogTrigger asChild>
                           <Button size="lg" variant="destructive" className="w-40 h-16 text-lg animate-pulse" disabled={!canStopRun}>
@@ -395,29 +465,37 @@ export default function JudgingPage() {
             </Card>
         </div>
          <div className="lg:col-span-2 space-y-6">
-            <Card className="lg:col-span-3">
-                 <CardHeader className="flex flex-row justify-between items-center">
+            <Card>
+                <CardHeader>
                     <CardTitle>Teamwork Deductions</CardTitle>
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="outline" size="sm" disabled={isReadOnly || run.status !== 'in_progress'}>
-                                <Plus className="mr-2 h-4 w-4" /> Add Deduction <ChevronDown className="ml-2 h-4 w-4" />
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent className="w-64">
-                             {commonDeductions.map(d => (
-                                <DropdownMenuItem key={d.label} onSelect={() => addDeduction(d.label)}>
-                                    {d.label}
-                                </DropdownMenuItem>
-                            ))}
-                        </DropdownMenuContent>
-                    </DropdownMenu>
+                    <CardDescription>Check items to apply a 1-point deduction.</CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-2">
-                    {deductions.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">No deductions logged.</p>}
-                    {deductions.map(d => (
-                        <DeductionItem key={d.id} deduction={d} onRemove={removeDeduction} onNoteChange={updateDeductionNote} isReadOnly={isReadOnly} getRelativeTime={getRelativeTime} />
-                    ))}
+                <CardContent>
+                    <Accordion type="multiple" className="w-full space-y-2">
+                         {deductionCategories.map((cat, catIndex) => (
+                             <AccordionItem value={`item-${catIndex}`} key={cat.category} className="border rounded-md px-4">
+                                <AccordionTrigger>{cat.category}</AccordionTrigger>
+                                <AccordionContent className="space-y-2 pt-2">
+                                     {cat.items.map(item => (
+                                        <div key={item} className="flex items-center space-x-2 pl-2">
+                                            <Checkbox 
+                                                id={`deduction-${item.replace(/\s+/g, '-')}`}
+                                                checked={existingDeductionNotes.has(item)}
+                                                onCheckedChange={(checked) => handleDeductionChange(!!checked, item)}
+                                                disabled={isReadOnly || run.status !== 'in_progress'}
+                                            />
+                                            <label
+                                                htmlFor={`deduction-${item.replace(/\s+/g, '-')}`}
+                                                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                                            >
+                                               {item}
+                                            </label>
+                                        </div>
+                                     ))}
+                                </AccordionContent>
+                             </AccordionItem>
+                         ))}
+                    </Accordion>
                 </CardContent>
             </Card>
          </div>
@@ -447,51 +525,4 @@ function Stat({ label, value, big }: { label: string; value: string; big?: boole
   );
 }
 
-function DeductionItem({ deduction, onRemove, onNoteChange, isReadOnly, getRelativeTime }: { deduction: Deduction, onRemove: (id: string) => void, onNoteChange: (id: string, note: string) => void, isReadOnly: boolean, getRelativeTime: (ts: any) => number | null }) {
-    const [showNote, setShowNote] = useState(!!deduction.note);
-    const noteRef = useRef<HTMLTextAreaElement>(null);
     
-    const handleNoteChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-        onNoteChange(deduction.id, e.target.value);
-    }
-    
-    useEffect(() => {
-        if(showNote && noteRef.current) {
-            noteRef.current.style.height = 'auto';
-            noteRef.current.style.height = `${noteRef.current.scrollHeight}px`;
-        }
-    }, [showNote, deduction.note]);
-
-    const relativeTime = getRelativeTime(deduction.createdAt);
-
-    return (
-        <div className="bg-muted/50 p-3 rounded-lg">
-            <div className="flex items-center justify-between">
-                 <div className="font-medium text-sm pr-2">{deduction.note || '1pt Deduction'} <span className="text-xs text-muted-foreground font-mono">(at {relativeTime !== null ? formatClock(relativeTime) : 'pending...'})</span></div>
-                 <div className="flex items-center gap-1">
-                    {!isReadOnly && !showNote && (
-                         <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => setShowNote(true)}>
-                            <MessageSquarePlus className="h-4 w-4"/>
-                        </Button>
-                    )}
-                     {!isReadOnly && (
-                         <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive/70 hover:text-destructive" onClick={() => onRemove(deduction.id)}>
-                            <Trash2 className="h-4 w-4"/>
-                        </Button>
-                     )}
-                </div>
-            </div>
-            {showNote && (
-                <Textarea 
-                    ref={noteRef}
-                    placeholder="Add an optional note..."
-                    defaultValue={deduction.note}
-                    onBlur={handleNoteChange}
-                    readOnly={isReadOnly}
-                    className="mt-2 text-sm"
-                    rows={1}
-                />
-            )}
-        </div>
-    )
-}
