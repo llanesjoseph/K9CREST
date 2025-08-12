@@ -27,8 +27,8 @@ import {
 import { collection, onSnapshot, getDocs, query, where, DocumentData, Timestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertTriangle, Clock, Server, UserCheck, BarChart2, Hourglass, LineChart } from "lucide-react";
-import { ResponsiveContainer, LineChart as RechartsLineChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Line } from 'recharts';
+import { AlertTriangle, Clock, Server, UserCheck, BarChart2, Hourglass, LineChart, Percent } from "lucide-react";
+import { ResponsiveContainer, AreaChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Area, ReferenceLine } from 'recharts';
 import { differenceInMinutes, parse, format, eachMinuteOfInterval, addMinutes, startOfDay, endOfDay } from "date-fns";
 
 interface Event {
@@ -55,8 +55,7 @@ interface RunData {
 
 interface PacingDataPoint {
     time: string;
-    scheduled: number;
-    actual: number;
+    variance: number;
 }
 
 interface AnalysisData {
@@ -71,6 +70,28 @@ interface AnalysisData {
     runs: RunData[];
     pacingData: PacingDataPoint[];
 }
+
+const CustomTooltip = ({ active, payload, label }: any) => {
+  if (active && payload && payload.length) {
+    const data = payload[0].payload;
+    const variance = data.variance;
+    const absVariance = Math.abs(variance);
+    const status = variance > 0 ? 'Ahead' : variance < 0 ? 'Behind' : 'On Time';
+    const color = variance > 0 ? 'text-green-600' : variance < 0 ? 'text-destructive' : 'text-foreground';
+
+    return (
+      <div className="bg-background border p-2 rounded-lg shadow-lg text-sm">
+        <p className="font-bold">{label}</p>
+        <p className={color}>
+          {absVariance.toFixed(1)}% {status}
+        </p>
+      </div>
+    );
+  }
+
+  return null;
+};
+
 
 export default function AnalysisPage() {
     const [events, setEvents] = useState<Event[]>([]);
@@ -211,12 +232,20 @@ export default function AnalysisPage() {
                     const eventEnd = endOfDay(event.endDate?.toDate() || event.startDate.toDate());
                      const timeIntervals = eachMinuteOfInterval({ start: eventStart, end: eventEnd }, { step: 30 });
                      result.pacingData = timeIntervals.map(interval => {
-                         const scheduled = processedRuns.filter(r => r.scheduledDateTime <= interval).length;
-                         const actual = processedRuns.filter(r => r.actualEndTimeDate && r.actualEndTimeDate <= interval).length;
-                         return { time: format(interval, 'HH:mm'), scheduled, actual };
+                        const totalRuns = processedRuns.length;
+                        if (totalRuns === 0) return { time: format(interval, 'HH:mm'), variance: 0 };
+
+                        const scheduledCount = processedRuns.filter(r => r.scheduledDateTime <= interval).length;
+                        const actualCount = processedRuns.filter(r => r.actualEndTimeDate && r.actualEndTimeDate <= interval).length;
+
+                        const scheduledPercent = (scheduledCount / totalRuns) * 100;
+                        const actualPercent = (actualCount / totalRuns) * 100;
+                        
+                        const variance = actualPercent - scheduledPercent;
+                         
+                        return { time: format(interval, 'HH:mm'), variance };
                      });
                 }
-
 
                 setAnalysisData(result);
 
@@ -301,19 +330,24 @@ export default function AnalysisPage() {
                      <Card>
                         <CardHeader>
                             <CardTitle>Event Pacing</CardTitle>
-                            <CardDescription>Comparison of scheduled runs vs. actually completed runs over time.</CardDescription>
+                            <CardDescription>Percentage ahead or behind schedule over time. Positive values are ahead of schedule.</CardDescription>
                         </CardHeader>
                         <CardContent className="h-80">
                              <ResponsiveContainer width="100%" height="100%">
-                                <RechartsLineChart data={analysisData.pacingData}>
+                                <AreaChart data={analysisData.pacingData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                                     <CartesianGrid strokeDasharray="3 3" />
                                     <XAxis dataKey="time" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
-                                    <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} allowDecimals={false} />
-                                    <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--background))', border: '1px solid hsl(var(--border))' }}/>
-                                    <Legend />
-                                    <Line type="monotone" dataKey="scheduled" stroke="hsl(var(--muted-foreground))" strokeWidth={2} name="Runs Scheduled" dot={false} />
-                                    <Line type="monotone" dataKey="actual" stroke="hsl(var(--primary))" strokeWidth={2} name="Runs Completed" dot={false}/>
-                                </RechartsLineChart>
+                                    <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} unit="%" />
+                                    <Tooltip content={<CustomTooltip />}/>
+                                    <defs>
+                                        <linearGradient id="splitColor" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="50%" stopColor="var(--color-ahead)" stopOpacity={0.8}/>
+                                            <stop offset="50%" stopColor="var(--color-behind)" stopOpacity={0.8}/>
+                                        </linearGradient>
+                                    </defs>
+                                     <ReferenceLine y={0} stroke="hsl(var(--muted-foreground))" strokeDasharray="3 3" />
+                                    <Area type="monotone" dataKey="variance" stroke="hsl(var(--primary))" fill="url(#splitColor)" />
+                                </AreaChart>
                             </ResponsiveContainer>
                         </CardContent>
                     </Card>
@@ -407,3 +441,5 @@ export default function AnalysisPage() {
     );
 }
 
+
+      

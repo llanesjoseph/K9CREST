@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -41,6 +42,8 @@ body {
     --sidebar-accent-foreground: 30 20% 95%;
     --sidebar-border: 30 20% 25%;
     --sidebar-ring: 35 91% 55%;
+    --color-ahead: 142.1 76.2% 36.3%; /* Green */
+    --color-behind: 0 84.2% 60.2%; /* Red */
   }
   .dark {
     --background: 30 20% 10%; /* Dark Brown */
@@ -75,6 +78,8 @@ body {
     --sidebar-accent-foreground: 30 20% 95%;
     --sidebar-border: 30 20% 20%;
     --sidebar-ring: 35 91% 55%;
+    --color-ahead: 142.1 70.6% 45.3%;
+    --color-behind: 0 72.2% 50.6%;
   }
 }
 
@@ -94,3 +99,5 @@ body {
     background: ButtonFace;
   }
 }
+
+      
