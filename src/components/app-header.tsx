@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import Link from "next/link";
@@ -18,6 +17,7 @@ import {
   ClipboardCheck,
   Users,
   Menu,
+  PanelLeft,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { auth } from "@/lib/firebase";
@@ -80,12 +80,10 @@ export function AppHeader() {
   
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background/80 backdrop-blur-sm px-4 sm:px-6 lg:px-8">
-       {isMobile && (
-        <Button variant="ghost" size="icon" onClick={toggleSidebar} className="-ml-2">
-            <Menu className="h-6 w-6" />
+      <Button variant="ghost" size="icon" onClick={toggleSidebar} className="-ml-2">
+            <PanelLeft className="h-6 w-6" />
             <span className="sr-only">Toggle Sidebar</span>
-        </Button>
-       )}
+      </Button>
       <Link href="/dashboard" className="flex items-center gap-2 font-semibold text-lg">
         <div className="bg-primary p-1.5 rounded-lg">
           <Dog className="h-5 w-5 text-primary-foreground" />

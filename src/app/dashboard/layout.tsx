@@ -4,7 +4,7 @@
 import { AuthProvider, useAuth } from "@/components/auth-provider";
 import { AppHeader } from "@/components/app-header";
 import { AppSidebar } from "@/components/app-sidebar";
-import { SidebarProvider } from "@/components/ui/sidebar";
+import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 
 function DashboardWrapper({ children }: { children: React.ReactNode }) {
   const { user, role } = useAuth();
@@ -21,7 +21,7 @@ function DashboardWrapper({ children }: { children: React.ReactNode }) {
           <div className="flex-1 flex flex-col">
             <AppHeader />
             <main className="p-4 sm:p-6 lg:p-8 flex-grow">{children}</main>
-        </div>
+          </div>
         </div>
     </SidebarProvider>
   );

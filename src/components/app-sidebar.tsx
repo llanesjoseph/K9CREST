@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import Link from "next/link";
@@ -112,7 +111,7 @@ export function AppSidebar() {
 
 
   return (
-    <Sidebar collapsible="icon">
+    <Sidebar collapsible="offcanvas">
       <SidebarHeader>
         <div className="flex items-center gap-2">
             <div className="bg-sidebar-primary p-1.5 rounded-lg group-data-[collapsible=icon]:-ml-0.5">
@@ -212,5 +211,3 @@ export function AppSidebar() {
     </Sidebar>
   );
 }
-
-
