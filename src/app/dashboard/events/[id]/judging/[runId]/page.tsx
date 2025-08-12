@@ -423,40 +423,39 @@ export default function JudgingPage() {
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <Card>
-            <CardHeader>
-                <CardTitle>Finds</CardTitle>
+            <CardHeader className="py-4">
+                <CardTitle className="text-lg">Finds</CardTitle>
             </CardHeader>
-            <CardContent className="flex flex-col gap-4 items-center">
-                <Button onClick={addFind} disabled={isReadOnly || run.status !== 'in_progress'} className="h-24 w-full text-lg">
-                    Found Aid
+            <CardContent className="flex flex-col gap-2 pt-0">
+                <Button onClick={addFind} disabled={isReadOnly || run.status !== 'in_progress'} className="w-full">
+                    Log Find
                 </Button>
-                <div className="w-full">
-                    <ul className="space-y-1 text-sm text-muted-foreground list-decimal pl-5">
+                <div className="w-full min-h-[50px]">
+                    <ul className="space-y-1 text-xs text-muted-foreground list-decimal pl-4">
                         {finds.map((f, i) => {
                             const relativeTime = getRelativeTime(f.createdAt);
                             return (
                                 <li key={f.id} className="font-mono">
                                     Find #{i + 1} at {relativeTime !== null ? formatClock(relativeTime) : "pending..."}
-                                    {i === 0 && <span className="ml-2 text-primary font-semibold">(first find)</span>}
                                 </li>
                             )
                         })}
-                        {finds.length === 0 && <li className="list-none -ml-5 text-center">No finds logged yet.</li>}
+                        {finds.length === 0 && <li className="list-none -ml-4 text-center text-xs pt-4">No finds logged.</li>}
                     </ul>
                 </div>
             </CardContent>
           </Card>
           <Card>
-            <CardHeader>
-                <CardTitle>False Alerts</CardTitle>
+            <CardHeader className="py-4">
+                <CardTitle className="text-lg">False Alerts</CardTitle>
             </CardHeader>
-            <CardContent className="text-center">
+            <CardContent className="pt-0">
                 <div className="flex items-center justify-center gap-2">
-                    <Button onClick={() => addFalseAlert(-1)} variant="outline" size="icon" className="h-12 w-12" disabled={isReadOnly}><Minus/></Button>
-                    <span className="font-mono text-5xl font-bold w-24 text-center">{run.falseAlerts || 0}</span>
-                    <Button onClick={() => addFalseAlert(1)} variant="outline" size="icon" className="h-12 w-12" disabled={isReadOnly}><Plus/></Button>
+                    <Button onClick={() => addFalseAlert(-1)} variant="outline" size="icon" className="h-10 w-10" disabled={isReadOnly}><Minus/></Button>
+                    <span className="font-mono text-4xl font-bold w-16 text-center">{run.falseAlerts || 0}</span>
+                    <Button onClick={() => addFalseAlert(1)} variant="outline" size="icon" className="h-10 w-10" disabled={isReadOnly}><Plus/></Button>
                 </div>
-                <p className="text-sm text-muted-foreground mt-2">Penalty: {run.falseAlertPenalty || 0} pts each</p>
+                <p className="text-xs text-muted-foreground mt-1 text-center">Penalty: {run.falseAlertPenalty || 0} pts each</p>
             </CardContent>
           </Card>
       </div>
@@ -518,3 +517,4 @@ function Stat({ label, value, big }: { label: string; value: string; big?: boole
     </div>
   );
 }
+
