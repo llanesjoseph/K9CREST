@@ -18,7 +18,7 @@ import {
   Eye,
   ClipboardList,
   ClipboardCheck,
-  BarChart,
+  LineChart,
 } from "lucide-react";
 
 import {
@@ -68,7 +68,7 @@ export function AppSidebar() {
       { href: "/dashboard/events", label: "Events", icon: Calendar, roles: ['admin', 'judge', 'competitor', 'spectator'] },
       { href: "/dashboard/rubrics", label: "Manage Rubrics", icon: ListChecks, roles: ['admin'] },
       { href: "/dashboard/reports", label: "Reports", icon: ClipboardList, roles: ['admin'] },
-      { href: "/dashboard/analysis", label: "Analysis", icon: BarChart, roles: ['admin'] },
+      { href: "/dashboard/analysis", label: "Analysis", icon: LineChart, roles: ['admin'] },
       { href: "/dashboard/users", label: "Users", icon: Users, roles: ['admin'] },
       { href: "/dashboard/settings", label: "Settings", icon: Settings, roles: ['admin', 'judge', 'competitor', 'spectator'] },
   ].filter(item => {
@@ -208,4 +208,3 @@ export function AppSidebar() {
   );
 }
 
-    

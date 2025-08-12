@@ -27,22 +27,36 @@ import {
 import { collection, onSnapshot, getDocs, query, where, DocumentData, Timestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertTriangle, Clock, Server, UserCheck, BarChart2 } from "lucide-react";
-import { differenceInMinutes, parse } from "date-fns";
+import { AlertTriangle, Clock, Server, UserCheck, BarChart2, Hourglass, LineChart } from "lucide-react";
+import { ResponsiveContainer, LineChart as RechartsLineChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Line } from 'recharts';
+import { differenceInMinutes, parse, format, eachMinuteOfInterval, addMinutes, startOfDay, endOfDay } from "date-fns";
 
 interface Event {
     id: string;
     name: string;
+    startDate?: Timestamp;
+    endDate?: Timestamp;
 }
 
 interface RunData {
-    id: string;
+    id:string;
     scheduledTime: string;
+    scheduledDateTime: Date;
     actualStartTime?: Timestamp;
+    actualStartTimeDate?: Date;
+    actualEndTimeDate?: Date;
     judgeName?: string;
     arenaName?: string;
+    arenaId: string;
     competitorName?: string;
     startVariance?: number;
+    totalTime?: number;
+}
+
+interface PacingDataPoint {
+    time: string;
+    scheduled: number;
+    actual: number;
 }
 
 interface AnalysisData {
@@ -50,9 +64,12 @@ interface AnalysisData {
     onTimeRuns: number;
     avgDelay: number;
     totalOverrun: number;
-    byArena: Record<string, { totalDelay: number, count: number }>;
-    byJudge: Record<string, { totalDelay: number, count: number }>;
+    totalTurnaroundTime: number;
+    turnaroundCount: number;
+    byArena: Record<string, { totalDelay: number; count: number; totalTurnaround: number; turnaroundCount: number; }>;
+    byJudge: Record<string, { totalDelay: number; count: number; }>;
     runs: RunData[];
+    pacingData: PacingDataPoint[];
 }
 
 export default function AnalysisPage() {
@@ -63,7 +80,10 @@ export default function AnalysisPage() {
 
     useEffect(() => {
         const unsub = onSnapshot(collection(db, "events"), (snapshot) => {
-            const eventsData = snapshot.docs.map(doc => ({ id: doc.id, name: doc.data().name }));
+            const eventsData = snapshot.docs.map(doc => {
+                const data = doc.data();
+                return { id: doc.id, name: data.name, startDate: data.startDate, endDate: data.endDate };
+            });
             setEvents(eventsData);
             if(eventsData.length > 0 && !selectedEventId) {
                 setSelectedEventId(eventsData[0].id);
@@ -98,32 +118,44 @@ export default function AnalysisPage() {
 
                 const processedRuns: RunData[] = runs.map(run => {
                     let startVariance: number | undefined = undefined;
-                    if (run.actualStartTime && run.startTime && run.date) {
-                        const scheduledDateTime = parse(`${run.date} ${run.startTime}`, 'yyyy-MM-dd HH:mm', new Date());
-                        startVariance = differenceInMinutes(run.actualStartTime.toDate(), scheduledDateTime);
+                    const scheduledDateTime = parse(`${run.date} ${run.startTime}`, 'yyyy-MM-dd HH:mm', new Date());
+                    const actualStartTimeDate = run.actualStartTime?.toDate();
+                    if (actualStartTimeDate) {
+                        startVariance = differenceInMinutes(actualStartTimeDate, scheduledDateTime);
                     }
+                    
+                    const actualEndTimeDate = actualStartTimeDate && run.totalTime ? addMinutes(actualStartTimeDate, run.totalTime / 60) : undefined;
+
                     const competitor = competitorsMap.get(run.competitorId);
                     const arena = arenasMap.get(run.arenaId);
 
                     return {
                         id: run.id,
                         scheduledTime: `${run.date} ${run.startTime}`,
+                        scheduledDateTime,
                         actualStartTime: run.actualStartTime,
+                        actualStartTimeDate,
+                        actualEndTimeDate,
                         judgeName: run.judgeName,
                         arenaName: arena?.name,
+                        arenaId: run.arenaId,
                         competitorName: competitor?.name,
                         startVariance,
+                        totalTime: run.totalTime,
                     };
-                }).filter(run => run.startVariance !== undefined);
+                }).filter(run => run.startVariance !== undefined && run.actualStartTimeDate);
 
                 const initialData: AnalysisData = {
                     totalRuns: processedRuns.length,
                     onTimeRuns: 0,
                     avgDelay: 0,
                     totalOverrun: 0,
+                    totalTurnaroundTime: 0,
+                    turnaroundCount: 0,
                     byArena: {},
                     byJudge: {},
                     runs: processedRuns.sort((a,b) => b.startVariance! - a.startVariance!),
+                    pacingData: [],
                 };
 
                 const result = processedRuns.reduce((acc, run) => {
@@ -132,7 +164,7 @@ export default function AnalysisPage() {
                     if (delay > 0) acc.totalOverrun += delay;
                     
                     if (run.arenaName) {
-                        if (!acc.byArena[run.arenaName]) acc.byArena[run.arenaName] = { totalDelay: 0, count: 0 };
+                        if (!acc.byArena[run.arenaName]) acc.byArena[run.arenaName] = { totalDelay: 0, count: 0, totalTurnaround: 0, turnaroundCount: 0 };
                         acc.byArena[run.arenaName].totalDelay += delay;
                         acc.byArena[run.arenaName].count++;
                     }
@@ -146,6 +178,45 @@ export default function AnalysisPage() {
 
                 const totalDelaySum = processedRuns.reduce((sum, run) => sum + run.startVariance!, 0);
                 result.avgDelay = result.totalRuns > 0 ? totalDelaySum / result.totalRuns : 0;
+                
+                // Calculate Turnaround Times
+                const runsByArena = processedRuns.reduce((acc, run) => {
+                    if(!acc[run.arenaId]) acc[run.arenaId] = [];
+                    acc[run.arenaId].push(run);
+                    return acc;
+                }, {} as Record<string, RunData[]>);
+
+                for(const arenaId in runsByArena) {
+                    const arenaRuns = runsByArena[arenaId].sort((a,b) => a.actualStartTimeDate!.getTime() - b.actualStartTimeDate!.getTime());
+                    for(let i = 1; i < arenaRuns.length; i++) {
+                        const prevRun = arenaRuns[i-1];
+                        const currentRun = arenaRuns[i];
+                        if (prevRun.actualEndTimeDate && currentRun.actualStartTimeDate) {
+                            const turnaround = differenceInMinutes(currentRun.actualStartTimeDate, prevRun.actualEndTimeDate);
+                            if (turnaround >= 0) {
+                                const arenaName = prevRun.arenaName!;
+                                result.byArena[arenaName].totalTurnaround += turnaround;
+                                result.byArena[arenaName].turnaroundCount++;
+                                result.totalTurnaroundTime += turnaround;
+                                result.turnaroundCount++;
+                            }
+                        }
+                    }
+                }
+                
+                // Generate Pacing Data
+                const event = events.find(e => e.id === selectedEventId);
+                if (event?.startDate) {
+                    const eventStart = startOfDay(event.startDate.toDate());
+                    const eventEnd = endOfDay(event.endDate?.toDate() || event.startDate.toDate());
+                     const timeIntervals = eachMinuteOfInterval({ start: eventStart, end: eventEnd }, { step: 30 });
+                     result.pacingData = timeIntervals.map(interval => {
+                         const scheduled = processedRuns.filter(r => r.scheduledDateTime <= interval).length;
+                         const actual = processedRuns.filter(r => r.actualEndTimeDate && r.actualEndTimeDate <= interval).length;
+                         return { time: format(interval, 'HH:mm'), scheduled, actual };
+                     });
+                }
+
 
                 setAnalysisData(result);
 
@@ -157,7 +228,7 @@ export default function AnalysisPage() {
         };
 
         generateAnalysis();
-    }, [selectedEventId]);
+    }, [selectedEventId, events]);
 
     const StatCard = ({ title, value, icon: Icon, description }: any) => (
         <Card>
@@ -173,6 +244,7 @@ export default function AnalysisPage() {
     );
     
     const onTimePercentage = analysisData && analysisData.totalRuns > 0 ? (analysisData.onTimeRuns / analysisData.totalRuns) * 100 : 0;
+    const avgTurnaround = analysisData && analysisData.turnaroundCount > 0 ? analysisData.totalTurnaroundTime / analysisData.turnaroundCount : 0;
 
     return (
         <div className="flex flex-col gap-6">
@@ -222,14 +294,34 @@ export default function AnalysisPage() {
                     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                         <StatCard title="On-Time Start %" value={`${onTimePercentage.toFixed(1)}%`} icon={Clock} description="Started within 2 min of schedule" />
                         <StatCard title="Avg. Start Delay" value={`${analysisData.avgDelay.toFixed(1)} min`} icon={BarChart2} description="Average minutes behind schedule" />
-                        <StatCard title="Total Event Overrun" value={`${analysisData.totalOverrun.toFixed(0)} min`} icon={Clock} description="Sum of all positive delays" />
+                        <StatCard title="Avg. Arena Turnaround" value={`${avgTurnaround.toFixed(1)} min`} icon={Hourglass} description="Time between runs in an arena"/>
                         <StatCard title="Total Runs Logged" value={analysisData.totalRuns} icon={UserCheck} description="Runs with timing data" />
                     </div>
+
+                     <Card>
+                        <CardHeader>
+                            <CardTitle>Event Pacing</CardTitle>
+                            <CardDescription>Comparison of scheduled runs vs. actually completed runs over time.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="h-80">
+                             <ResponsiveContainer width="100%" height="100%">
+                                <RechartsLineChart data={analysisData.pacingData}>
+                                    <CartesianGrid strokeDasharray="3 3" />
+                                    <XAxis dataKey="time" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
+                                    <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} allowDecimals={false} />
+                                    <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--background))', border: '1px solid hsl(var(--border))' }}/>
+                                    <Legend />
+                                    <Line type="monotone" dataKey="scheduled" stroke="hsl(var(--muted-foreground))" strokeWidth={2} name="Runs Scheduled" dot={false} />
+                                    <Line type="monotone" dataKey="actual" stroke="hsl(var(--primary))" strokeWidth={2} name="Runs Completed" dot={false}/>
+                                </RechartsLineChart>
+                            </ResponsiveContainer>
+                        </CardContent>
+                    </Card>
 
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         <Card>
                             <CardHeader>
-                                <CardTitle>Delay by Arena</CardTitle>
+                                <CardTitle>Performance by Arena</CardTitle>
                             </CardHeader>
                              <CardContent>
                                 <Table>
@@ -237,6 +329,7 @@ export default function AnalysisPage() {
                                         <TableRow>
                                             <TableHead>Arena</TableHead>
                                             <TableHead className="text-right">Avg. Delay (min)</TableHead>
+                                            <TableHead className="text-right">Avg. Turnaround (min)</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
@@ -244,6 +337,7 @@ export default function AnalysisPage() {
                                             <TableRow key={name}>
                                                 <TableCell>{name}</TableCell>
                                                 <TableCell className="text-right font-mono">{(data.totalDelay / data.count).toFixed(1)}</TableCell>
+                                                <TableCell className="text-right font-mono">{(data.turnaroundCount > 0 ? data.totalTurnaround / data.turnaroundCount : 0).toFixed(1)}</TableCell>
                                             </TableRow>
                                         ))}
                                     </TableBody>
@@ -252,7 +346,7 @@ export default function AnalysisPage() {
                         </Card>
                         <Card>
                             <CardHeader>
-                                <CardTitle>Delay by Judge</CardTitle>
+                                <CardTitle>Performance by Judge</CardTitle>
                             </CardHeader>
                              <CardContent>
                                 <Table>
@@ -313,4 +407,3 @@ export default function AnalysisPage() {
     );
 }
 
-    
