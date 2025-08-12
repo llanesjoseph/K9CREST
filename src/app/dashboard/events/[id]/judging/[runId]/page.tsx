@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
-import { doc, onSnapshot, updateDoc, addDoc, collection, serverTimestamp, getDocs, deleteDoc, writeBatch, query, where, setDoc } from "firebase/firestore";
+import { doc, onSnapshot, updateDoc, addDoc, collection, serverTimestamp, getDocs, deleteDoc, writeBatch, query, where, setDoc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
 import { useParams, useRouter } from "next/navigation";
@@ -26,6 +26,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Skeleton } from "@/components/ui/skeleton";
 
 
 const two = (n: number) => Number.isFinite(n) ? Number(n.toFixed(2)) : 0;
@@ -64,11 +65,9 @@ export default function JudgingPage() {
   const [finds, setFinds] = useState<Find[]>([]);
   const [now, setNow] = useState(Date.now());
   const [loading, setLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   
   const [competitorData, setCompetitorData] = useState<any>(null);
   const [arenaData, setArenaData] = useState<any>(null);
-  const [rubricData, setRubricData] = useState<any>(null);
 
   const tickRef = useRef<number | null>(null);
   
@@ -82,26 +81,47 @@ export default function JudgingPage() {
   useEffect(() => {
     if (!eventId || !runId) return;
     
+    // This will become the new "run" document reference
     const runRef = doc(db, `events/${eventId}/runs`, runId);
     
     const unsubRun = onSnapshot(runRef, async (s) => {
         if (!s.exists()) {
-             toast({ variant: "destructive", title: "Error", description: "Run not found." });
-             router.push(`/dashboard/events/${eventId}/schedule`);
-             return;
+            // Check the old location for compatibility
+            const oldRunRef = doc(db, `events/${eventId}/schedule`, runId);
+            const oldRunSnap = await getDoc(oldRunRef);
+            if (oldRunSnap.exists()) {
+                const oldData = oldRunSnap.data();
+                // Migrate to new structure
+                const newRunData = {
+                    ...oldData, // Carry over essential fields
+                    status: oldData.status === 'scored' ? 'scored' : 'scheduled',
+                    detectionMax: 75, // Default value
+                    teamworkMax: 25, // Default value
+                    aidsPlanted: 5, // Default value
+                    falseAlertPenalty: 5, // Default value
+                    falseAlerts: 0,
+                };
+                await setDoc(runRef, newRunData);
+                // Optionally delete the old one after migration if desired
+                // await deleteDoc(oldRunRef);
+            } else {
+                 toast({ variant: "destructive", title: "Error", description: "Run not found." });
+                 router.push(`/dashboard/events/${eventId}/schedule`);
+                 return;
+            }
         }
         const runData = { id: s.id, ...s.data() } as RunData;
         setRun(runData);
 
-        // Fetch related data once
-        if (!competitorData && runData.competitorId) {
+        if (runData.competitorId && (!competitorData || competitorData.id !== runData.competitorId)) {
             const competitorSnap = await getDoc(doc(db, `events/${eventId}/competitors`, runData.competitorId));
-            if(competitorSnap.exists()) setCompetitorData(competitorSnap.data());
+            if(competitorSnap.exists()) setCompetitorData({id: competitorSnap.id, ...competitorSnap.data()});
         }
-        if (!arenaData && runData.arenaId) {
+        if (runData.arenaId && (!arenaData || arenaData.id !== runData.arenaId)) {
             const arenaSnap = await getDoc(doc(db, `events/${eventId}/arenas`, runData.arenaId));
-            if(arenaSnap.exists()) setArenaData(arenaSnap.data());
+            if(arenaSnap.exists()) setArenaData({id: arenaSnap.id, ...arenaSnap.data()});
         }
+        setLoading(false);
     });
 
     const unsubDed = onSnapshot(collection(runRef, "deductions"), s => 
@@ -113,7 +133,6 @@ export default function JudgingPage() {
             .sort((a,b) => (a.createdAt?.toMillis?.() || 0) - (b.createdAt?.toMillis?.() || 0))
     ));
     
-    setLoading(false);
     return () => { unsubRun(); unsubDed(); unsubFinds(); };
   }, [eventId, runId, router, toast, competitorData, arenaData]);
 
@@ -164,7 +183,10 @@ export default function JudgingPage() {
   };
   const endRun = async () => {
       if(isReadOnly) return;
-      await updateDoc(runRef, { status: "scored", endAt: serverTimestamp() });
+      // Also update the old schedule item for leaderboard compatibility
+      const oldRunRef = doc(db, `events/${eventId}/schedule`, runId);
+      await updateDoc(runRef, { status: "scored", endAt: serverTimestamp(), totalTime: elapsed });
+      await updateDoc(oldRunRef, { status: "scored", totalTime: elapsed, actualStartTime: run?.startAt, scores: [] }); // Empty scores to prevent double counting
   };
   const addFind = async () => {
       if(isReadOnly) return;
@@ -190,7 +212,7 @@ export default function JudgingPage() {
 
   if (loading || !run) {
       return (
-        <div className="flex flex-col gap-6 max-w-4xl mx-auto">
+        <div className="flex flex-col gap-6 max-w-4xl mx-auto p-4 sm:p-6 lg:p-8">
             <div className="flex items-center gap-4">
                 <Skeleton className="h-10 w-10" />
                 <div className="space-y-2">
@@ -320,9 +342,9 @@ export default function JudgingPage() {
                             </div>
                          ))}
                     </div>
-                    <Button onClick={addDeductionRow} variant="outline" size="sm" className="mt-4" disabled={isReadOnly}>
+                    {!isReadOnly && <Button onClick={addDeductionRow} variant="outline" size="sm" className="mt-4" disabled={isReadOnly}>
                         <Plus className="mr-2 h-4 w-4" /> Add Deduction
-                    </Button>
+                    </Button>}
                 </CardContent>
             </Card>
         </div>
