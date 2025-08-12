@@ -55,7 +55,8 @@ interface RunData {
 
 interface PacingDataPoint {
     time: string;
-    variance: number;
+    scheduledPercent: number;
+    actualPercent: number;
 }
 
 interface AnalysisData {
@@ -73,18 +74,14 @@ interface AnalysisData {
 
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
-    const data = payload[0].payload;
-    const variance = data.variance;
-    const absVariance = Math.abs(variance);
-    const status = variance > 0 ? 'Ahead' : variance < 0 ? 'Behind' : 'On Time';
-    const color = variance > 0 ? 'text-green-600' : variance < 0 ? 'text-destructive' : 'text-foreground';
-
+    const scheduled = payload.find((p: any) => p.dataKey === 'scheduledPercent')?.value;
+    const actual = payload.find((p: any) => p.dataKey === 'actualPercent')?.value;
+    
     return (
       <div className="bg-background border p-2 rounded-lg shadow-lg text-sm">
         <p className="font-bold">{label}</p>
-        <p className={color}>
-          {absVariance.toFixed(1)}% {status}
-        </p>
+        <p>Scheduled: {scheduled?.toFixed(1)}%</p>
+        <p>Completed: {actual?.toFixed(1)}%</p>
       </div>
     );
   }
@@ -233,17 +230,15 @@ export default function AnalysisPage() {
                      const timeIntervals = eachMinuteOfInterval({ start: eventStart, end: eventEnd }, { step: 30 });
                      result.pacingData = timeIntervals.map(interval => {
                         const totalRuns = processedRuns.length;
-                        if (totalRuns === 0) return { time: format(interval, 'HH:mm'), variance: 0 };
+                        if (totalRuns === 0) return { time: format(interval, 'HH:mm'), scheduledPercent: 0, actualPercent: 0 };
 
                         const scheduledCount = processedRuns.filter(r => r.scheduledDateTime <= interval).length;
                         const actualCount = processedRuns.filter(r => r.actualEndTimeDate && r.actualEndTimeDate <= interval).length;
 
                         const scheduledPercent = (scheduledCount / totalRuns) * 100;
                         const actualPercent = (actualCount / totalRuns) * 100;
-                        
-                        const variance = actualPercent - scheduledPercent;
                          
-                        return { time: format(interval, 'HH:mm'), variance };
+                        return { time: format(interval, 'HH:mm'), scheduledPercent, actualPercent };
                      });
                 }
 
@@ -330,23 +325,28 @@ export default function AnalysisPage() {
                      <Card>
                         <CardHeader>
                             <CardTitle>Event Pacing</CardTitle>
-                            <CardDescription>Percentage ahead or behind schedule over time. Positive values are ahead of schedule.</CardDescription>
+                            <CardDescription>Comparison of scheduled vs. actual run completion percentage over time.</CardDescription>
                         </CardHeader>
                         <CardContent className="h-80">
                              <ResponsiveContainer width="100%" height="100%">
                                 <AreaChart data={analysisData.pacingData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                                     <CartesianGrid strokeDasharray="3 3" />
                                     <XAxis dataKey="time" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
-                                    <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} unit="%" />
+                                    <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} unit="%" domain={[0, 100]} />
                                     <Tooltip content={<CustomTooltip />}/>
+                                    <Legend verticalAlign="top" height={36} />
                                     <defs>
-                                        <linearGradient id="splitColor" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="50%" stopColor="var(--color-ahead)" stopOpacity={0.8}/>
-                                            <stop offset="50%" stopColor="var(--color-behind)" stopOpacity={0.8}/>
+                                        <linearGradient id="colorScheduled" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="hsl(var(--muted-foreground))" stopOpacity={0.4}/>
+                                            <stop offset="95%" stopColor="hsl(var(--muted-foreground))" stopOpacity={0}/>
+                                        </linearGradient>
+                                        <linearGradient id="colorActual" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.8}/>
+                                            <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
                                         </linearGradient>
                                     </defs>
-                                     <ReferenceLine y={0} stroke="hsl(var(--muted-foreground))" strokeDasharray="3 3" />
-                                    <Area type="monotone" dataKey="variance" stroke="hsl(var(--primary))" fill="url(#splitColor)" />
+                                    <Area type="monotone" dataKey="scheduledPercent" name="Scheduled Progress" stroke="hsl(var(--muted-foreground))" fill="url(#colorScheduled)" />
+                                    <Area type="monotone" dataKey="actualPercent" name="Actual Progress" stroke="hsl(var(--primary))" fill="url(#colorActual)" />
                                 </AreaChart>
                             </ResponsiveContainer>
                         </CardContent>
@@ -443,3 +443,5 @@ export default function AnalysisPage() {
 
 
       
+
+    
