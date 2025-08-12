@@ -214,11 +214,11 @@ export default function JudgingPage() {
   const runRef = doc(db, `events/${eventId}/runs`, runId);
 
   const startRun = async () => {
-      if(isReadOnly) return;
+      if(isReadOnly || run?.status !== 'scheduled') return;
       await updateDoc(runRef, { status: "in_progress", startAt: serverTimestamp(), actualStartTime: serverTimestamp() });
   };
   const endRun = async () => {
-      if(isReadOnly) return;
+      if(isReadOnly || run?.status !== 'in_progress') return;
       const oldRunRef = doc(db, `events/${eventId}/schedule`, runId);
       await updateDoc(runRef, { status: "scored", endAt: serverTimestamp(), totalTime: elapsed });
       await updateDoc(oldRunRef, { status: "scored", totalTime: elapsed, actualStartTime: run?.startAt, scores: [] });
@@ -274,6 +274,9 @@ export default function JudgingPage() {
         </div>
       )
   }
+  
+  const canStartRun = !isReadOnly && run.status === 'scheduled';
+  const canStopRun = !isReadOnly && run.status === 'in_progress';
 
   return (
     <div className="max-w-4xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
@@ -293,10 +296,10 @@ export default function JudgingPage() {
       
       {/* Header Card */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-           <div>
+        <CardContent className="pt-6 flex flex-col md:flex-row items-center justify-between gap-6">
+           <div className="flex-grow text-center md:text-left">
                 <CardTitle>Live Scoring</CardTitle>
-                 <CardDescription className="text-sm flex items-center gap-4 mt-1">
+                 <CardDescription className="text-sm flex items-center justify-center md:justify-start gap-4 mt-1">
                     <span>Per Aid: {two(perAid)} pts</span>
                     <span className="flex items-center gap-2">
                         Aids Planted: 
@@ -313,19 +316,15 @@ export default function JudgingPage() {
                      <span>False Alert: -{run.falseAlertPenalty || 0} pts</span>
                 </CardDescription>
            </div>
-           <div className="flex items-center gap-3">
-                <div className="font-mono text-3xl font-bold text-primary tracking-tighter">
-                    <TimerIcon className="inline h-6 w-6 mr-2" />
+           <div className="flex items-center justify-center gap-4">
+                <div className="font-mono text-5xl font-bold text-primary tracking-tighter flex items-center gap-3">
+                    <TimerIcon className="h-10 w-10 text-muted-foreground" />
                     {formatClock(elapsed)}
                 </div>
-                {run.status !== "in_progress" ? (
-                    <Button onClick={startRun} disabled={isReadOnly} className="w-28 bg-green-600 hover:bg-green-700">
-                        <Play className="mr-2 h-4 w-4"/> Start
-                    </Button>
-                 ) : (
-                    <AlertDialog>
+                {run.status === "in_progress" ? (
+                     <AlertDialog>
                         <AlertDialogTrigger asChild>
-                             <Button variant="destructive" className="w-28" disabled={isReadOnly}><Square className="mr-2 h-4 w-4"/> End</Button>
+                             <Button size="lg" variant="destructive" className="w-40 animate-pulse" disabled={!canStopRun}><Square className="mr-2 h-5 w-5"/> Stop</Button>
                         </AlertDialogTrigger>
                         <AlertDialogContent>
                             <AlertDialogHeader>
@@ -340,23 +339,27 @@ export default function JudgingPage() {
                             </AlertDialogFooter>
                         </AlertDialogContent>
                     </AlertDialog>
+                 ) : (
+                    <Button onClick={startRun} disabled={!canStartRun} size="lg" className="w-40 bg-green-600 hover:bg-green-700">
+                        <Play className="mr-2 h-5 w-5"/> Start
+                    </Button>
                  )}
            </div>
-        </CardHeader>
+        </CardContent>
       </Card>
       
       {/* Main Content */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
-            <Card>
+        <div className="lg:col-span-1 space-y-6">
+             <Card>
                 <CardHeader>
                     <CardTitle>Finds</CardTitle>
                 </CardHeader>
-                <CardContent className="flex flex-col sm:flex-row gap-4 items-start">
-                    <Button onClick={addFind} disabled={isReadOnly || run.status !== 'in_progress'} className="h-24 w-full sm:w-48 text-lg">
+                <CardContent className="flex flex-col gap-4 items-center">
+                    <Button onClick={addFind} disabled={isReadOnly || run.status !== 'in_progress'} className="h-24 w-full text-lg">
                         Found Aid
                     </Button>
-                    <div className="flex-grow w-full">
+                    <div className="w-full">
                         <ul className="space-y-1 text-sm text-muted-foreground list-decimal pl-5">
                             {finds.map((f, i) => {
                                 const relativeTime = getRelativeTime(f.createdAt);
@@ -367,12 +370,27 @@ export default function JudgingPage() {
                                     </li>
                                 )
                             })}
-                            {finds.length === 0 && <li className="list-none -ml-5">No finds logged yet.</li>}
+                            {finds.length === 0 && <li className="list-none -ml-5 text-center">No finds logged yet.</li>}
                         </ul>
                     </div>
                 </CardContent>
             </Card>
              <Card>
+                <CardHeader>
+                    <CardTitle>False Alerts</CardTitle>
+                </CardHeader>
+                <CardContent className="text-center">
+                    <div className="flex items-center justify-center gap-2">
+                        <Button onClick={() => addFalseAlert(-1)} variant="outline" size="icon" className="h-12 w-12" disabled={isReadOnly}><Minus/></Button>
+                        <span className="font-mono text-5xl font-bold w-24 text-center">{run.falseAlerts || 0}</span>
+                        <Button onClick={() => addFalseAlert(1)} variant="outline" size="icon" className="h-12 w-12" disabled={isReadOnly}><Plus/></Button>
+                    </div>
+                    <p className="text-sm text-muted-foreground mt-2">Penalty: {run.falseAlertPenalty || 0} pts each</p>
+                </CardContent>
+            </Card>
+        </div>
+         <div className="lg:col-span-2 space-y-6">
+            <Card>
                  <CardHeader className="flex flex-row justify-between items-center">
                     <CardTitle>Teamwork Deductions</CardTitle>
                     <DropdownMenu>
@@ -397,23 +415,7 @@ export default function JudgingPage() {
                     ))}
                 </CardContent>
             </Card>
-        </div>
-        
-        <div className="space-y-6">
-            <Card>
-                <CardHeader>
-                    <CardTitle>False Alerts</CardTitle>
-                </CardHeader>
-                <CardContent className="text-center">
-                    <div className="flex items-center justify-center gap-2">
-                        <Button onClick={() => addFalseAlert(-1)} variant="outline" size="icon" className="h-12 w-12" disabled={isReadOnly}><Minus/></Button>
-                        <span className="font-mono text-5xl font-bold w-24 text-center">{run.falseAlerts || 0}</span>
-                        <Button onClick={() => addFalseAlert(1)} variant="outline" size="icon" className="h-12 w-12" disabled={isReadOnly}><Plus/></Button>
-                    </div>
-                    <p className="text-sm text-muted-foreground mt-2">Penalty: {run.falseAlertPenalty || 0} pts each</p>
-                </CardContent>
-            </Card>
-        </div>
+         </div>
       </div>
       
       <div className="sticky bottom-0 bg-background/95 backdrop-blur-sm border-t -mx-4 -mb-4 sm:-mx-6 sm:-mb-6 lg:-mx-8 lg:-mb-8">
@@ -488,6 +490,5 @@ function DeductionItem({ deduction, onRemove, onNoteChange, isReadOnly, getRelat
         </div>
     )
 }
-
 
     
