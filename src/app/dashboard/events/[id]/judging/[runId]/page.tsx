@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
@@ -129,7 +128,7 @@ const deductionCategories = [
 
 
 const two = (n: number) => Number.isFinite(n) ? Number(n.toFixed(2)) : 0;
-const clamp = (val: number, min: number, max: number) => Math.max(min, Math.min(val, max));
+const clamp = (val: number, min: number, max: number) => Math.max(min, Math.min(val, max);
 
 type RunData = {
   id: string;
@@ -348,7 +347,7 @@ export default function JudgingPage() {
   const existingDeductionNotes = new Set(deductions.map(d => d.note));
 
   return (
-    <div className="max-w-4xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6 pb-32">
+    <div className="max-w-4xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6 pb-48">
         <div className="flex items-center gap-4">
             <Button variant="outline" size="icon" asChild>
             <Link href={`/dashboard/events/${eventId}/schedule`}>
@@ -356,7 +355,7 @@ export default function JudgingPage() {
             </Link>
             </Button>
             <div>
-                <h1 className="text-2xl font-semibold">Scoring Interface</h1>
+                <h1 className="text-2xl font-semibold">Live Scoring</h1>
                 <p className="text-muted-foreground">
                     {competitorData?.name || '...'} with {competitorData?.dogName || '...'} in {arenaData?.name || '...'}
                 </p>
@@ -530,5 +529,3 @@ function Stat({ label, value, big }: { label: string; value: string; big?: boole
     </div>
   );
 }
-
-    
