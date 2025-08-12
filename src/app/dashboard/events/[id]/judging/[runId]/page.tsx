@@ -467,9 +467,9 @@ export default function JudgingPage() {
           <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                    {deductionCategories.map((cat) => (
-                       <div key={cat.category} className="border rounded-md p-4">
+                       <div key={cat.category} className="border rounded-md p-4 space-y-2">
                           <h4 className="font-semibold mb-2">{cat.category}</h4>
-                          <div className="space-y-2">
+                          <div className="space-y-3">
                                {cat.items.map(item => (
                                   <div key={item} className="flex items-center space-x-2">
                                       <Checkbox 
@@ -495,7 +495,7 @@ export default function JudgingPage() {
       
       <div className="fixed bottom-0 left-0 right-0 z-40">
         <div className="bg-background/95 backdrop-blur-sm border-t -mx-4 sm:-mx-6 lg:-mx-8">
-            <div className="max-w-4xl mx-auto p-4">
+            <div className="max-w-4xl mx-auto p-4 md:py-4 md:px-6">
                 <div className="grid grid-cols-3 md:grid-cols-7 gap-2 md:gap-4 text-center items-center">
                     <div className="md:col-span-1">
                         <div className="font-mono text-3xl font-bold text-primary tracking-tighter flex items-center justify-center gap-2">
@@ -531,4 +531,3 @@ function Stat({ label, value, big }: { label: string; value: string; big?: boole
   );
 }
 
-    
