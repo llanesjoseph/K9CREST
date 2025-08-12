@@ -113,7 +113,7 @@ const CompetitorItem = ({ competitor, isDraggable, dragHandle, onRunClick, allAr
             'Any': 'bg-gray-400'
         }
         return (
-             <div className="flex gap-1.5 mt-2">
+             <div className="flex gap-1.5">
                 {specialties.map(s => {
                     const key = s.type === 'Detection' ? `Detection (${s.detectionType})` : s.type;
                     return <div key={key} className={cn("w-3 h-3 rounded-full", specialtyColors[key as keyof typeof specialtyColors])} title={key} />;
@@ -153,16 +153,20 @@ const CompetitorItem = ({ competitor, isDraggable, dragHandle, onRunClick, allAr
                 </button>
             )}
             <div className="w-full">
-                <div className="flex items-center gap-2">
-                     {competitor.bibNumber && <span className="font-bold text-lg text-primary/80 w-8 text-center">#{competitor.bibNumber}</span>}
-                    <div>
-                        <span className="font-semibold text-card-foreground">{competitor.dogName}</span>
-                        <div className="text-sm text-muted-foreground">{competitor.name}</div>
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        {competitor.bibNumber && <span className="font-bold text-lg text-primary/80 w-8 text-center">#{competitor.bibNumber}</span>}
+                        <div>
+                            <div className="flex items-center gap-2">
+                                <span className="font-semibold text-card-foreground">{competitor.dogName}</span>
+                                {getSpecialtyIcons(competitor.specialties)}
+                            </div>
+                            <div className="text-sm text-muted-foreground">{competitor.name}</div>
+                        </div>
                     </div>
                 </div>
 
-                 <div className="text-xs text-muted-foreground/80 mt-1">{competitor.agency}</div>
-                 {getSpecialtyIcons(competitor.specialties)}
+                 <div className="text-xs text-muted-foreground/80 mt-1 pl-10">{competitor.agency}</div>
                  
                  {competitor.runs && competitor.runs.length > 0 && (
                     <div className="mt-3 space-y-1.5 border-t pt-2">
