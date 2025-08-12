@@ -39,8 +39,6 @@ type RunData = {
   aidsPlanted?: number;
   falseAlertPenalty?: number;
   falseAlerts?: number;
-  teamworkDeductionPoints?: number; // This can be deprecated
-  teamworkNotes?: string;
   startAt?: any; // Firestore Timestamp
   endAt?: any;   // Firestore Timestamp
   status: "scheduled" | "in_progress" | "scored" | "locked";
@@ -98,16 +96,17 @@ export default function JudgingPage() {
             const oldRunSnap = await getDoc(oldRunRef);
             if (oldRunSnap.exists()) {
                 const oldData = oldRunSnap.data();
-                const newRunData = {
+                const eventSnap = await getDoc(doc(db, 'events', eventId));
+                const eventData = eventSnap.data();
+                
+                const newRunData: RunData = {
                     ...oldData,
                     status: oldData.status === 'scored' ? 'scored' : 'scheduled',
-                    detectionMax: 75,
-                    teamworkMax: 25,
-                    aidsPlanted: 5,
-                    falseAlertPenalty: 5,
+                    detectionMax: eventData?.detectionMax || 75,
+                    teamworkMax: eventData?.teamworkMax || 25,
+                    aidsPlanted: oldData?.aidsPlanted || 5,
+                    falseAlertPenalty: eventData?.falseAlertPenalty || 5,
                     falseAlerts: 0,
-                    teamworkDeductionPoints: 0, // Legacy
-                    teamworkNotes: '', // Legacy
                 };
                 await setDoc(runRef, newRunData);
             } else {
@@ -203,6 +202,12 @@ export default function JudgingPage() {
       const next = Math.max((run?.falseAlerts || 0) + delta, 0);
       await updateDoc(runRef, { falseAlerts: next });
   };
+  
+   const changeAidsPlanted = async (delta: number) => {
+      if (isReadOnly || run?.status !== 'scheduled') return;
+      const next = Math.max((run?.aidsPlanted || 0) + delta, 0);
+      await updateDoc(runRef, { aidsPlanted: next });
+    };
 
   const addDeduction = async () => {
     if (isReadOnly || run?.status !== 'in_progress') return;
@@ -261,8 +266,21 @@ export default function JudgingPage() {
         <CardHeader className="flex flex-row items-center justify-between">
            <div>
                 <CardTitle>Live Scoring</CardTitle>
-                <CardDescription className="text-sm">
-                    Per Aid: {two(perAid)} pts &bull; Aids Planted: {run.aidsPlanted} &bull; False Alert: -{run.falseAlertPenalty} pts
+                 <CardDescription className="text-sm flex items-center gap-4 mt-1">
+                    <span>Per Aid: {two(perAid)} pts</span>
+                    <span className="flex items-center gap-2">
+                        Aids Planted: 
+                        {run.status === 'scheduled' && !isReadOnly ? (
+                             <span className="flex items-center gap-1">
+                                <Button onClick={() => changeAidsPlanted(-1)} variant="outline" size="icon" className="h-5 w-5 rounded-full"><Minus className="h-3 w-3" /></Button>
+                                <span className="font-bold text-foreground w-4 text-center">{run.aidsPlanted}</span>
+                                <Button onClick={() => changeAidsPlanted(1)} variant="outline" size="icon" className="h-5 w-5 rounded-full"><Plus className="h-3 w-3"/></Button>
+                            </span>
+                        ) : (
+                             <span className="font-bold text-foreground">{run.aidsPlanted}</span>
+                        )}
+                    </span>
+                     <span>False Alert: -{run.falseAlertPenalty} pts</span>
                 </CardDescription>
            </div>
            <div className="flex items-center gap-3">
@@ -429,3 +447,5 @@ function DeductionItem({ deduction, onRemove, onNoteChange, isReadOnly, getRelat
         </div>
     )
 }
+
+    
