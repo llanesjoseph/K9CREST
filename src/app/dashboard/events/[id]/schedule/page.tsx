@@ -79,7 +79,7 @@ interface DisplayCompetitor extends Competitor {
     runs: ScheduledEvent[];
 }
 
-const SortableCompetitorItem = ({ competitor, isDraggable, onRunClick, allArenas }: { competitor: DisplayCompetitor, isDraggable: boolean, onRunClick: (run: ScheduledEvent) => void, allArenas: Arena[] }) => {
+const SortableCompetitorItem = ({ competitor, isDraggable, onRunClick, allArenas, allCompetitors }: { competitor: DisplayCompetitor, isDraggable: boolean, onRunClick: (run: ScheduledEvent) => void, allArenas: Arena[], allCompetitors: Competitor[] }) => {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: competitor.id });
     const style = {
         transform: CSS.Transform.toString(transform),
@@ -93,14 +93,14 @@ const SortableCompetitorItem = ({ competitor, isDraggable, onRunClick, allArenas
 
     return (
         <div ref={setNodeRef} style={style}>
-            <CompetitorItem competitor={competitor} isDraggable={canDrag} dragHandle={canDrag ? {...attributes, ...listeners} : undefined} onRunClick={onRunClick} allArenas={allArenas} />
+            <CompetitorItem competitor={competitor} isDraggable={canDrag} dragHandle={canDrag ? {...attributes, ...listeners} : undefined} onRunClick={onRunClick} allArenas={allArenas} allCompetitors={allCompetitors} />
         </div>
     );
 };
 
 
 // --- CompetitorItem Component ---
-const CompetitorItem = ({ competitor, isDraggable, dragHandle, onRunClick, allArenas }: { competitor: DisplayCompetitor, isDraggable: boolean, dragHandle?: any, onRunClick: (run: ScheduledEvent) => void, allArenas: Arena[] }) => {
+const CompetitorItem = ({ competitor, isDraggable, dragHandle, onRunClick, allArenas, allCompetitors }: { competitor: DisplayCompetitor, isDraggable: boolean, dragHandle?: any, onRunClick: (run: ScheduledEvent) => void, allArenas: Arena[], allCompetitors: Competitor[] }) => {
     
     const getSpecialtyIcons = (specialties: Specialty[] = []) => {
         if (!specialties || specialties.length === 0) {
@@ -182,7 +182,7 @@ const CompetitorItem = ({ competitor, isDraggable, dragHandle, onRunClick, allAr
                  )}
             </div>
              <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                <EditCompetitorDialog competitor={competitor} eventId={competitor.eventId} allCompetitors={competitors} />
+                <EditCompetitorDialog competitor={competitor} eventId={competitor.eventId} allCompetitors={allCompetitors} />
             </div>
         </div>
     );
@@ -823,11 +823,11 @@ export default function SchedulePage() {
                                     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
                                         <SortableContext items={sortedCompetitors.map(c => c.id)} strategy={verticalListSortingStrategy}>
                                             {sortedCompetitors.map(comp => (
-                                                <SortableCompetitorItem key={comp.id} competitor={comp} isDraggable={isDraggable} onRunClick={handleRunClick} allArenas={arenas} />
+                                                <SortableCompetitorItem key={comp.id} competitor={comp} isDraggable={isDraggable} onRunClick={handleRunClick} allArenas={arenas} allCompetitors={competitors} />
                                             ))}
                                         </SortableContext>
                                             <DragOverlay>
-                                            {activeCompetitor ? <CompetitorItem competitor={activeCompetitor} isDraggable={isDraggable} onRunClick={() => {}} allArenas={arenas} /> : null}
+                                            {activeCompetitor ? <CompetitorItem competitor={activeCompetitor} isDraggable={isDraggable} onRunClick={() => {}} allArenas={arenas} allCompetitors={competitors} /> : null}
                                         </DragOverlay>
                                     </DndContext>
                                     )}
