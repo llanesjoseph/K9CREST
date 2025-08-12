@@ -8,7 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ChevronLeft, Gavel, Loader2, Play, Square, TimerIcon, Plus, Minus, Trash2, MessageSquarePlus, ChevronDown } from "lucide-react";
+import { ChevronLeft, Gavel, Loader2, Play, Square, TimerIcon, Plus, Minus, Trash2, MessageSquarePlus, ChevronDown, Save } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
@@ -140,7 +140,7 @@ type RunData = {
   falseAlerts?: number;
   startAt?: any; // Firestore Timestamp
   endAt?: any;   // Firestore Timestamp
-  status: "scheduled" | "in_progress" | "scored" | "locked";
+  status: "scheduled" | "in_progress" | "paused" | "scored" | "locked";
   competitorId?: string;
   arenaId?: string;
   judgeName?: string;
@@ -284,13 +284,17 @@ export default function JudgingPage() {
 
   const startRun = async () => {
       if(isReadOnly || run?.status !== 'scheduled') return;
-      await updateDoc(runRef, { status: "in_progress", startAt: serverTimestamp(), actualStartTime: serverTimestamp() });
+      await updateDoc(runRef, { status: "in_progress", startAt: serverTimestamp(), actualStartTime: serverTimestamp(), endAt: null });
   };
-  const endRun = async () => {
+  const stopRun = async () => {
       if(isReadOnly || run?.status !== 'in_progress') return;
-      const oldRunRef = doc(db, `events/${eventId}/schedule`, runId);
-      await updateDoc(runRef, { status: "scored", endAt: serverTimestamp(), totalTime: elapsed });
-      await updateDoc(oldRunRef, { status: "scored", totalTime: elapsed, actualStartTime: run?.startAt, scores: [] });
+      await updateDoc(runRef, { status: "paused", endAt: serverTimestamp() });
+  };
+   const submitScores = async () => {
+      if(isReadOnly || run?.status !== 'paused') return;
+      const finalTime = elapsed;
+      await updateDoc(runRef, { status: "scored", totalTime: finalTime });
+      toast({ title: "Scores Submitted", description: "The final scores have been saved." });
   };
   const addFind = async () => {
       if(isReadOnly || run?.status !== 'in_progress') return;
@@ -309,17 +313,11 @@ export default function JudgingPage() {
     };
 
   const handleDeductionChange = async (checked: boolean, note: string) => {
-    if (isReadOnly || run?.status !== 'in_progress') return;
+    if (isReadOnly || !['in_progress', 'paused'].includes(run?.status || '')) return;
     
     if (checked) {
-      // Add a deduction
-      await addDoc(collection(runRef, "deductions"), {
-        points: 1,
-        note: note,
-        createdAt: serverTimestamp(),
-      });
+      await addDoc(collection(runRef, "deductions"), { points: 1, note: note, createdAt: serverTimestamp() });
     } else {
-      // Remove a deduction with a matching note
       const existing = deductions.find(d => d.note === note);
       if (existing) {
         await deleteDoc(doc(runRef, "deductions", existing.id));
@@ -346,6 +344,7 @@ export default function JudgingPage() {
   
   const canStartRun = !isReadOnly && run.status === 'scheduled';
   const canStopRun = !isReadOnly && run.status === 'in_progress';
+  const canSubmitScores = !isReadOnly && run.status === 'paused';
   const existingDeductionNotes = new Set(deductions.map(d => d.note));
 
   return (
@@ -366,8 +365,12 @@ export default function JudgingPage() {
       
        <Card className={cn(canStopRun && "bg-destructive/5 border-destructive/20")}>
           <CardContent className="pt-6 flex items-center justify-center gap-4 md:gap-8">
-              {canStopRun ? (
-                  <AlertDialog>
+              {canStartRun ? (
+                  <Button onClick={startRun} disabled={!canStartRun} size="lg" className="w-40 h-16 text-lg bg-green-600 hover:bg-green-700">
+                      <Play className="mr-2 h-6 w-6"/> Start
+                  </Button>
+              ) : canStopRun ? (
+                   <AlertDialog>
                       <AlertDialogTrigger asChild>
                           <Button size="lg" variant="destructive" className="w-40 h-16 text-lg animate-pulse" disabled={!canStopRun}>
                               <Square className="mr-2 h-6 w-6"/> Stop
@@ -375,21 +378,21 @@ export default function JudgingPage() {
                       </AlertDialogTrigger>
                       <AlertDialogContent>
                           <AlertDialogHeader>
-                              <AlertDialogTitle>End Run?</AlertDialogTitle>
+                              <AlertDialogTitle>Stop Timer?</AlertDialogTitle>
                               <AlertDialogDescription>
-                                  This will stop the timer and finalize the run. You can still edit scores after ending the run.
+                                  This will stop the timer but allow you to continue making adjustments to the scores.
                               </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>
                               <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction onClick={endRun}>Yes, End Run</AlertDialogAction>
+                              <AlertDialogAction onClick={stopRun}>Yes, Stop Timer</AlertDialogAction>
                           </AlertDialogFooter>
                       </AlertDialogContent>
                   </AlertDialog>
               ) : (
-                  <Button onClick={startRun} disabled={!canStartRun} size="lg" className="w-40 h-16 text-lg bg-green-600 hover:bg-green-700">
-                      <Play className="mr-2 h-6 w-6"/> Start
-                  </Button>
+                   <div className="text-center text-muted-foreground font-medium text-lg">
+                       Run {run.status === 'paused' ? 'Paused' : 'Complete'}
+                   </div>
               )}
           </CardContent>
       </Card>
@@ -419,14 +422,14 @@ export default function JudgingPage() {
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <Card>
-            <CardHeader className="py-4">
-                <CardTitle className="text-lg">Finds</CardTitle>
+            <CardHeader className="py-2">
+                <CardTitle className="text-base">Finds</CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-2 pt-0">
-                <Button onClick={addFind} disabled={isReadOnly || run.status !== 'in_progress'} className="w-full">
+                <Button onClick={addFind} disabled={isReadOnly || run.status !== 'in_progress'} size="sm">
                     Log Find
                 </Button>
-                <div className="w-full min-h-[50px]">
+                <div className="w-full min-h-[40px]">
                     <ul className="space-y-1 text-xs text-muted-foreground list-decimal pl-4">
                         {finds.map((f, i) => {
                             const relativeTime = getRelativeTime(f.createdAt);
@@ -436,20 +439,20 @@ export default function JudgingPage() {
                                 </li>
                             )
                         })}
-                        {finds.length === 0 && <li className="list-none -ml-4 text-center text-xs pt-4">No finds logged.</li>}
+                        {finds.length === 0 && <li className="list-none -ml-4 text-center text-xs pt-2">No finds logged.</li>}
                     </ul>
                 </div>
             </CardContent>
           </Card>
           <Card>
-            <CardHeader className="py-4">
-                <CardTitle className="text-lg">False Alerts</CardTitle>
+            <CardHeader className="py-2">
+                <CardTitle className="text-base">False Alerts</CardTitle>
             </CardHeader>
             <CardContent className="pt-0">
                 <div className="flex items-center justify-center gap-2">
-                    <Button onClick={() => addFalseAlert(-1)} variant="outline" size="icon" className="h-10 w-10" disabled={isReadOnly}><Minus/></Button>
-                    <span className="font-mono text-4xl font-bold w-16 text-center">{run.falseAlerts || 0}</span>
-                    <Button onClick={() => addFalseAlert(1)} variant="outline" size="icon" className="h-10 w-10" disabled={isReadOnly}><Plus/></Button>
+                    <Button onClick={() => addFalseAlert(-1)} variant="outline" size="icon" className="h-8 w-8" disabled={isReadOnly}><Minus/></Button>
+                    <span className="font-mono text-3xl font-bold w-12 text-center">{run.falseAlerts || 0}</span>
+                    <Button onClick={() => addFalseAlert(1)} variant="outline" size="icon" className="h-8 w-8" disabled={isReadOnly}><Plus/></Button>
                 </div>
                 <p className="text-xs text-muted-foreground mt-1 text-center">Penalty: {run.falseAlertPenalty || 0} pts each</p>
             </CardContent>
@@ -473,7 +476,7 @@ export default function JudgingPage() {
                                           id={`deduction-${item.replace(/\s+/g, '-')}`}
                                           checked={existingDeductionNotes.has(item)}
                                           onCheckedChange={(checked) => handleDeductionChange(!!checked, item)}
-                                          disabled={isReadOnly || run.status !== 'in_progress'}
+                                          disabled={isReadOnly || !['in_progress', 'paused'].includes(run.status)}
                                       />
                                       <label
                                           htmlFor={`deduction-${item.replace(/\s+/g, '-')}`}
@@ -493,7 +496,7 @@ export default function JudgingPage() {
       <div className="fixed bottom-0 left-0 right-0 z-40">
         <div className="bg-background/95 backdrop-blur-sm border-t -mx-4 sm:-mx-6 lg:-mx-8">
             <div className="max-w-4xl mx-auto p-4">
-                <div className="grid grid-cols-3 md:grid-cols-6 gap-4 text-center items-center">
+                <div className="grid grid-cols-3 md:grid-cols-7 gap-2 md:gap-4 text-center items-center">
                     <div className="md:col-span-1">
                         <div className="font-mono text-3xl font-bold text-primary tracking-tighter flex items-center justify-center gap-2">
                             <TimerIcon className="h-7 w-7 text-muted-foreground" />
@@ -503,8 +506,14 @@ export default function JudgingPage() {
                     <Stat label="Detection" value={`${detectionScore} / ${run.detectionMax || 0}`} />
                     <Stat label="Teamwork" value={`${teamworkScore} / ${run.teamworkMax || 0}`} />
                     <Stat label="Preliminary" value={`${preliminary}`} />
-                    <Stat label="Minus False Alerts" value={`-${falseTotal}`} />
+                    <Stat label="Minus False" value={`-${falseTotal}`} />
                     <Stat label="Total Score" value={`${totalScore} / ${totalMax}`} big />
+                    <div className="md:col-span-1">
+                        <Button onClick={submitScores} disabled={!canSubmitScores} className="w-full">
+                            {canSubmitScores ? <Save className="mr-2"/> : <Loader2 className="mr-2 animate-spin"/>}
+                            Submit
+                        </Button>
+                    </div>
                 </div>
             </div>
         </div>
