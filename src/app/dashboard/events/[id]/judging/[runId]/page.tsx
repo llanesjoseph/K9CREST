@@ -467,9 +467,9 @@ export default function JudgingPage() {
           <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                    {deductionCategories.map((cat) => (
-                       <div key={cat.category} className="border rounded-md p-3 space-y-1">
-                          <h4 className="font-semibold text-sm mb-1.5">{cat.category}</h4>
-                          <div className="space-y-1">
+                       <div key={cat.category} className="border rounded-md p-3">
+                          <h4 className="font-semibold text-sm mb-2">{cat.category}</h4>
+                          <div className="space-y-1.5">
                                {cat.items.map((item) => (
                                   <div key={item} className="flex items-center space-x-2">
                                       <Checkbox 
@@ -495,11 +495,11 @@ export default function JudgingPage() {
       
       <div className="fixed bottom-0 left-0 right-0 z-40">
         <div className="bg-background/95 backdrop-blur-sm border-t -mx-4 sm:-mx-6 lg:-mx-8">
-            <div className="max-w-4xl mx-auto py-2 px-4 md:px-6">
-                <div className="grid grid-cols-3 md:grid-cols-7 gap-2 md:gap-4 text-center items-center">
+            <div className="max-w-4xl mx-auto py-1 px-4 md:px-6">
+                <div className="grid grid-cols-3 md:grid-cols-7 gap-2 text-center items-center">
                     <div className="md:col-span-1">
-                        <div className="font-mono text-3xl font-bold text-primary tracking-tighter flex items-center justify-center gap-2">
-                            <TimerIcon className="h-7 w-7 text-muted-foreground" />
+                        <div className="font-mono text-2xl font-bold text-primary tracking-tighter flex items-center justify-center gap-1">
+                            <TimerIcon className="h-5 w-5 text-muted-foreground" />
                             {formatClock(elapsed)}
                         </div>
                     </div>
@@ -509,7 +509,7 @@ export default function JudgingPage() {
                     <Stat label="Minus False" value={`-${falseTotal}`} />
                     <Stat label="Total Score" value={`${totalScore} / ${totalMax}`} big />
                     <div className="md:col-span-1">
-                        <Button onClick={submitScores} disabled={!canSubmitScores} className="w-full">
+                        <Button onClick={submitScores} disabled={!canSubmitScores} className="w-full" size="sm">
                             {canSubmitScores ? <Save className="mr-2"/> : <Loader2 className="mr-2 animate-spin"/>}
                             Submit
                         </Button>
@@ -524,12 +524,9 @@ export default function JudgingPage() {
 
 function Stat({ label, value, big }: { label: string; value: string; big?: boolean }) {
   return (
-    <div className={cn("bg-muted/50 p-2 rounded-lg", big && "bg-primary/10 text-primary")}>
-      <div className={cn("text-xs uppercase tracking-wider text-muted-foreground", big && "text-primary/80")}>{label}</div>
-      <div className={cn("text-xl font-bold", big && "text-2xl")}>{value}</div>
+    <div className={cn("bg-muted/50 p-1 rounded-md", big && "bg-primary/10 text-primary")}>
+      <div className={cn("text-[10px] uppercase tracking-wider text-muted-foreground", big && "text-primary/80")}>{label}</div>
+      <div className={cn("text-lg font-bold", big && "text-xl")}>{value}</div>
     </div>
   );
 }
-
-
-    
