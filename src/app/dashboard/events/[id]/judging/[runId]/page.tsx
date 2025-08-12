@@ -8,7 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ChevronLeft, Gavel, Loader2, Play, Square, TimerIcon, Plus, Minus, Trash2, MessageSquarePlus, ChevronDown, Save } from "lucide-react";
+import { ChevronLeft, Gavel, Loader2, Play, Square, TimerIcon, Plus, Minus, Trash2, MessageSquarePlus, ChevronDown, Save, CheckCircle } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
@@ -298,6 +298,10 @@ export default function JudgingPage() {
   };
   const addFind = async () => {
       if(isReadOnly || run?.status !== 'in_progress') return;
+      if (finds.length >= (run?.aidsPlanted || Infinity)) {
+          toast({ variant: 'default', title: 'All aids found' });
+          return;
+      }
       await addDoc(collection(runRef, "finds"), { createdAt: serverTimestamp() });
   };
   const addFalseAlert = async (delta: number) => {
@@ -345,6 +349,8 @@ export default function JudgingPage() {
   const canStartRun = !isReadOnly && run.status === 'scheduled';
   const canStopRun = !isReadOnly && run.status === 'in_progress';
   const canSubmitScores = !isReadOnly && run.status === 'paused';
+  const allAidsFound = useMemo(() => finds.length >= (run?.aidsPlanted || 0), [finds, run?.aidsPlanted]);
+
   const existingDeductionNotes = new Set(deductions.map(d => d.note));
 
   return (
@@ -421,27 +427,36 @@ export default function JudgingPage() {
       </Card>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Card>
+          <Card className={cn("transition-all", allAidsFound && "bg-green-50 border border-green-200 dark:bg-green-900/20 dark:border-green-800")}>
             <CardHeader className="py-2">
                 <CardTitle className="text-base">Finds</CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-2 p-2 pt-0">
-                <Button onClick={addFind} disabled={isReadOnly || run.status !== 'in_progress'} size="sm">
-                    Log Find
-                </Button>
-                <div className="w-full min-h-[40px]">
-                    <ul className="space-y-1 text-xs text-muted-foreground list-decimal pl-4">
-                        {finds.map((f, i) => {
-                            const relativeTime = getRelativeTime(f.createdAt);
-                            return (
-                                <li key={f.id} className="font-mono">
-                                    Find #{i + 1} at {relativeTime !== null ? formatClock(relativeTime) : "pending..."}
-                                </li>
-                            )
-                        })}
-                        {finds.length === 0 && <li className="list-none -ml-4 text-center text-xs pt-2">No finds logged.</li>}
-                    </ul>
-                </div>
+                {allAidsFound ? (
+                     <div className="flex flex-col items-center justify-center h-full p-4 text-center">
+                        <CheckCircle className="h-8 w-8 text-green-500" />
+                        <p className="mt-2 font-medium text-green-700 dark:text-green-300">All aids found!</p>
+                     </div>
+                ) : (
+                    <>
+                    <Button onClick={addFind} disabled={isReadOnly || run.status !== 'in_progress'} size="sm">
+                        Log Find ({finds.length}/{run.aidsPlanted})
+                    </Button>
+                    <div className="w-full min-h-[40px]">
+                        <ul className="space-y-1 text-xs text-muted-foreground list-decimal pl-4">
+                            {finds.map((f, i) => {
+                                const relativeTime = getRelativeTime(f.createdAt);
+                                return (
+                                    <li key={f.id} className="font-mono">
+                                        Find #{i + 1} at {relativeTime !== null ? formatClock(relativeTime) : "pending..."}
+                                    </li>
+                                )
+                            })}
+                            {finds.length === 0 && <li className="list-none -ml-4 text-center text-xs pt-2">No finds logged.</li>}
+                        </ul>
+                    </div>
+                    </>
+                )}
             </CardContent>
           </Card>
           <Card>
@@ -464,12 +479,12 @@ export default function JudgingPage() {
               <CardTitle>Teamwork Deductions</CardTitle>
               <CardDescription>Check items to apply a 1-point deduction.</CardDescription>
           </CardHeader>
-          <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <CardContent className="p-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                    {deductionCategories.map((cat) => (
-                       <div key={cat.category} className="border rounded-md p-3">
+                       <div key={cat.category} className="border rounded-md p-2">
                           <h4 className="font-semibold text-sm mb-2">{cat.category}</h4>
-                          <div className="space-y-1.5">
+                          <div className="space-y-1">
                                {cat.items.map((item) => (
                                   <div key={item} className="flex items-center space-x-2">
                                       <Checkbox 
@@ -496,10 +511,10 @@ export default function JudgingPage() {
       <div className="fixed bottom-0 left-0 right-0 z-40">
         <div className="bg-background/95 backdrop-blur-sm border-t -mx-4 sm:-mx-6 lg:-mx-8">
             <div className="max-w-4xl mx-auto py-1 px-4 md:px-6">
-                <div className="grid grid-cols-3 md:grid-cols-7 gap-2 text-center items-center">
+                <div className="grid grid-cols-3 md:grid-cols-7 gap-1 text-center items-center">
                     <div className="md:col-span-1">
-                        <div className="font-mono text-2xl font-bold text-primary tracking-tighter flex items-center justify-center gap-1">
-                            <TimerIcon className="h-5 w-5 text-muted-foreground" />
+                        <div className="font-mono text-xl font-bold text-primary tracking-tighter flex items-center justify-center gap-1">
+                            <TimerIcon className="h-4 w-4 text-muted-foreground" />
                             {formatClock(elapsed)}
                         </div>
                     </div>
@@ -510,7 +525,7 @@ export default function JudgingPage() {
                     <Stat label="Total Score" value={`${totalScore} / ${totalMax}`} big />
                     <div className="md:col-span-1">
                         <Button onClick={submitScores} disabled={!canSubmitScores} className="w-full" size="sm">
-                            {canSubmitScores ? <Save className="mr-2"/> : <Loader2 className="mr-2 animate-spin"/>}
+                            {canSubmitScores ? <Save className="mr-2 h-4 w-4"/> : <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
                             Submit
                         </Button>
                     </div>
@@ -526,7 +541,7 @@ function Stat({ label, value, big }: { label: string; value: string; big?: boole
   return (
     <div className={cn("bg-muted/50 p-1 rounded-md", big && "bg-primary/10 text-primary")}>
       <div className={cn("text-[10px] uppercase tracking-wider text-muted-foreground", big && "text-primary/80")}>{label}</div>
-      <div className={cn("text-lg font-bold", big && "text-xl")}>{value}</div>
+      <div className={cn("text-base font-bold", big && "text-lg")}>{value}</div>
     </div>
   );
 }
