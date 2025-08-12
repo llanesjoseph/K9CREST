@@ -1,4 +1,6 @@
+
 import { z } from "zod";
+import { Timestamp } from "firebase/firestore";
 
 export const SpecialtyLabel = z.enum([
   "Any",
@@ -45,6 +47,7 @@ export const ScheduledRunSchema = z.object({
     endTime: z.string().regex(/^\d{2}:\d{2}$/),
     date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
     status: z.enum(['scheduled', 'scored']).optional(),
+    actualStartTime: z.instanceof(Timestamp).optional(),
 });
 
 export const OutputSchema = z.object({
@@ -66,3 +69,5 @@ export type GenerateScheduleOutput = z.infer<typeof OutputSchema>;
 export type Competitor = z.infer<typeof CompetitorSchema>;
 export type Arena = z.infer<typeof ArenaSchema>;
 export type ScheduledEvent = z.infer<typeof ScheduledRunSchema> & { id: string };
+
+    

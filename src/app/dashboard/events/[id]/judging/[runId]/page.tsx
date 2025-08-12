@@ -21,7 +21,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState, useRef } from "react";
-import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { doc, getDoc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/components/auth-provider";
@@ -59,8 +59,9 @@ export default function JudgingPage() {
   
   // Stopwatch state
   const [isTimerRunning, setIsTimerRunning] = useState(false);
-  const [elapsedTime, setElapsedTime] = useState(0);
+  const [elapsedTime, setElapsedTime] = useState(0); // in milliseconds
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const [actualStartTime, setActualStartTime] = useState<Date | null>(null);
 
   const [isReadOnly, setIsReadOnly] = useState(false);
   const pageTitle = isReadOnly ? "View Scorecard" : "Judge Scoring Interface";
@@ -166,7 +167,11 @@ export default function JudgingPage() {
         }));
         
         const initialTime = run.totalTime || 0;
-        setElapsedTime(initialTime * 1000);
+        setElapsedTime(initialTime * 1000); // Convert seconds to ms
+        if (run.actualStartTime) {
+            setActualStartTime(run.actualStartTime.toDate());
+        }
+
 
         form.reset({
             scores: initialScores,
@@ -191,7 +196,12 @@ export default function JudgingPage() {
   }, [eventId, runId, toast, form, router, isAdmin]);
   
   const handleStartTimer = () => {
-    if(!isReadOnly) setIsTimerRunning(true);
+    if(!isReadOnly) {
+        if (!isTimerRunning && elapsedTime === 0) {
+            setActualStartTime(new Date());
+        }
+        setIsTimerRunning(true);
+    }
   }
 
   const handleStopTimer = () => {
@@ -213,14 +223,22 @@ export default function JudgingPage() {
 
     try {
         const runRef = doc(db, `events/${eventId}/schedule`, runId);
-        await updateDoc(runRef, {
+        
+        const updateData: any = {
             scores: data.scores,
             notes: data.notes,
             totalTime: finalTime,
-            status: 'scored', // Mark as scored
+            status: 'scored',
             judgeId: user.uid,
             judgeName: user.displayName || user.email,
-        });
+            scoredAt: serverTimestamp(),
+        };
+
+        if(actualStartTime && !runData.actualStartTime) {
+            updateData.actualStartTime = actualStartTime;
+        }
+
+        await updateDoc(runRef, updateData);
         
         toast({
             title: "Scores Submitted!",
@@ -262,8 +280,8 @@ export default function JudgingPage() {
       )
   }
   
-  const formatTime = (time: number) => {
-    const totalSeconds = time / 1000;
+  const formatTime = (timeInMs: number) => {
+    const totalSeconds = timeInMs / 1000;
     const minutes = Math.floor(totalSeconds / 60);
     const seconds = Math.floor(totalSeconds % 60);
     const milliseconds = Math.floor((totalSeconds * 10) % 10);
@@ -293,14 +311,19 @@ export default function JudgingPage() {
             <span className="font-bold">{competitorData?.dogName || '...'}</span> in Arena: <span className="font-bold">{arenaData?.name || '...'}</span>
           </CardDescription>
         </CardHeader>
-        {runData?.judgeName && (
-            <CardContent>
-                <div className="text-sm text-muted-foreground flex items-center gap-2 bg-muted/50 p-3 rounded-lg">
-                    <Gavel className="h-4 w-4" />
-                    <span>Scored by: <span className="font-medium text-foreground">{runData.judgeName}</span></span>
+        <CardContent>
+            <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className="flex items-center gap-2 bg-muted/50 p-3 rounded-lg">
+                    <span>Scheduled Time: <span className="font-medium text-foreground">{runData.startTime}</span></span>
                 </div>
-            </CardContent>
-        )}
+                 {runData?.judgeName && (
+                    <div className="text-sm text-muted-foreground flex items-center gap-2 bg-muted/50 p-3 rounded-lg">
+                        <Gavel className="h-4 w-4" />
+                        <span>Scored by: <span className="font-medium text-foreground">{runData.judgeName}</span></span>
+                    </div>
+                )}
+            </div>
+        </CardContent>
       </Card>
 
        <Card className={cn("border-primary/50", isTimerRunning && "bg-yellow-50 dark:bg-yellow-900/10")}>
@@ -401,7 +424,7 @@ export default function JudgingPage() {
                                         <Switch
                                             id={`switch-${phaseIndex}-${exerciseIndex}`}
                                             checked={Number(field.value) > 0}
-                                            onCheckedChange={(isChecked) => field.onChange(isChecked ? exercise.maxPoints : 0)}
+                                            onCheckedChange={(isChecked) => field.onChange(isChecked ? (exercise.maxPoints || 1) : 0)}
                                             disabled={isReadOnly}
                                         />
                                     )}
@@ -438,3 +461,5 @@ export default function JudgingPage() {
     </div>
   );
 }
+
+    
