@@ -294,11 +294,45 @@ export default function JudgingPage() {
             </div>
       </div>
       
+      {/* Timer Card */}
+      <Card>
+          <CardContent className="pt-6 flex items-center justify-center gap-4 md:gap-8">
+              <div className="font-mono text-6xl md:text-7xl font-bold text-primary tracking-tighter flex items-center gap-3">
+                  <TimerIcon className="h-12 w-12 text-muted-foreground" />
+                  {formatClock(elapsed)}
+              </div>
+              {run.status === "in_progress" ? (
+                  <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                          <Button size="lg" variant="destructive" className="w-40 h-16 text-lg animate-pulse" disabled={!canStopRun}>
+                              <Square className="mr-2 h-6 w-6"/> Stop
+                          </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                          <AlertDialogHeader>
+                              <AlertDialogTitle>End Run?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                  This will stop the timer and finalize the run. You can still edit scores after ending the run.
+                              </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction onClick={endRun}>Yes, End Run</AlertDialogAction>
+                          </AlertDialogFooter>
+                      </AlertDialogContent>
+                  </AlertDialog>
+              ) : (
+                  <Button onClick={startRun} disabled={!canStartRun} size="lg" className="w-40 h-16 text-lg bg-green-600 hover:bg-green-700">
+                      <Play className="mr-2 h-6 w-6"/> Start
+                  </Button>
+              )}
+          </CardContent>
+      </Card>
+      
       {/* Header Card */}
       <Card>
-        <CardContent className="pt-6 flex flex-col md:flex-row items-center justify-between gap-6">
-           <div className="flex-grow text-center md:text-left">
-                <CardTitle>Live Scoring</CardTitle>
+        <CardContent className="pt-6">
+           <div className="text-center md:text-left">
                  <CardDescription className="text-sm flex items-center justify-center md:justify-start gap-4 mt-1">
                     <span>Per Aid: {two(perAid)} pts</span>
                     <span className="flex items-center gap-2">
@@ -315,35 +349,6 @@ export default function JudgingPage() {
                     </span>
                      <span>False Alert: -{run.falseAlertPenalty || 0} pts</span>
                 </CardDescription>
-           </div>
-           <div className="flex items-center justify-center gap-4">
-                <div className="font-mono text-5xl font-bold text-primary tracking-tighter flex items-center gap-3">
-                    <TimerIcon className="h-10 w-10 text-muted-foreground" />
-                    {formatClock(elapsed)}
-                </div>
-                {run.status === "in_progress" ? (
-                     <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                             <Button size="lg" variant="destructive" className="w-40 animate-pulse" disabled={!canStopRun}><Square className="mr-2 h-5 w-5"/> Stop</Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                            <AlertDialogHeader>
-                            <AlertDialogTitle>End Run?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                                This will stop the timer and finalize the run. You can still edit scores after ending the run.
-                            </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction onClick={endRun}>Yes, End Run</AlertDialogAction>
-                            </AlertDialogFooter>
-                        </AlertDialogContent>
-                    </AlertDialog>
-                 ) : (
-                    <Button onClick={startRun} disabled={!canStartRun} size="lg" className="w-40 bg-green-600 hover:bg-green-700">
-                        <Play className="mr-2 h-5 w-5"/> Start
-                    </Button>
-                 )}
            </div>
         </CardContent>
       </Card>
@@ -490,5 +495,3 @@ function DeductionItem({ deduction, onRemove, onNoteChange, isReadOnly, getRelat
         </div>
     )
 }
-
-    
