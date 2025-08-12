@@ -369,40 +369,6 @@ export default function JudgingPage() {
             </div>
       </div>
       
-       <Card className={cn(canStopRun && "bg-destructive/5 border-destructive/20")}>
-          <CardContent className="pt-6 flex items-center justify-center gap-4 md:gap-8">
-              {canStartRun ? (
-                  <Button onClick={startRun} disabled={!canStartRun} size="lg" className="h-14 bg-green-600 hover:bg-green-700">
-                      <Play className="mr-2 h-5 w-5"/> Start
-                  </Button>
-              ) : canStopRun ? (
-                   <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                          <Button size="lg" variant="destructive" className="h-14 animate-pulse" disabled={!canStopRun}>
-                              <Square className="mr-2 h-5 w-5"/> Stop
-                          </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                          <AlertDialogHeader>
-                              <AlertDialogTitle>Stop Timer?</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                  This will stop the timer but allow you to continue making adjustments to the scores.
-                              </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction onClick={stopRun}>Yes, Stop Timer</AlertDialogAction>
-                          </AlertDialogFooter>
-                      </AlertDialogContent>
-                  </AlertDialog>
-              ) : (
-                   <div className="text-center text-muted-foreground font-medium text-lg">
-                       Run {run.status === 'paused' ? 'Paused' : 'Complete'}
-                   </div>
-              )}
-          </CardContent>
-      </Card>
-      
       <Card>
         <CardContent className="pt-6">
            <div className="text-center md:text-left">
@@ -480,11 +446,11 @@ export default function JudgingPage() {
               <CardDescription>Check items to apply a 1-point deduction.</CardDescription>
           </CardHeader>
           <CardContent className="p-2">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-1">
                    {deductionCategories.map((cat) => (
-                       <div key={cat.category} className="border rounded-md p-2">
-                          <h4 className="font-semibold text-sm mb-2">{cat.category}</h4>
-                          <div className="space-y-1">
+                       <div key={cat.category} className="border rounded-md p-1">
+                          <h4 className="font-semibold text-sm mb-1">{cat.category}</h4>
+                          <div className="space-y-0">
                                {cat.items.map((item, index) => (
                                   <div key={item} className="flex items-center space-x-2">
                                       <Checkbox 
@@ -511,23 +477,50 @@ export default function JudgingPage() {
       <div className="fixed bottom-0 left-0 right-0 z-40">
         <div className="bg-background/95 backdrop-blur-sm border-t -mx-4 sm:-mx-6 lg:-mx-8">
             <div className="max-w-4xl mx-auto py-1 px-4 md:px-6">
-                <div className="grid grid-cols-3 md:grid-cols-7 gap-1 text-center items-center">
-                    <div className="md:col-span-1">
+                 <div className="grid grid-cols-3 md:grid-cols-5 gap-1 text-center items-center">
+                    <div className="md:col-span-1 flex items-center justify-center gap-2">
                         <div className="font-mono text-xl font-bold text-primary tracking-tighter flex items-center justify-center gap-1">
                             <TimerIcon className="h-4 w-4 text-muted-foreground" />
                             {formatClock(elapsed)}
                         </div>
+                         {canStartRun ? (
+                            <Button onClick={startRun} disabled={!canStartRun} size="sm" className="h-7 bg-green-600 hover:bg-green-700">
+                                <Play className="mr-2 h-4 w-4"/> Start
+                            </Button>
+                        ) : canStopRun ? (
+                            <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                    <Button size="sm" variant="destructive" className="h-7 animate-pulse" disabled={!canStopRun}>
+                                        <Square className="mr-2 h-4 w-4"/> Stop
+                                    </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle>Stop Timer?</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                            This will stop the timer but allow you to continue making adjustments to the scores.
+                                        </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                        <AlertDialogAction onClick={stopRun}>Yes, Stop Timer</AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
+                        ) : null }
                     </div>
-                    <Stat label="Detection" value={`${detectionScore} / ${run.detectionMax || 0}`} />
-                    <Stat label="Teamwork" value={`${teamworkScore} / ${run.teamworkMax || 0}`} />
-                    <Stat label="Preliminary" value={`${preliminary}`} />
-                    <Stat label="Minus False" value={`-${falseTotal}`} />
-                    <Stat label="Total Score" value={`${totalScore} / ${totalMax}`} big />
-                    <div className="md:col-span-1">
-                        <Button onClick={submitScores} disabled={!canSubmitScores} className="w-full" size="sm">
-                            {canSubmitScores ? <Save className="mr-2 h-4 w-4"/> : <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
-                            Submit
-                        </Button>
+                    <div className="grid grid-cols-3 md:grid-cols-5 col-span-2 md:col-span-4 gap-1">
+                        <Stat label="Detection" value={`${detectionScore} / ${run.detectionMax || 0}`} />
+                        <Stat label="Teamwork" value={`${teamworkScore} / ${run.teamworkMax || 0}`} />
+                        <Stat label="Preliminary" value={`${preliminary}`} />
+                        <Stat label="Minus False" value={`-${falseTotal}`} />
+                        <div className="flex flex-col items-center justify-center gap-1 col-span-3 md:col-span-1">
+                            <Stat label="Total Score" value={`${totalScore} / ${totalMax}`} big />
+                            <Button onClick={submitScores} disabled={!canSubmitScores} className="w-full h-7" size="sm">
+                                {canSubmitScores ? <Save className="mr-2 h-4 w-4"/> : <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                                Submit
+                            </Button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -539,9 +532,12 @@ export default function JudgingPage() {
 
 function Stat({ label, value, big }: { label: string; value: string; big?: boolean }) {
   return (
-    <div className={cn("bg-muted/50 p-1 rounded-md", big && "bg-primary/10 text-primary")}>
+    <div className={cn("bg-muted/50 p-1 rounded-md", big && "bg-primary/10 text-primary w-full")}>
       <div className={cn("text-[10px] uppercase tracking-wider text-muted-foreground", big && "text-primary/80")}>{label}</div>
       <div className={cn("text-base font-bold", big && "text-lg")}>{value}</div>
     </div>
   );
 }
+
+
+    
