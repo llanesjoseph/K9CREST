@@ -5,7 +5,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { collection, onSnapshot, doc, setDoc, deleteDoc, writeBatch, query, getDocs, getDoc, Timestamp, updateDoc, where } from 'firebase/firestore';
 import { generateTimeSlots } from '@/lib/schedule-helpers';
-import { Trash2, AlertTriangle, PlusCircle, Users, X, Eraser, Wand2, Clock, Loader2, FileDown, GripVertical, Upload, ListChecks, Hash, Gavel, ClipboardCheck, Dog } from 'lucide-react';
+import { Trash2, AlertTriangle, PlusCircle, Users, X, Eraser, Wand2, Clock, Loader2, FileDown, GripVertical, Upload, ListChecks, Hash, Gavel, ClipboardCheck, Dog, HelpCircle } from 'lucide-react';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragOverlay, DragStartEvent, DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -42,6 +42,11 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
 import { useParams } from 'next/navigation';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
@@ -879,6 +884,39 @@ export default function SchedulePage() {
                             <CardDescription>Drag and drop competitors into time slots to build the schedule.</CardDescription>
                         </div>
                         <div className="flex w-full sm:w-auto items-center justify-end gap-2 flex-wrap">
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button variant="outline" size="sm"><HelpCircle className="mr-2 h-4 w-4" />Legend</Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-80">
+                                    <div className="grid gap-4">
+                                        <div className="space-y-2">
+                                            <h4 className="font-medium leading-none">Competitor Status</h4>
+                                            <p className="text-sm text-muted-foreground">
+                                                Indicates how many required runs are scheduled.
+                                            </p>
+                                        </div>
+                                        <div className="grid gap-2 text-sm">
+                                            <div className="flex items-center gap-2"><div className="w-4 h-4 rounded-full border-2 border-l-green-500 border-transparent bg-green-500/20" /> Fully Scheduled</div>
+                                            <div className="flex items-center gap-2"><div className="w-4 h-4 rounded-full border-2 border-l-yellow-400 border-transparent bg-yellow-400/20" /> Partially Scheduled</div>
+                                            <div className="flex items-center gap-2"><div className="w-4 h-4 rounded-full border-2 border-l-orange-400 border-transparent bg-orange-400/20" /> Unscheduled</div>
+                                        </div>
+                                        <Separator />
+                                         <div className="space-y-2">
+                                            <h4 className="font-medium leading-none">Run Specialty</h4>
+                                            <p className="text-sm text-muted-foreground">
+                                                The color of a scheduled run in the timeline.
+                                            </p>
+                                        </div>
+                                         <div className="grid gap-2 text-sm">
+                                            <div className="flex items-center gap-2"><div className="w-4 h-4 rounded-full bg-orange-500/20" /> Bite Work</div>
+                                            <div className="flex items-center gap-2"><div className="w-4 h-4 rounded-full bg-blue-500/20" /> Detection (Narcotics)</div>
+                                            <div className="flex items-center gap-2"><div className="w-4 h-4 rounded-full bg-green-500/20" /> Detection (Explosives)</div>
+                                            <div className="flex items-center gap-2"><div className="w-4 h-4 rounded-full bg-gray-500/20" /> Any / Unspecified</div>
+                                        </div>
+                                    </div>
+                                </PopoverContent>
+                            </Popover>
                             {isAdmin && (
                             <div className="flex-grow sm:flex-grow-0 flex items-center gap-2">
                                 <Button onClick={handleAssignBibs} variant="outline" disabled={competitors.length === 0} size="sm"> <Hash className="mr-2 h-4 w-4"/> Assign BIBs </Button>
