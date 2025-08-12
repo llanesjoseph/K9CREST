@@ -8,13 +8,19 @@ import { useToast } from "@/hooks/use-toast";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ChevronLeft, Gavel, Loader2, Play, Square, TimerIcon, Plus, Minus, Trash2, MessageSquarePlus } from "lucide-react";
+import { ChevronLeft, Gavel, Loader2, Play, Square, TimerIcon, Plus, Minus, Trash2, MessageSquarePlus, ChevronDown } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,6 +33,30 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+
+const commonDeductions = [
+    { category: "Communication", label: "Delayed response to command" },
+    { category: "Communication", label: "Misinterpreted command" },
+    { category: "Communication", label: "Handler over-commanding" },
+    { category: "Cohesion", label: "Dog forges/lags/drifts" },
+    { category: "Cohesion", label: "Frequent tight leash corrections" },
+    { category: "Cohesion", label: "Handler-dog out of sync" },
+    { category: "Task Flow", label: "Handler pulls dog off productive work" },
+    { category: "Task Flow", label: "Handler misses dog's change of behavior" },
+    { category: "Task Flow", label: "Dog abandons task" },
+    { category: "Emotional", label: "Dog shows stress signals" },
+    { category: "Emotional", label: "Handler shows visible frustration" },
+    { category: "Emotional", label: "Loss of enthusiasm" },
+    { category: "Handler Error", label: "Incorrect reward timing" },
+    { category: "Handler Error", label: "Inconsistent cues" },
+    { category: "Handler Error", label: "Handler positioning blocks dog" },
+    { category: "Trust", label: "Handler ignores dog's problem-solving" },
+    { category: "Trust", label: "Inappropriate correction" },
+    { category: "Awareness", label: "Dog distracted, not refocused" },
+    { category: "Awareness", label: "Handler steps outside boundaries" },
+    { category: "Professionalism", label: "Sloppy transitions" },
+    { category: "Professionalism", label: "Lack of confident entry/exit" },
+];
 
 
 const two = (n: number) => Number.isFinite(n) ? Number(n.toFixed(2)) : 0;
@@ -209,11 +239,11 @@ export default function JudgingPage() {
       await updateDoc(runRef, { aidsPlanted: next });
     };
 
-  const addDeduction = async () => {
+  const addDeduction = async (reason: string) => {
     if (isReadOnly || run?.status !== 'in_progress') return;
     await addDoc(collection(runRef, "deductions"), {
       points: 1,
-      note: "",
+      note: reason,
       createdAt: serverTimestamp(),
     });
   };
@@ -343,11 +373,22 @@ export default function JudgingPage() {
                 </CardContent>
             </Card>
              <Card>
-                <CardHeader className="flex flex-row justify-between items-center">
+                 <CardHeader className="flex flex-row justify-between items-center">
                     <CardTitle>Teamwork Deductions</CardTitle>
-                    <Button onClick={addDeduction} disabled={isReadOnly || run.status !== 'in_progress'} variant="outline" size="sm">
-                        <Plus className="mr-2 h-4 w-4" /> Add Deduction
-                    </Button>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="outline" size="sm" disabled={isReadOnly || run.status !== 'in_progress'}>
+                                <Plus className="mr-2 h-4 w-4" /> Add Deduction <ChevronDown className="ml-2 h-4 w-4" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent className="w-64">
+                             {commonDeductions.map(d => (
+                                <DropdownMenuItem key={d.label} onSelect={() => addDeduction(d.label)}>
+                                    {d.label}
+                                </DropdownMenuItem>
+                            ))}
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 </CardHeader>
                 <CardContent className="space-y-2">
                     {deductions.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">No deductions logged.</p>}
@@ -419,7 +460,7 @@ function DeductionItem({ deduction, onRemove, onNoteChange, isReadOnly, getRelat
     return (
         <div className="bg-muted/50 p-3 rounded-lg">
             <div className="flex items-center justify-between">
-                <div className="font-medium">1pt Deduction <span className="text-xs text-muted-foreground font-mono">(at {relativeTime !== null ? formatClock(relativeTime) : 'pending...'})</span></div>
+                 <div className="font-medium text-sm pr-2">{deduction.note || '1pt Deduction'} <span className="text-xs text-muted-foreground font-mono">(at {relativeTime !== null ? formatClock(relativeTime) : 'pending...'})</span></div>
                  <div className="flex items-center gap-1">
                     {!isReadOnly && !showNote && (
                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => setShowNote(true)}>
@@ -447,3 +488,6 @@ function DeductionItem({ deduction, onRemove, onNoteChange, isReadOnly, getRelat
         </div>
     )
 }
+
+
+    
