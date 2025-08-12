@@ -74,11 +74,6 @@ type SchedulingStatus = 'unscheduled' | 'partiallyScheduled' | 'fullyScheduled';
 
 interface DisplayCompetitor extends Competitor {
     status: SchedulingStatus;
-    runs: DisplayRun[];
-}
-
-interface DisplayRun extends ScheduledEvent {
-    arenaName: string;
 }
 
 const SortableCompetitorItem = ({ competitor, isDraggable, onRunClick, allCompetitors }: { competitor: DisplayCompetitor, isDraggable: boolean, onRunClick: (run: ScheduledEvent) => void, allCompetitors: Competitor[] }) => {
@@ -154,23 +149,6 @@ const CompetitorItem = ({ competitor, isDraggable, dragHandle, onRunClick, allCo
 
                  <div className="text-xs text-muted-foreground/80">{competitor.agency}</div>
                  <div className="text-xs text-muted-foreground/80 mt-1">{getSpecialtyDisplay(competitor.specialties)}</div>
-                 {competitor.runs.length > 0 && (
-                    <div className="w-full border-t border-dashed pt-2 mt-2 space-y-1">
-                        {competitor.runs.map(run => (
-                             <button 
-                                key={run.id}
-                                onClick={() => onRunClick(run)}
-                                className="flex items-center gap-2 text-xs text-muted-foreground hover:text-primary transition-colors w-full text-left rounded-sm p-1 -ml-1"
-                            >
-                                {run.status === 'scored' ? <ClipboardCheck className="h-3 w-3 text-blue-600" /> : <Clock className="h-3 w-3" />}
-                                 <span className="truncate">
-                                    {format(parse(run.date, 'yyyy-MM-dd', new Date()), 'E, MMM dd')} @ {run.startTime}
-                                    <span className="font-medium text-primary/80"> in {run.arenaName}</span>
-                                </span>
-                            </button>
-                        ))}
-                    </div>
-                )}
             </div>
              <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
                 <EditCompetitorDialog competitor={competitor} eventId={competitor.eventId} allCompetitors={allCompetitors} />
@@ -417,21 +395,10 @@ export default function SchedulePage() {
                 } else {
                     status = 'partiallyScheduled';
                 }
-
-                const runsWithArenaNames = (scheduledRunsByCompetitor[comp.id] || []).map(run => {
-                    const arena = arenas.find(a => a.id === run.arenaId);
-                    return {
-                        ...run,
-                        arenaName: arena?.name || 'Unknown Arena'
-                    };
-                }).sort((a,b) => 
-                    new Date(a.date.replace(/-/g, '/')).getTime() - new Date(b.date.replace(/-/g, '/')).getTime() || a.startTime.localeCompare(b.startTime)
-                );
                 
                 return {
                     ...comp,
                     status,
-                    runs: runsWithArenaNames,
                 }
             })
             .sort((a, b) => {
@@ -440,7 +407,7 @@ export default function SchedulePage() {
                 // Optional: secondary sort by BIB number if statuses are the same
                 return (parseInt(a.bibNumber || '9999', 10) - parseInt(b.bibNumber || '9999', 10));
             });
-    }, [competitors, schedule, arenas]);
+    }, [competitors, schedule]);
 
     const [sortedCompetitors, setSortedCompetitors] = useState<DisplayCompetitor[]>([]);
 
