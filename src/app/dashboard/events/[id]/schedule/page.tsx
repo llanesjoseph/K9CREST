@@ -810,41 +810,11 @@ export default function SchedulePage() {
             <div className="flex h-full min-h-[calc(100vh-theme(spacing.16))]">
                 {/* Left Panel: Competitor List & Arena Mgmt */}
                  <div className="w-[380px] border-r flex flex-col">
-                    <div className="p-4 border-b">
-                        <h2 className="text-xl font-bold">Competitors</h2>
-                        <p className="text-sm text-muted-foreground">Drag competitors onto the schedule.</p>
-                    </div>
-                     <div className="flex-grow p-4 overflow-hidden relative">
-                         <ScrollArea className="absolute inset-0 h-full w-full p-0 pr-4">
-                            {loading.competitors ? (
-                                <div className="space-y-2">
-                                    <Skeleton className="h-20 w-full" /> <Skeleton className="h-20 w-full" /> <Skeleton className="h-20 w-full" />
-                                </div>
-                            ) : (
-                                <>
-                                    {competitors.length === 0 ? (
-                                        <div className="text-center text-muted-foreground p-8 border border-dashed rounded-md h-full flex flex-col justify-center items-center gap-4">
-                                            <Dog className="h-10 w-10 text-muted-foreground" />
-                                            <p>No competitors have been added to this event yet.</p>
-                                            {isAdmin && ( <div className="flex gap-2"> <AddCompetitorDialog eventId={eventId}/> <CompetitorImportDialog eventId={eventId}/> </div> )}
-                                        </div>
-                                    ) : (
-                                    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-                                        <SortableContext items={sortedCompetitors.map(c => c.id)} strategy={verticalListSortingStrategy}>
-                                            {sortedCompetitors.map(comp => (
-                                                <SortableCompetitorItem key={comp.id} competitor={comp} isDraggable={isDraggable} onRunClick={handleRunClick} allArenas={arenas} allCompetitors={competitors} />
-                                            ))}
-                                        </SortableContext>
-                                            <DragOverlay>
-                                            {activeCompetitor ? <CompetitorItem competitor={activeCompetitor} isDraggable={isDraggable} onRunClick={() => {}} allArenas={arenas} allCompetitors={competitors} /> : null}
-                                        </DragOverlay>
-                                    </DndContext>
-                                    )}
-                                </>
-                            )}
-                        </ScrollArea>
-                     </div>
-                     <div className="px-4 py-3 border-t">
+                    <div className="p-4 border-b space-y-4">
+                        <div>
+                            <h2 className="text-xl font-bold">Competitors</h2>
+                            <p className="text-sm text-muted-foreground">Drag competitors onto the schedule.</p>
+                        </div>
                         <div className="flex items-center justify-between gap-2 flex-wrap">
                             <Popover>
                                 <PopoverTrigger asChild>
@@ -910,6 +880,36 @@ export default function SchedulePage() {
                             </div>
                         </div>
                     </div>
+                     <div className="flex-grow p-4 overflow-hidden relative">
+                         <ScrollArea className="absolute inset-0 h-full w-full p-0 pr-4">
+                            {loading.competitors ? (
+                                <div className="space-y-2">
+                                    <Skeleton className="h-20 w-full" /> <Skeleton className="h-20 w-full" /> <Skeleton className="h-20 w-full" />
+                                </div>
+                            ) : (
+                                <>
+                                    {competitors.length === 0 ? (
+                                        <div className="text-center text-muted-foreground p-8 border border-dashed rounded-md h-full flex flex-col justify-center items-center gap-4">
+                                            <Dog className="h-10 w-10 text-muted-foreground" />
+                                            <p>No competitors have been added to this event yet.</p>
+                                            {isAdmin && ( <div className="flex gap-2"> <AddCompetitorDialog eventId={eventId}/> <CompetitorImportDialog eventId={eventId}/> </div> )}
+                                        </div>
+                                    ) : (
+                                    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+                                        <SortableContext items={sortedCompetitors.map(c => c.id)} strategy={verticalListSortingStrategy}>
+                                            {sortedCompetitors.map(comp => (
+                                                <SortableCompetitorItem key={comp.id} competitor={comp} isDraggable={isDraggable} onRunClick={handleRunClick} allArenas={arenas} allCompetitors={competitors} />
+                                            ))}
+                                        </SortableContext>
+                                            <DragOverlay>
+                                            {activeCompetitor ? <CompetitorItem competitor={activeCompetitor} isDraggable={isDraggable} onRunClick={() => {}} allArenas={arenas} allCompetitors={competitors} /> : null}
+                                        </DragOverlay>
+                                    </DndContext>
+                                    )}
+                                </>
+                            )}
+                        </ScrollArea>
+                     </div>
                      {isAdmin && (
                          <div className="p-4 border-t space-y-4">
                              <h3 className="text-lg font-semibold">Manage Arenas</h3>
