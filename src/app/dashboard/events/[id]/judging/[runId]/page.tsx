@@ -280,7 +280,7 @@ export default function JudgingPage() {
                              <span className="font-bold text-foreground">{run.aidsPlanted}</span>
                         )}
                     </span>
-                     <span>False Alert: -{run.falseAlertPenalty} pts</span>
+                     <span>False Alert: -{run.falseAlertPenalty || 0} pts</span>
                 </CardDescription>
            </div>
            <div className="flex items-center gap-3">
@@ -447,5 +447,3 @@ function DeductionItem({ deduction, onRemove, onNoteChange, isReadOnly, getRelat
         </div>
     )
 }
-
-    
