@@ -87,12 +87,10 @@ const formSchema = z.object({
 
 const generateDayTimeSlots = () => {
     const slots = [];
-    for (let i = 8; i <= 18; i++) {
+    for (let i = 0; i < 24; i++) {
         const hour = String(i).padStart(2, '0');
         slots.push(`${hour}:00`);
-        if (i < 18) {
-             slots.push(`${hour}:30`);
-        }
+        slots.push(`${hour}:30`);
     }
     return slots;
 };
