@@ -177,13 +177,13 @@ export default function JudgingPage() {
 
   const tickRef = useRef<number | null>(null);
   
+    // --- Hook calls moved to top ---
   const isReadOnly = useMemo(() => {
       if (!run) return true;
       if (isAdmin) return false;
       return run.status === 'scored' || run.status === 'locked';
   }, [run, isAdmin]);
 
-  // --- Scoring Calculations ---
   const perAid = useMemo(() => {
     if (!run?.aidsPlanted || !run.detectionMax) return 0;
     return run.aidsPlanted > 0 ? run.detectionMax / run.aidsPlanted : 0;
@@ -213,6 +213,11 @@ export default function JudgingPage() {
   }, [run?.startAt]);
   
   const allAidsFound = useMemo(() => finds.length >= (run?.aidsPlanted || 0), [finds, run?.aidsPlanted]);
+  const existingDeductionNotes = useMemo(() => new Set(deductions.map(d => d.note)), [deductions]);
+  
+  const canStartRun = !isReadOnly && run?.status === 'scheduled';
+  const canStopRun = !isReadOnly && run?.status === 'in_progress';
+  const canSubmitScores = !isReadOnly && run?.status === 'paused';
 
   // --- Data Fetching ---
   useEffect(() => {
@@ -334,7 +339,7 @@ export default function JudgingPage() {
 
   if (loading || !run) {
       return (
-        <div className="flex flex-col gap-6 max-w-4xl mx-auto p-4 sm:p-6 lg:p-8">
+        <div className="flex flex-col gap-6 max-w-3xl mx-auto p-4 sm:p-6 lg:p-8">
             <div className="flex items-center gap-4">
                 <Skeleton className="h-10 w-10" />
                 <div className="space-y-2">
@@ -348,14 +353,8 @@ export default function JudgingPage() {
       )
   }
   
-  const canStartRun = !isReadOnly && run.status === 'scheduled';
-  const canStopRun = !isReadOnly && run.status === 'in_progress';
-  const canSubmitScores = !isReadOnly && run.status === 'paused';
-  
-  const existingDeductionNotes = new Set(deductions.map(d => d.note));
-
   return (
-    <div className="max-w-4xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6 pb-48">
+    <div className="max-w-3xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6 pb-48">
         <div className="flex items-center gap-4">
             <Button variant="outline" size="icon" asChild>
             <Link href={`/dashboard/events/${eventId}/schedule`}>
@@ -373,14 +372,14 @@ export default function JudgingPage() {
        <Card className={cn(canStopRun && "bg-destructive/5 border-destructive/20")}>
           <CardContent className="pt-6 flex items-center justify-center gap-4 md:gap-8">
               {canStartRun ? (
-                  <Button onClick={startRun} disabled={!canStartRun} size="lg" className="w-40 h-16 text-lg bg-green-600 hover:bg-green-700">
-                      <Play className="mr-2 h-6 w-6"/> Start
+                  <Button onClick={startRun} disabled={!canStartRun} size="lg" className="h-14 bg-green-600 hover:bg-green-700">
+                      <Play className="mr-2 h-5 w-5"/> Start
                   </Button>
               ) : canStopRun ? (
                    <AlertDialog>
                       <AlertDialogTrigger asChild>
-                          <Button size="lg" variant="destructive" className="w-40 h-16 text-lg animate-pulse" disabled={!canStopRun}>
-                              <Square className="mr-2 h-6 w-6"/> Stop
+                          <Button size="lg" variant="destructive" className="h-14 animate-pulse" disabled={!canStopRun}>
+                              <Square className="mr-2 h-5 w-5"/> Stop
                           </Button>
                       </AlertDialogTrigger>
                       <AlertDialogContent>
@@ -546,5 +545,3 @@ function Stat({ label, value, big }: { label: string; value: string; big?: boole
     </div>
   );
 }
-
-    
