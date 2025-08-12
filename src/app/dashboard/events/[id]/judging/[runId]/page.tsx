@@ -228,13 +228,13 @@ export default function JudgingPage() {
         setLoading(false);
     });
 
-    const unsubFinds = onSnapshot(query(collection(runRef, "finds"), orderBy("createdAt", "asc")), s => 
+    const unsubFinds = onSnapshot(query(collection(runRef, "finds"), orderBy("createdAt", "asc")), s => {
         setFinds(s.docs.map(d => ({ id: d.id, ...(d.data() as any) })))
-    );
+    });
     
-    const unsubDeductions = onSnapshot(query(collection(runRef, "deductions"), orderBy("createdAt", "asc")), s => 
+    const unsubDeductions = onSnapshot(query(collection(runRef, "deductions"), orderBy("createdAt", "asc")), s => {
         setDeductions(s.docs.map(d => ({ id: d.id, ...(d.data() as any) })))
-    );
+    });
 
     return () => { unsubRun(); unsubFinds(); unsubDeductions(); };
   }, [eventId, runId, router, toast, competitorData, arenaData]);
@@ -424,82 +424,79 @@ export default function JudgingPage() {
       </Card>
       
       {/* Main Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-1 space-y-6">
-             <Card>
-                <CardHeader>
-                    <CardTitle>Finds</CardTitle>
-                </CardHeader>
-                <CardContent className="flex flex-col gap-4 items-center">
-                    <Button onClick={addFind} disabled={isReadOnly || run.status !== 'in_progress'} className="h-24 w-full text-lg">
-                        Found Aid
-                    </Button>
-                    <div className="w-full">
-                        <ul className="space-y-1 text-sm text-muted-foreground list-decimal pl-5">
-                            {finds.map((f, i) => {
-                                const relativeTime = getRelativeTime(f.createdAt);
-                                return (
-                                    <li key={f.id} className="font-mono">
-                                        Find #{i + 1} at {relativeTime !== null ? formatClock(relativeTime) : "pending..."}
-                                        {i === 0 && <span className="ml-2 text-primary font-semibold">(first find)</span>}
-                                    </li>
-                                )
-                            })}
-                            {finds.length === 0 && <li className="list-none -ml-5 text-center">No finds logged yet.</li>}
-                        </ul>
-                    </div>
-                </CardContent>
-            </Card>
-             <Card>
-                <CardHeader>
-                    <CardTitle>False Alerts</CardTitle>
-                </CardHeader>
-                <CardContent className="text-center">
-                    <div className="flex items-center justify-center gap-2">
-                        <Button onClick={() => addFalseAlert(-1)} variant="outline" size="icon" className="h-12 w-12" disabled={isReadOnly}><Minus/></Button>
-                        <span className="font-mono text-5xl font-bold w-24 text-center">{run.falseAlerts || 0}</span>
-                        <Button onClick={() => addFalseAlert(1)} variant="outline" size="icon" className="h-12 w-12" disabled={isReadOnly}><Plus/></Button>
-                    </div>
-                    <p className="text-sm text-muted-foreground mt-2">Penalty: {run.falseAlertPenalty || 0} pts each</p>
-                </CardContent>
-            </Card>
-        </div>
-         <div className="lg:col-span-2 space-y-6">
-            <Card>
-                <CardHeader>
-                    <CardTitle>Teamwork Deductions</CardTitle>
-                    <CardDescription>Check items to apply a 1-point deduction.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <Accordion type="multiple" className="w-full space-y-2">
-                         {deductionCategories.map((cat, catIndex) => (
-                             <AccordionItem value={`item-${catIndex}`} key={cat.category} className="border rounded-md px-4">
-                                <AccordionTrigger>{cat.category}</AccordionTrigger>
-                                <AccordionContent className="space-y-2 pt-2">
-                                     {cat.items.map(item => (
-                                        <div key={item} className="flex items-center space-x-2 pl-2">
-                                            <Checkbox 
-                                                id={`deduction-${item.replace(/\s+/g, '-')}`}
-                                                checked={existingDeductionNotes.has(item)}
-                                                onCheckedChange={(checked) => handleDeductionChange(!!checked, item)}
-                                                disabled={isReadOnly || run.status !== 'in_progress'}
-                                            />
-                                            <label
-                                                htmlFor={`deduction-${item.replace(/\s+/g, '-')}`}
-                                                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                                            >
-                                               {item}
-                                            </label>
-                                        </div>
-                                     ))}
-                                </AccordionContent>
-                             </AccordionItem>
-                         ))}
-                    </Accordion>
-                </CardContent>
-            </Card>
-         </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <Card>
+            <CardHeader>
+                <CardTitle>Finds</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-4 items-center">
+                <Button onClick={addFind} disabled={isReadOnly || run.status !== 'in_progress'} className="h-24 w-full text-lg">
+                    Found Aid
+                </Button>
+                <div className="w-full">
+                    <ul className="space-y-1 text-sm text-muted-foreground list-decimal pl-5">
+                        {finds.map((f, i) => {
+                            const relativeTime = getRelativeTime(f.createdAt);
+                            return (
+                                <li key={f.id} className="font-mono">
+                                    Find #{i + 1} at {relativeTime !== null ? formatClock(relativeTime) : "pending..."}
+                                    {i === 0 && <span className="ml-2 text-primary font-semibold">(first find)</span>}
+                                </li>
+                            )
+                        })}
+                        {finds.length === 0 && <li className="list-none -ml-5 text-center">No finds logged yet.</li>}
+                    </ul>
+                </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+                <CardTitle>False Alerts</CardTitle>
+            </CardHeader>
+            <CardContent className="text-center">
+                <div className="flex items-center justify-center gap-2">
+                    <Button onClick={() => addFalseAlert(-1)} variant="outline" size="icon" className="h-12 w-12" disabled={isReadOnly}><Minus/></Button>
+                    <span className="font-mono text-5xl font-bold w-24 text-center">{run.falseAlerts || 0}</span>
+                    <Button onClick={() => addFalseAlert(1)} variant="outline" size="icon" className="h-12 w-12" disabled={isReadOnly}><Plus/></Button>
+                </div>
+                <p className="text-sm text-muted-foreground mt-2">Penalty: {run.falseAlertPenalty || 0} pts each</p>
+            </CardContent>
+          </Card>
       </div>
+      
+      <Card>
+          <CardHeader>
+              <CardTitle>Teamwork Deductions</CardTitle>
+              <CardDescription>Check items to apply a 1-point deduction.</CardDescription>
+          </CardHeader>
+          <CardContent>
+              <Accordion type="multiple" className="w-full space-y-2">
+                   {deductionCategories.map((cat, catIndex) => (
+                       <AccordionItem value={`item-${catIndex}`} key={cat.category} className="border rounded-md px-4">
+                          <AccordionTrigger>{cat.category}</AccordionTrigger>
+                          <AccordionContent className="space-y-2 pt-2">
+                               {cat.items.map(item => (
+                                  <div key={item} className="flex items-center space-x-2 pl-2">
+                                      <Checkbox 
+                                          id={`deduction-${item.replace(/\s+/g, '-')}`}
+                                          checked={existingDeductionNotes.has(item)}
+                                          onCheckedChange={(checked) => handleDeductionChange(!!checked, item)}
+                                          disabled={isReadOnly || run.status !== 'in_progress'}
+                                      />
+                                      <label
+                                          htmlFor={`deduction-${item.replace(/\s+/g, '-')}`}
+                                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                                      >
+                                         {item}
+                                      </label>
+                                  </div>
+                               ))}
+                          </AccordionContent>
+                       </AccordionItem>
+                   ))}
+              </Accordion>
+          </CardContent>
+      </Card>
       
       <div className="sticky bottom-0 bg-background/95 backdrop-blur-sm border-t -mx-4 -mb-4 sm:-mx-6 sm:-mb-6 lg:-mx-8 lg:-mb-8">
         <div className="max-w-4xl mx-auto p-4">
