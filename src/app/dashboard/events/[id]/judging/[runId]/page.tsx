@@ -53,6 +53,13 @@ type RunData = {
 type Find = { id: string; createdAt?: any };
 type Deduction = { id: string; points: number; note?: string; createdAt?: any };
 
+function formatClock(s: number) {
+    if (!Number.isFinite(s)) return '00:00';
+    const m = Math.floor(s / 60).toString().padStart(2, "0");
+    const sec = (s % 60).toString().padStart(2, "0");
+    return `${m}:${sec}`;
+};
+
 export default function JudgingPage() {
   const params = useParams();
   const router = useRouter();
@@ -167,11 +174,12 @@ export default function JudgingPage() {
     return Math.max(Math.floor((endMs - startMs) / 1000), 0);
   }, [run?.startAt, run?.endAt, now]);
   
-  const formatClock = (s: number) => {
-    const m = Math.floor(s / 60).toString().padStart(2, "0");
-    const sec = (s % 60).toString().padStart(2, "0");
-    return `${m}:${sec}`;
-  };
+  const getRelativeTime = useCallback((timestamp: any) => {
+    if (!timestamp || !run?.startAt) return null;
+    const startMs = run.startAt.toMillis ? run.startAt.toMillis() : Date.parse(run.startAt);
+    const eventMs = timestamp.toMillis ? timestamp.toMillis() : Date.parse(timestamp);
+    return Math.max(Math.floor((eventMs - startMs) / 1000), 0);
+  }, [run?.startAt]);
 
   // --- Actions ---
   const runRef = doc(db, `events/${eventId}/runs`, runId);
@@ -302,12 +310,15 @@ export default function JudgingPage() {
                     </Button>
                     <div className="flex-grow w-full">
                         <ul className="space-y-1 text-sm text-muted-foreground list-decimal pl-5">
-                            {finds.map((f, i) => (
-                                <li key={f.id} className="font-mono">
-                                    {f.createdAt?.toDate?.().toLocaleTimeString?.() || "pending..."}
-                                    {i === 0 && <span className="ml-2 text-primary font-semibold">(first find)</span>}
-                                </li>
-                            ))}
+                            {finds.map((f, i) => {
+                                const relativeTime = getRelativeTime(f.createdAt);
+                                return (
+                                    <li key={f.id} className="font-mono">
+                                        Find #{i + 1} at {relativeTime !== null ? formatClock(relativeTime) : "pending..."}
+                                        {i === 0 && <span className="ml-2 text-primary font-semibold">(first find)</span>}
+                                    </li>
+                                )
+                            })}
                             {finds.length === 0 && <li className="list-none -ml-5">No finds logged yet.</li>}
                         </ul>
                     </div>
@@ -323,7 +334,7 @@ export default function JudgingPage() {
                 <CardContent className="space-y-2">
                     {deductions.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">No deductions logged.</p>}
                     {deductions.map(d => (
-                        <DeductionItem key={d.id} deduction={d} onRemove={removeDeduction} onNoteChange={updateDeductionNote} isReadOnly={isReadOnly} />
+                        <DeductionItem key={d.id} deduction={d} onRemove={removeDeduction} onNoteChange={updateDeductionNote} isReadOnly={isReadOnly} getRelativeTime={getRelativeTime} />
                     ))}
                 </CardContent>
             </Card>
@@ -370,7 +381,7 @@ function Stat({ label, value, big }: { label: string; value: string; big?: boole
   );
 }
 
-function DeductionItem({ deduction, onRemove, onNoteChange, isReadOnly }: { deduction: Deduction, onRemove: (id: string) => void, onNoteChange: (id: string, note: string) => void, isReadOnly: boolean }) {
+function DeductionItem({ deduction, onRemove, onNoteChange, isReadOnly, getRelativeTime }: { deduction: Deduction, onRemove: (id: string) => void, onNoteChange: (id: string, note: string) => void, isReadOnly: boolean, getRelativeTime: (ts: any) => number | null }) {
     const [showNote, setShowNote] = useState(!!deduction.note);
     const noteRef = useRef<HTMLTextAreaElement>(null);
     
@@ -385,10 +396,12 @@ function DeductionItem({ deduction, onRemove, onNoteChange, isReadOnly }: { dedu
         }
     }, [showNote, deduction.note]);
 
+    const relativeTime = getRelativeTime(deduction.createdAt);
+
     return (
         <div className="bg-muted/50 p-3 rounded-lg">
             <div className="flex items-center justify-between">
-                <div className="font-medium">1pt Deduction <span className="text-xs text-muted-foreground font-mono">({deduction.createdAt?.toDate?.().toLocaleTimeString()})</span></div>
+                <div className="font-medium">1pt Deduction <span className="text-xs text-muted-foreground font-mono">(at {relativeTime !== null ? formatClock(relativeTime) : 'pending...'})</span></div>
                  <div className="flex items-center gap-1">
                     {!isReadOnly && !showNote && (
                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => setShowNote(true)}>
