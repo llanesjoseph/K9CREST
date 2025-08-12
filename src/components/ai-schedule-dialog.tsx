@@ -4,7 +4,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Wand2, Loader2, AlertTriangle, FileCheck2 } from 'lucide-react';
 import { format } from 'date-fns';
-import { collection, writeBatch, doc, getDocs } from 'firebase/firestore';
+import { collection, writeBatch, doc, getDocs, getDoc } from 'firebase/firestore';
 
 import {
   Dialog,
@@ -47,12 +47,23 @@ export function AiScheduleDialog({ eventId, arenas, competitors, eventDays, curr
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
   const contentRef = useRef<HTMLDivElement>(null);
+  const [eventDetails, setEventDetails] = useState<any>(null);
 
   useEffect(() => {
     if (isOpen) {
       setTimeout(() => contentRef.current?.focus(), 0);
+      
+      const fetchEventDetails = async () => {
+        if (!eventId) return;
+        const eventRef = doc(db, 'events', eventId);
+        const docSnap = await getDoc(eventRef);
+        if (docSnap.exists()) {
+          setEventDetails(docSnap.data());
+        }
+      };
+      fetchEventDetails();
     }
-  }, [isOpen]);
+  }, [isOpen, eventId]);
 
   const handleOpenChange = (open: boolean) => {
       setIsOpen(open);
@@ -91,7 +102,12 @@ export function AiScheduleDialog({ eventId, arenas, competitors, eventDays, curr
             bibNumber: c.bibNumber,
           }));
           
-          const timeSlots = generateTimeSlots();
+          const timeSlots = generateTimeSlots({ 
+            duration: eventDetails?.scheduleBlockDuration, 
+            lunchBreak: eventDetails?.lunchBreak,
+            eventStartTime: eventDetails?.eventStartTime,
+            eventEndTime: eventDetails?.eventEndTime,
+          });
 
           const payload = {
               competitors: sanitizedCompetitors,
@@ -106,9 +122,8 @@ export function AiScheduleDialog({ eventId, arenas, competitors, eventDays, curr
                throw new Error("The API did not return a valid schedule. Please try again.");
           }
           
-          if (result.schedule.length === 0 && result.diagnostics?.unplacedRuns?.length > 0) {
-              const { unplacedRuns, requiredRuns } = result.diagnostics;
-              setError(`Could not create a full schedule. ${unplacedRuns.length} of ${requiredRuns} runs could not be placed. Common reason: Not enough compatible arena time slots available.`);
+          if (result.schedule.length === 0) {
+              setError(`Could not create a full schedule. This may be due to not having enough compatible arena time slots for all required runs.`);
               setStep(ScheduleStep.Error);
               return;
           }
@@ -124,7 +139,7 @@ export function AiScheduleDialog({ eventId, arenas, competitors, eventDays, curr
           
           result.schedule.forEach((run: any) => {
               const docRef = doc(scheduleCollection);
-              batch.set(docRef, { ...run, id: docRef.id });
+              batch.set(docRef, { ...run, id: docRef.id, status: 'scheduled' });
           });
 
           await batch.commit();
