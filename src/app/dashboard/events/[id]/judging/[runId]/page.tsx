@@ -1,463 +1,371 @@
 
 "use client";
 
-import { useForm, Controller } from "react-hook-form";
-import Link from "next/link";
-import { ChevronLeft, Save, Loader2, Play, Square, TimerIcon, Gavel } from "lucide-react";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { doc, onSnapshot, updateDoc, addDoc, collection, serverTimestamp, getDocs, deleteDoc, writeBatch, query, where, setDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { useToast } from "@/hooks/use-toast";
+import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { ChevronLeft, Gavel, Loader2, Play, Square, TimerIcon, Plus, Minus, Trash2 } from "lucide-react";
+import { useAuth } from "@/components/auth-provider";
+import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
-import { useToast } from "@/hooks/use-toast";
-import { Switch } from "@/components/ui/switch";
-import { Textarea } from "@/components/ui/textarea";
-import { useParams, useRouter } from "next/navigation";
-import { useEffect, useState, useRef } from "react";
-import { doc, getDoc, updateDoc, serverTimestamp } from "firebase/firestore";
-import { db } from "@/lib/firebase";
-import { Skeleton } from "@/components/ui/skeleton";
-import { useAuth } from "@/components/auth-provider";
+import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
-interface JudgingFormValues {
-    scores: {
-        phaseName: string;
-        exercises: {
-            exerciseName: string;
-            score: number | boolean;
-            type: string;
-            maxPoints?: number;
-        }[];
-    }[];
-    notes: string;
-    totalTime: number;
-}
+
+const two = (n: number) => Number.isFinite(n) ? Number(n.toFixed(2)) : 0;
+const clamp = (val: number, min: number, max: number) => Math.max(min, Math.min(val, max));
+
+type RunData = {
+  id: string;
+  detectionMax?: number;
+  teamworkMax?: number;
+  aidsPlanted?: number;
+  falseAlertPenalty?: number;
+  falseAlerts?: number;
+  startAt?: any; // Firestore Timestamp
+  endAt?: any;   // Firestore Timestamp
+  status: "scheduled" | "in_progress" | "scored" | "locked";
+  competitorId?: string;
+  arenaId?: string;
+  judgeName?: string;
+  totalTime?: number;
+};
+
+type Deduction = { id: string; label: string; points: number; applied: boolean };
+type Find = { id: string; createdAt?: any };
 
 export default function JudgingPage() {
-  const { toast } = useToast();
-  const router = useRouter();
   const params = useParams();
+  const router = useRouter();
+  const { toast } = useToast();
   const { user, isAdmin } = useAuth();
+  
   const eventId = params.id as string;
   const runId = params.runId as string;
-  
+
+  const [run, setRun] = useState<RunData | null>(null);
+  const [deductions, setDeductions] = useState<Deduction[]>([]);
+  const [finds, setFinds] = useState<Find[]>([]);
+  const [now, setNow] = useState(Date.now());
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [eventData, setEventData] = useState<any>(null);
-  const [runData, setRunData] = useState<any>(null);
+  
   const [competitorData, setCompetitorData] = useState<any>(null);
   const [arenaData, setArenaData] = useState<any>(null);
   const [rubricData, setRubricData] = useState<any>(null);
+
+  const tickRef = useRef<number | null>(null);
   
-  // Stopwatch state
-  const [isTimerRunning, setIsTimerRunning] = useState(false);
-  const [elapsedTime, setElapsedTime] = useState(0); // in milliseconds
-  const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const [actualStartTime, setActualStartTime] = useState<Date | null>(null);
+  const isReadOnly = useMemo(() => {
+      if (!run) return true;
+      if (isAdmin) return false;
+      return run.status === 'scored' || run.status === 'locked';
+  }, [run, isAdmin]);
 
-  const [isReadOnly, setIsReadOnly] = useState(false);
-  const pageTitle = isReadOnly ? "View Scorecard" : "Judge Scoring Interface";
-
-
-  const form = useForm<JudgingFormValues>({
-      defaultValues: { scores: [], notes: "", totalTime: 0 }
-  });
-  
-  useEffect(() => {
-      return () => {
-          if (timerIntervalRef.current) {
-              clearInterval(timerIntervalRef.current);
-          }
-      };
-  }, []);
-  
-    useEffect(() => {
-        if (isTimerRunning) {
-            const startTime = Date.now() - elapsedTime;
-            timerIntervalRef.current = setInterval(() => {
-                setElapsedTime(Date.now() - startTime);
-            }, 100);
-        } else {
-            if (timerIntervalRef.current) {
-                clearInterval(timerIntervalRef.current);
-            }
-        }
-    }, [isTimerRunning]);
-
+  // --- Data Fetching ---
   useEffect(() => {
     if (!eventId || !runId) return;
-
-    const fetchData = async () => {
-      try {
-        const runRef = doc(db, `events/${eventId}/schedule`, runId);
-        const runSnap = await getDoc(runRef);
-
-        if (!runSnap.exists()) {
-            throw new Error("Run not found for this event.");
-        }
-        
-        const run = runSnap.data();
-        
-        if (run.status === 'scored' && !isAdmin) {
-            setIsReadOnly(true);
-        }
-        
-        const eventRef = doc(db, 'events', eventId);
-        const eventSnap = await getDoc(eventRef);
-        if (!eventSnap.exists()) throw new Error("Event not found.");
-        const event = eventSnap.data();
-
-        // Fetch all related data in parallel
-        const [competitorSnap, arenaSnap] = await Promise.all([
-             run.competitorId ? getDoc(doc(db, `events/${eventId}/competitors`, run.competitorId)) : null,
-             run.arenaId ? getDoc(doc(db, `events/${eventId}/arenas`, run.arenaId)) : null,
-        ]);
-        
-        setEventData(event);
-        setRunData(run);
-        
-        if(competitorSnap?.exists()) {
-             setCompetitorData(competitorSnap.data());
-        }
-
-        let finalRubric = null;
-        if(arenaSnap?.exists()) {
-            const arena = arenaSnap.data();
-            setArenaData(arena);
-            if (arena.rubricId) {
-                const rubricRef = doc(db, 'rubrics', arena.rubricId);
-                const rubricSnap = await getDoc(rubricRef);
-                if (rubricSnap.exists()) {
-                    finalRubric = rubricSnap.data();
-                    setRubricData(finalRubric);
-                }
-            }
-        }
-
-        if (!finalRubric) {
-            console.warn("No rubric assigned to this arena.");
-        }
-        
-        // Initialize form with rubric structure and existing scores
-        const initialScores = (finalRubric?.phases || []).map((phase: any) => ({
-          phaseName: phase.name,
-          exercises: phase.exercises.map((ex: any) => {
-            const existingPhase = run.scores?.find((s:any) => s.phaseName === phase.name);
-            const existingExercise = existingPhase?.exercises.find((e:any) => e.exerciseName === ex.name);
-            
-            let defaultScore: number | boolean = 0;
-            if (ex.type === 'pass/fail') defaultScore = 0;
-            if (ex.type === 'time') defaultScore = 0.0;
-            
-            return {
-              exerciseName: ex.name,
-              score: existingExercise?.score ?? defaultScore,
-              type: ex.type,
-              maxPoints: ex.maxPoints,
-            }
-          }),
-        }));
-        
-        const initialTime = run.totalTime || 0;
-        setElapsedTime(initialTime * 1000); // Convert seconds to ms
-        if (run.actualStartTime) {
-            setActualStartTime(run.actualStartTime.toDate());
-        }
-
-
-        form.reset({
-            scores: initialScores,
-            notes: run.notes || '',
-            totalTime: initialTime,
-        });
-
-      } catch (error) {
-        console.error(error);
-        toast({
-          variant: "destructive",
-          title: "Error Loading Data",
-          description: "Could not load run data. Please go back and try again.",
-        });
-        router.push(`/dashboard/events/${eventId}`);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, [eventId, runId, toast, form, router, isAdmin]);
-  
-  const handleStartTimer = () => {
-    if(!isReadOnly) {
-        if (!isTimerRunning && elapsedTime === 0) {
-            setActualStartTime(new Date());
-        }
-        setIsTimerRunning(true);
-    }
-  }
-
-  const handleStopTimer = () => {
-    if(!isReadOnly) {
-        setIsTimerRunning(false);
-        form.setValue('totalTime', elapsedTime / 1000, { shouldDirty: true });
-    }
-  }
-
-  async function onSubmit(data: JudgingFormValues) {
-    if(!runId || !eventId || isReadOnly || !user) return;
-    setIsSubmitting(true);
     
-    // Make sure timer is stopped and final time is recorded before submitting
-    if (isTimerRunning) {
-        setIsTimerRunning(false);
-    }
-    const finalTime = isTimerRunning ? (elapsedTime / 1000) : form.getValues('totalTime');
-
-    try {
-        const runRef = doc(db, `events/${eventId}/schedule`, runId);
-        
-        const updateData: any = {
-            scores: data.scores,
-            notes: data.notes,
-            totalTime: finalTime,
-            status: 'scored',
-            judgeId: user.uid,
-            judgeName: user.displayName || user.email,
-            scoredAt: serverTimestamp(),
-        };
-
-        if(actualStartTime && !runData.actualStartTime) {
-            updateData.actualStartTime = actualStartTime;
+    const runRef = doc(db, `events/${eventId}/runs`, runId);
+    
+    const unsubRun = onSnapshot(runRef, async (s) => {
+        if (!s.exists()) {
+             toast({ variant: "destructive", title: "Error", description: "Run not found." });
+             router.push(`/dashboard/events/${eventId}/schedule`);
+             return;
         }
+        const runData = { id: s.id, ...s.data() } as RunData;
+        setRun(runData);
 
-        await updateDoc(runRef, updateData);
-        
-        toast({
-            title: "Scores Submitted!",
-            description: "Scores have been successfully saved.",
-        });
-        router.push(`/dashboard/events/${eventId}/schedule`);
-        
-    } catch (error) {
-        console.error(error);
-        toast({
-            variant: "destructive",
-            title: "Submission Error",
-            description: "Failed to save scores. Please try again."
-        })
-    } finally {
-        setIsSubmitting(false);
+        // Fetch related data once
+        if (!competitorData && runData.competitorId) {
+            const competitorSnap = await getDoc(doc(db, `events/${eventId}/competitors`, runData.competitorId));
+            if(competitorSnap.exists()) setCompetitorData(competitorSnap.data());
+        }
+        if (!arenaData && runData.arenaId) {
+            const arenaSnap = await getDoc(doc(db, `events/${eventId}/arenas`, runData.arenaId));
+            if(arenaSnap.exists()) setArenaData(arenaSnap.data());
+        }
+    });
+
+    const unsubDed = onSnapshot(collection(runRef, "deductions"), s => 
+        setDeductions(s.docs.map(d => ({ id: d.id, ...(d.data() as any) })))
+    );
+
+    const unsubFinds = onSnapshot(query(collection(runRef, "finds")), s => 
+        setFinds(s.docs.map(d => ({ id: d.id, ...(d.data() as any) }))
+            .sort((a,b) => (a.createdAt?.toMillis?.() || 0) - (b.createdAt?.toMillis?.() || 0))
+    ));
+    
+    setLoading(false);
+    return () => { unsubRun(); unsubDed(); unsubFinds(); };
+  }, [eventId, runId, router, toast, competitorData, arenaData]);
+
+  // --- Timer Logic ---
+  useEffect(() => {
+    if (run?.status === "in_progress") {
+      tickRef.current = window.setInterval(() => setNow(Date.now()), 200);
+    } else if (tickRef.current) {
+      window.clearInterval(tickRef.current);
+      tickRef.current = null;
     }
-  }
+    return () => { if (tickRef.current) window.clearInterval(tickRef.current); };
+  }, [run?.status]);
 
-  if(loading) {
+  // --- Scoring Calculations ---
+  const perAid = useMemo(() => {
+    if (!run?.aidsPlanted || !run.detectionMax) return 0;
+    return run.aidsPlanted > 0 ? run.detectionMax / run.aidsPlanted : 0;
+  }, [run]);
+
+  const detectionScore = useMemo(() => two(Math.min(finds.length, run?.aidsPlanted || 0) * perAid), [finds, run, perAid]);
+  const deductionsTotal = useMemo(() => two(deductions.filter(d => d.applied).reduce((s, d) => s + (d.points || 0), 0)), [deductions]);
+  const teamworkScore = useMemo(() => two(clamp((run?.teamworkMax || 0) - deductionsTotal, 0, run?.teamworkMax || 0)), [run, deductionsTotal]);
+  const falseTotal = useMemo(() => two((run?.falseAlerts || 0) * (run?.falseAlertPenalty || 0)), [run]);
+  const preliminary = useMemo(() => two(detectionScore + teamworkScore), [detectionScore, teamworkScore]);
+  const totalMax = (run?.detectionMax || 0) + (run?.teamworkMax || 0);
+  const totalScore = useMemo(() => two(clamp(preliminary - falseTotal, 0, totalMax)), [preliminary, falseTotal, totalMax]);
+
+  const elapsed = useMemo(() => {
+    if (!run?.startAt) return 0;
+    const startMs = run.startAt.toMillis ? run.startAt.toMillis() : Date.parse(run.startAt);
+    const endMs = run?.endAt ? (run.endAt.toMillis ? run.endAt.toMillis() : Date.parse(run.endAt)) : now;
+    return Math.max(Math.floor((endMs - startMs) / 1000), 0);
+  }, [run?.startAt, run?.endAt, now]);
+  
+  const formatClock = (s: number) => {
+    const m = Math.floor(s / 60).toString().padStart(2, "0");
+    const sec = (s % 60).toString().padStart(2, "0");
+    return `${m}:${sec}`;
+  };
+
+  // --- Actions ---
+  const runRef = doc(db, `events/${eventId}/runs`, runId);
+
+  const startRun = async () => {
+      if(isReadOnly) return;
+      await updateDoc(runRef, { status: "in_progress", startAt: serverTimestamp(), actualStartTime: serverTimestamp() });
+  };
+  const endRun = async () => {
+      if(isReadOnly) return;
+      await updateDoc(runRef, { status: "scored", endAt: serverTimestamp() });
+  };
+  const addFind = async () => {
+      if(isReadOnly) return;
+      await addDoc(collection(runRef, "finds"), { createdAt: serverTimestamp() });
+  };
+  const addFalseAlert = async (delta: number) => {
+      if(isReadOnly) return;
+      const next = Math.max((run?.falseAlerts || 0) + delta, 0);
+      await updateDoc(runRef, { falseAlerts: next });
+  };
+  const setDeduction = async (id: string, patch: Partial<Deduction>) => {
+      if(isReadOnly) return;
+      await setDoc(doc(runRef, "deductions", id), patch, { merge: true });
+  };
+  const addDeductionRow = async () => {
+    if(isReadOnly) return;
+    await addDoc(collection(runRef, "deductions"), { label: "Custom deduction", points: 0, applied: false });
+  };
+   const removeDeductionRow = async (id: string) => {
+    if(isReadOnly) return;
+    await deleteDoc(doc(runRef, "deductions", id));
+  };
+
+  if (loading || !run) {
       return (
         <div className="flex flex-col gap-6 max-w-4xl mx-auto">
-            <Skeleton className="h-10 w-1/2" />
-            <Skeleton className="h-24 w-full" />
-            <Card>
-                <CardHeader><Skeleton className="h-8 w-1/3" /></CardHeader>
-                <CardContent className="space-y-4">
-                    <div className="flex items-center justify-between"><Skeleton className="h-6 w-1/4" /><Skeleton className="h-10 w-1/3" /></div>
-                    <div className="flex items-center justify-between"><Skeleton className="h-6 w-1/4" /><Skeleton className="h-10 w-1/3" /></div>
-                </CardContent>
-            </Card>
-             <Card>
-                <CardHeader><Skeleton className="h-8 w-1/3" /></CardHeader>
-                <CardContent>
-                    <Skeleton className="h-24 w-full" />
-                </CardContent>
-            </Card>
+            <div className="flex items-center gap-4">
+                <Skeleton className="h-10 w-10" />
+                <div className="space-y-2">
+                    <Skeleton className="h-6 w-48" />
+                    <Skeleton className="h-4 w-32" />
+                </div>
+            </div>
+             <Skeleton className="h-24 w-full" />
+             <Skeleton className="h-64 w-full" />
         </div>
       )
   }
-  
-  const formatTime = (timeInMs: number) => {
-    const totalSeconds = timeInMs / 1000;
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = Math.floor(totalSeconds % 60);
-    const milliseconds = Math.floor((totalSeconds * 10) % 10);
-    return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}.${milliseconds}`;
-  };
 
   return (
-    <div className="flex flex-col gap-6 max-w-4xl mx-auto">
-      <div className="flex items-center gap-4">
-        <Button variant="outline" size="icon" asChild>
-          <Link href={`/dashboard/events/${eventId}/schedule`}>
-            <ChevronLeft className="h-4 w-4" />
-          </Link>
-        </Button>
-        <div>
-            <h1 className="text-2xl font-semibold">{pageTitle}</h1>
-            <p className="text-muted-foreground">Event: {eventData?.name || '...'}</p>
+    <div className="max-w-4xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
+        <div className="flex items-center gap-4">
+            <Button variant="outline" size="icon" asChild>
+            <Link href={`/dashboard/events/${eventId}/schedule`}>
+                <ChevronLeft className="h-4 w-4" />
+            </Link>
+            </Button>
+            <div>
+                <h1 className="text-2xl font-semibold">Scoring Interface</h1>
+                <p className="text-muted-foreground">
+                    {competitorData?.name || '...'} with {competitorData?.dogName || '...'} in {arenaData?.name || '...'}
+                </p>
+            </div>
+      </div>
+      
+      {/* Header Card */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+           <div>
+                <CardTitle>Live Scoring</CardTitle>
+                <CardDescription className="text-sm">
+                    Per Aid: {two(perAid)} pts &bull; Aids Planted: {run.aidsPlanted} &bull; False Alert: -{run.falseAlertPenalty} pts
+                </CardDescription>
+           </div>
+           <div className="flex items-center gap-3">
+                <div className="font-mono text-3xl font-bold text-primary tracking-tighter">
+                    <TimerIcon className="inline h-6 w-6 mr-2" />
+                    {formatClock(elapsed)}
+                </div>
+                {run.status !== "in_progress" ? (
+                    <Button onClick={startRun} disabled={isReadOnly} className="w-28 bg-green-600 hover:bg-green-700">
+                        <Play className="mr-2 h-4 w-4"/> Start
+                    </Button>
+                 ) : (
+                    <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                             <Button variant="destructive" className="w-28" disabled={isReadOnly}><Square className="mr-2 h-4 w-4"/> End</Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                            <AlertDialogHeader>
+                            <AlertDialogTitle>End Run?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                This will stop the timer and finalize the run. You can still edit scores after ending the run.
+                            </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={endRun}>Yes, End Run</AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
+                 )}
+           </div>
+        </CardHeader>
+      </Card>
+      
+      {/* Main Content */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left Column */}
+        <div className="lg:col-span-2 space-y-6">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Finds</CardTitle>
+                </CardHeader>
+                <CardContent className="flex flex-col sm:flex-row gap-4 items-start">
+                    <Button onClick={addFind} disabled={isReadOnly || run.status !== 'in_progress'} className="h-24 w-full sm:w-48 text-lg">
+                        Found Aid
+                    </Button>
+                    <div className="flex-grow w-full">
+                        <ul className="space-y-1 text-sm text-muted-foreground list-disc pl-5">
+                            {finds.map((f, i) => (
+                                <li key={f.id} className="font-mono">
+                                    {f.createdAt?.toDate?.().toLocaleTimeString?.() || "pending..."}
+                                    {i === 0 && <span className="ml-2 text-primary font-semibold">(first find)</span>}
+                                </li>
+                            ))}
+                            {finds.length === 0 && <li>No finds logged yet.</li>}
+                        </ul>
+                    </div>
+                </CardContent>
+            </Card>
+
+            <Card>
+                <CardHeader>
+                    <CardTitle>Teamwork Deductions</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <div className="space-y-3">
+                         {deductions.map(d => (
+                            <div key={d.id} className="grid grid-cols-[auto_1fr_auto_auto] items-center gap-3">
+                               <Checkbox 
+                                    checked={!!d.applied} 
+                                    onCheckedChange={c => setDeduction(d.id, { applied: !!c })} 
+                                    disabled={isReadOnly}
+                                />
+                               <Input 
+                                    value={d.label} 
+                                    onChange={e => setDeduction(d.id, { label: e.target.value })} 
+                                    placeholder="Deduction reason..."
+                                    className="h-9"
+                                    readOnly={isReadOnly}
+                                />
+                               <Input 
+                                    type="number" 
+                                    min={0} value={d.points || 0} 
+                                    onChange={e => setDeduction(d.id, { points: Number(e.target.value) || 0 })} 
+                                    className="w-24 h-9 text-right"
+                                    readOnly={isReadOnly}
+                                />
+                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => removeDeductionRow(d.id)} disabled={isReadOnly}>
+                                    <Trash2 className="h-4 w-4 text-muted-foreground" />
+                                </Button>
+                            </div>
+                         ))}
+                    </div>
+                    <Button onClick={addDeductionRow} variant="outline" size="sm" className="mt-4" disabled={isReadOnly}>
+                        <Plus className="mr-2 h-4 w-4" /> Add Deduction
+                    </Button>
+                </CardContent>
+            </Card>
+        </div>
+        
+        {/* Right Column */}
+        <div className="space-y-6">
+            <Card>
+                <CardHeader>
+                    <CardTitle>False Alerts</CardTitle>
+                </CardHeader>
+                <CardContent className="text-center">
+                    <div className="flex items-center justify-center gap-2">
+                        <Button onClick={() => addFalseAlert(-1)} variant="outline" size="icon" className="h-12 w-12" disabled={isReadOnly}><Minus/></Button>
+                        <span className="font-mono text-5xl font-bold w-24 text-center">{run.falseAlerts || 0}</span>
+                        <Button onClick={() => addFalseAlert(1)} variant="outline" size="icon" className="h-12 w-12" disabled={isReadOnly}><Plus/></Button>
+                    </div>
+                    <p className="text-sm text-muted-foreground mt-2">Penalty: {run.falseAlertPenalty || 0} pts each</p>
+                </CardContent>
+            </Card>
         </div>
       </div>
+      
+      {/* Sticky Footer */}
+      <div className="sticky bottom-0 bg-background/95 backdrop-blur-sm border-t -mx-4 -mb-4 sm:-mx-6 sm:-mb-6 lg:-mx-8 lg:-mb-8">
+        <div className="max-w-4xl mx-auto p-4">
+             <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-center">
+                 <Stat label="Detection" value={`${detectionScore} / ${run.detectionMax || 0}`} />
+                 <Stat label="Teamwork" value={`${teamworkScore} / ${run.teamworkMax || 0}`} />
+                 <Stat label="Preliminary" value={`${preliminary}`} />
+                 <Stat label="Minus False Alerts" value={`-${falseTotal}`} />
+                 <Stat label="Total Score" value={`${totalScore} / ${totalMax}`} big />
+             </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Run Details</CardTitle>
-          <CardDescription>
-            {competitorData?.bibNumber && <span className="font-bold text-primary mr-2">#{competitorData.bibNumber}</span>}
-            Scoring for <span className="font-bold">{competitorData?.name || '...'}</span> with{" "}
-            <span className="font-bold">{competitorData?.dogName || '...'}</span> in Arena: <span className="font-bold">{arenaData?.name || '...'}</span>
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-            <div className="grid grid-cols-2 gap-4 text-sm">
-                <div className="flex items-center gap-2 bg-muted/50 p-3 rounded-lg">
-                    <span>Scheduled Time: <span className="font-medium text-foreground">{runData.startTime}</span></span>
-                </div>
-                 {runData?.judgeName && (
-                    <div className="text-sm text-muted-foreground flex items-center gap-2 bg-muted/50 p-3 rounded-lg">
-                        <Gavel className="h-4 w-4" />
-                        <span>Scored by: <span className="font-medium text-foreground">{runData.judgeName}</span></span>
-                    </div>
-                )}
-            </div>
-        </CardContent>
-      </Card>
-
-       <Card className={cn("border-primary/50", isTimerRunning && "bg-yellow-50 dark:bg-yellow-900/10")}>
-            <CardContent className="pt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-                <div className="flex items-center gap-3 text-primary">
-                    <TimerIcon className="h-8 w-8" />
-                    <span className="font-mono text-5xl tracking-tighter">
-                        {formatTime(elapsedTime)}
-                    </span>
-                </div>
-                {!isReadOnly && (
-                  <div className="flex items-center gap-2">
-                    <Button onClick={handleStartTimer} disabled={isTimerRunning} size="lg" className="w-40 bg-green-600 hover:bg-green-700">
-                        <Play className="mr-2" /> Start Run
-                    </Button>
-                    <Button onClick={handleStopTimer} disabled={!isTimerRunning} size="lg" variant="destructive" className="w-40">
-                        <Square className="mr-2" /> Stop Run
-                    </Button>
-                  </div>
-                )}
-            </CardContent>
-        </Card>
-
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        {!rubricData?.phases || rubricData.phases.length === 0 ? (
-          <Card>
-            <CardHeader>
-                <CardTitle>No Rubric Assigned</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-center text-muted-foreground py-8">
-                The scoring rubric for this arena has not been configured yet.
-              </p>
-            </CardContent>
-          </Card>
-        ) : (
-          form.getValues('scores').map((phase, phaseIndex) => (
-            <Card key={phase.phaseName}>
-              <CardHeader>
-                <CardTitle>{phase.phaseName}</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {phase.exercises.map((exercise, exerciseIndex) => (
-                  <div key={exercise.exerciseName}>
-                    <div className="grid grid-cols-3 items-center gap-4">
-                      <Label htmlFor={`${phase.phaseName}-${exercise.exerciseName}`} className="col-span-2">
-                        {exercise.exerciseName}
-                      </Label>
-                      {exercise.type === "points" && (
-                        <div className="flex items-center gap-2">
-                          <Input
-                            id={`${phase.phaseName}-${exercise.exerciseName}`}
-                            type="number"
-                            placeholder="0"
-                            className="text-right"
-                            max={exercise.maxPoints}
-                            readOnly={isReadOnly}
-                            {...form.register(`scores.${phaseIndex}.exercises.${exerciseIndex}.score`)}
-                          />
-                          <span className="text-sm text-muted-foreground">
-                            / {exercise.maxPoints} pts
-                          </span>
-                        </div>
-                      )}
-                      {exercise.type === "time" && (
-                        <div className="flex items-center gap-2">
-                          <Input
-                            id={`${phase.phaseName}-${exercise.exerciseName}`}
-                            type="number"
-                            placeholder="0.00"
-                            step="0.01"
-                            className="text-right"
-                            readOnly={isReadOnly}
-                             {...form.register(`scores.${phaseIndex}.exercises.${exerciseIndex}.score`)}
-                          />
-                          <span className="text-sm text-muted-foreground">
-                            seconds
-                          </span>
-                        </div>
-                      )}
-                       {exercise.type === "pass/fail" && (
-                          isReadOnly ? (
-                            <div className="flex items-center justify-end gap-2 text-right">
-                                <span className="font-mono text-lg">
-                                    {Number(exercise.score) > 0 ? exercise.maxPoints : 0}
-                                </span>
-                                <span className="text-sm text-muted-foreground">
-                                    / {exercise.maxPoints || 1} pts
-                                </span>
-                            </div>
-                          ) : (
-                            <div className="flex items-center justify-end gap-2">
-                                <Label htmlFor={`switch-${phaseIndex}-${exerciseIndex}`} className="text-sm font-normal">Fail</Label>
-                                <Controller
-                                    control={form.control}
-                                    name={`scores.${phaseIndex}.exercises.${exerciseIndex}.score`}
-                                    render={({ field }) => (
-                                        <Switch
-                                            id={`switch-${phaseIndex}-${exerciseIndex}`}
-                                            checked={Number(field.value) > 0}
-                                            onCheckedChange={(isChecked) => field.onChange(isChecked ? (exercise.maxPoints || 1) : 0)}
-                                            disabled={isReadOnly}
-                                        />
-                                    )}
-                                />
-                                <Label htmlFor={`switch-${phaseIndex}-${exerciseIndex}`} className="text-sm font-normal">Pass (+{exercise.maxPoints || 1} pts)</Label>
-                            </div>
-                         )
-                      )}
-                    </div>
-                    {exerciseIndex < phase.exercises.length - 1 && <Separator className="mt-4" />}
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          ))
-        )}
-         <Card>
-            <CardHeader>
-                <CardTitle>General Notes</CardTitle>
-            </CardHeader>
-            <CardContent>
-                <Textarea placeholder="Add any overall comments about the run..." {...form.register('notes')} readOnly={isReadOnly} />
-            </CardContent>
-            {!isReadOnly && (
-                <CardFooter className="flex justify-end">
-                    <Button type="submit" disabled={isSubmitting || !rubricData || isTimerRunning}>
-                        {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        {isTimerRunning ? 'Stop Timer to Submit' : 'Submit Scores'}
-                    </Button>
-                </CardFooter>
-            )}
-        </Card>
-      </form>
+function Stat({ label, value, big }: { label: string; value: string; big?: boolean }) {
+  return (
+    <div className={cn("bg-muted/50 p-3 rounded-lg", big && "bg-primary/10 text-primary")}>
+      <div className={cn("text-xs uppercase tracking-wider text-muted-foreground", big && "text-primary/80")}>{label}</div>
+      <div className={cn("text-2xl font-bold", big && "text-3xl")}>{value}</div>
     </div>
   );
 }
