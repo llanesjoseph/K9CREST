@@ -2,13 +2,13 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
-import { doc, onSnapshot, updateDoc, addDoc, collection, serverTimestamp, getDocs, deleteDoc, writeBatch, query, where, setDoc, getDoc } from "firebase/firestore";
+import { doc, onSnapshot, updateDoc, addDoc, collection, serverTimestamp, getDocs, deleteDoc, writeBatch, query, where, setDoc, getDoc, orderBy } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ChevronLeft, Gavel, Loader2, Play, Square, TimerIcon, Plus, Minus, Trash2 } from "lucide-react";
+import { ChevronLeft, Gavel, Loader2, Play, Square, TimerIcon, Plus, Minus, Trash2, MessageSquarePlus } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
@@ -39,7 +39,7 @@ type RunData = {
   aidsPlanted?: number;
   falseAlertPenalty?: number;
   falseAlerts?: number;
-  teamworkDeductionPoints?: number;
+  teamworkDeductionPoints?: number; // This can be deprecated
   teamworkNotes?: string;
   startAt?: any; // Firestore Timestamp
   endAt?: any;   // Firestore Timestamp
@@ -51,6 +51,7 @@ type RunData = {
 };
 
 type Find = { id: string; createdAt?: any };
+type Deduction = { id: string; points: number; note?: string; createdAt?: any };
 
 export default function JudgingPage() {
   const params = useParams();
@@ -63,6 +64,7 @@ export default function JudgingPage() {
 
   const [run, setRun] = useState<RunData | null>(null);
   const [finds, setFinds] = useState<Find[]>([]);
+  const [deductions, setDeductions] = useState<Deduction[]>([]);
   const [now, setNow] = useState(Date.now());
   const [loading, setLoading] = useState(true);
   
@@ -97,8 +99,8 @@ export default function JudgingPage() {
                     aidsPlanted: 5,
                     falseAlertPenalty: 5,
                     falseAlerts: 0,
-                    teamworkDeductionPoints: 0,
-                    teamworkNotes: '',
+                    teamworkDeductionPoints: 0, // Legacy
+                    teamworkNotes: '', // Legacy
                 };
                 await setDoc(runRef, newRunData);
             } else {
@@ -121,12 +123,15 @@ export default function JudgingPage() {
         setLoading(false);
     });
 
-    const unsubFinds = onSnapshot(query(collection(runRef, "finds")), s => 
+    const unsubFinds = onSnapshot(query(collection(runRef, "finds"), orderBy("createdAt", "asc")), s => 
         setFinds(s.docs.map(d => ({ id: d.id, ...(d.data() as any) }))
-            .sort((a,b) => (a.createdAt?.toMillis?.() || 0) - (b.createdAt?.toMillis?.() || 0))
-    ));
+    );
     
-    return () => { unsubRun(); unsubFinds(); };
+    const unsubDeductions = onSnapshot(query(collection(runRef, "deductions"), orderBy("createdAt", "asc")), s => 
+        setDeductions(s.docs.map(d => ({ id: d.id, ...(d.data() as any) })))
+    );
+
+    return () => { unsubRun(); unsubFinds(); unsubDeductions(); };
   }, [eventId, runId, router, toast, competitorData, arenaData]);
 
   // --- Timer Logic ---
@@ -145,9 +150,11 @@ export default function JudgingPage() {
     if (!run?.aidsPlanted || !run.detectionMax) return 0;
     return run.aidsPlanted > 0 ? run.detectionMax / run.aidsPlanted : 0;
   }, [run]);
+  
+  const deductionsTotal = useMemo(() => deductions.reduce((sum, d) => sum + d.points, 0), [deductions]);
 
   const detectionScore = useMemo(() => two(Math.min(finds.length, run?.aidsPlanted || 0) * perAid), [finds, run, perAid]);
-  const teamworkScore = useMemo(() => two(clamp((run?.teamworkMax || 0) - (run?.teamworkDeductionPoints || 0), 0, run?.teamworkMax || 0)), [run]);
+  const teamworkScore = useMemo(() => two(clamp((run?.teamworkMax || 0) - deductionsTotal, 0, run?.teamworkMax || 0)), [run, deductionsTotal]);
   const falseTotal = useMemo(() => two((run?.falseAlerts || 0) * (run?.falseAlertPenalty || 0)), [run]);
   const preliminary = useMemo(() => two(detectionScore + teamworkScore), [detectionScore, teamworkScore]);
   const totalMax = (run?.detectionMax || 0) + (run?.teamworkMax || 0);
@@ -180,7 +187,7 @@ export default function JudgingPage() {
       await updateDoc(oldRunRef, { status: "scored", totalTime: elapsed, actualStartTime: run?.startAt, scores: [] });
   };
   const addFind = async () => {
-      if(isReadOnly) return;
+      if(isReadOnly || run?.status !== 'in_progress') return;
       await addDoc(collection(runRef, "finds"), { createdAt: serverTimestamp() });
   };
   const addFalseAlert = async (delta: number) => {
@@ -188,20 +195,25 @@ export default function JudgingPage() {
       const next = Math.max((run?.falseAlerts || 0) + delta, 0);
       await updateDoc(runRef, { falseAlerts: next });
   };
-  const addTeamworkDeduction = async (delta: number) => {
-      if(isReadOnly) return;
-      const next = Math.max((run?.teamworkDeductionPoints || 0) + delta, 0);
-      await updateDoc(runRef, { teamworkDeductionPoints: next });
+
+  const addDeduction = async () => {
+    if (isReadOnly || run?.status !== 'in_progress') return;
+    await addDoc(collection(runRef, "deductions"), {
+      points: 1,
+      note: "",
+      createdAt: serverTimestamp(),
+    });
   };
 
-  const handleNotesChange = useCallback(
-    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-      const value = e.target.value;
-      // This uses a debounced update in a real scenario, but for simplicity here we update directly.
-      updateDoc(runRef, { teamworkNotes: value });
-    },
-    [runRef]
-  );
+  const removeDeduction = async (deductionId: string) => {
+    if (isReadOnly) return;
+    await deleteDoc(doc(runRef, "deductions", deductionId));
+  };
+  
+  const updateDeductionNote = (id: string, note: string) => {
+      if (isReadOnly) return;
+      updateDoc(doc(runRef, 'deductions', id), { note });
+  }
 
 
   if (loading || !run) {
@@ -289,38 +301,30 @@ export default function JudgingPage() {
                         Found Aid
                     </Button>
                     <div className="flex-grow w-full">
-                        <ul className="space-y-1 text-sm text-muted-foreground list-disc pl-5">
+                        <ul className="space-y-1 text-sm text-muted-foreground list-decimal pl-5">
                             {finds.map((f, i) => (
                                 <li key={f.id} className="font-mono">
                                     {f.createdAt?.toDate?.().toLocaleTimeString?.() || "pending..."}
                                     {i === 0 && <span className="ml-2 text-primary font-semibold">(first find)</span>}
                                 </li>
                             ))}
-                            {finds.length === 0 && <li>No finds logged yet.</li>}
+                            {finds.length === 0 && <li className="list-none -ml-5">No finds logged yet.</li>}
                         </ul>
                     </div>
                 </CardContent>
             </Card>
              <Card>
-                <CardHeader>
-                    <CardTitle>Teamwork Deductions & Notes</CardTitle>
+                <CardHeader className="flex flex-row justify-between items-center">
+                    <CardTitle>Teamwork Deductions</CardTitle>
+                    <Button onClick={addDeduction} disabled={isReadOnly || run.status !== 'in_progress'} variant="outline" size="sm">
+                        <Plus className="mr-2 h-4 w-4" /> Add Deduction
+                    </Button>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                     <div className="flex items-center justify-center gap-2">
-                        <Button onClick={() => addTeamworkDeduction(-1)} variant="outline" size="icon" className="h-12 w-12" disabled={isReadOnly}><Minus/></Button>
-                        <Input 
-                            readOnly 
-                            value={`${run.teamworkDeductionPoints || 0} pts`}
-                            className="font-mono text-xl font-bold w-32 text-center h-12"
-                        />
-                        <Button onClick={() => addTeamworkDeduction(1)} variant="outline" size="icon" className="h-12 w-12" disabled={isReadOnly}><Plus/></Button>
-                    </div>
-                    <Textarea 
-                        placeholder="Add notes for teamwork deductions..."
-                        defaultValue={run.teamworkNotes}
-                        onBlur={handleNotesChange}
-                        readOnly={isReadOnly}
-                    />
+                <CardContent className="space-y-2">
+                    {deductions.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">No deductions logged.</p>}
+                    {deductions.map(d => (
+                        <DeductionItem key={d.id} deduction={d} onRemove={removeDeduction} onNoteChange={updateDeductionNote} isReadOnly={isReadOnly} />
+                    ))}
                 </CardContent>
             </Card>
         </div>
@@ -365,3 +369,53 @@ function Stat({ label, value, big }: { label: string; value: string; big?: boole
     </div>
   );
 }
+
+function DeductionItem({ deduction, onRemove, onNoteChange, isReadOnly }: { deduction: Deduction, onRemove: (id: string) => void, onNoteChange: (id: string, note: string) => void, isReadOnly: boolean }) {
+    const [showNote, setShowNote] = useState(!!deduction.note);
+    const noteRef = useRef<HTMLTextAreaElement>(null);
+    
+    const handleNoteChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+        onNoteChange(deduction.id, e.target.value);
+    }
+    
+    useEffect(() => {
+        if(showNote && noteRef.current) {
+            noteRef.current.style.height = 'auto';
+            noteRef.current.style.height = `${noteRef.current.scrollHeight}px`;
+        }
+    }, [showNote, deduction.note]);
+
+    return (
+        <div className="bg-muted/50 p-3 rounded-lg">
+            <div className="flex items-center justify-between">
+                <div className="font-medium">1pt Deduction <span className="text-xs text-muted-foreground font-mono">({deduction.createdAt?.toDate?.().toLocaleTimeString()})</span></div>
+                 <div className="flex items-center gap-1">
+                    {!isReadOnly && !showNote && (
+                         <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => setShowNote(true)}>
+                            <MessageSquarePlus className="h-4 w-4"/>
+                        </Button>
+                    )}
+                     {!isReadOnly && (
+                         <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive/70 hover:text-destructive" onClick={() => onRemove(deduction.id)}>
+                            <Trash2 className="h-4 w-4"/>
+                        </Button>
+                     )}
+                </div>
+            </div>
+            {showNote && (
+                <Textarea 
+                    ref={noteRef}
+                    placeholder="Add an optional note..."
+                    defaultValue={deduction.note}
+                    onBlur={handleNoteChange}
+                    readOnly={isReadOnly}
+                    className="mt-2 text-sm"
+                    rows={1}
+                />
+            )}
+        </div>
+    )
+}
+
+
+    
