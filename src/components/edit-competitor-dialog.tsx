@@ -69,7 +69,7 @@ export function EditCompetitorDialog({ eventId, competitor, allCompetitors }: Ed
 
         // Check if the new BIB number is already in use by another competitor
         const conflictingCompetitor = allCompetitors.find(
-            c => c.id !== competitor.id && c.bibNumber === newBibNumber
+            c => c.id !== competitor.id && newBibNumber && c.bibNumber === newBibNumber
         );
 
         if (conflictingCompetitor) {

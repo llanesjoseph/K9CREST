@@ -76,9 +76,10 @@ type SchedulingStatus = 'unscheduled' | 'partiallyScheduled' | 'fullyScheduled';
 
 interface DisplayCompetitor extends Competitor {
     status: SchedulingStatus;
+    runs: ScheduledEvent[];
 }
 
-const SortableCompetitorItem = ({ competitor, isDraggable, onRunClick, allCompetitors }: { competitor: DisplayCompetitor, isDraggable: boolean, onRunClick: (run: ScheduledEvent) => void, allCompetitors: Competitor[] }) => {
+const SortableCompetitorItem = ({ competitor, isDraggable, onRunClick, allArenas }: { competitor: DisplayCompetitor, isDraggable: boolean, onRunClick: (run: ScheduledEvent) => void, allArenas: Arena[] }) => {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: competitor.id });
     const style = {
         transform: CSS.Transform.toString(transform),
@@ -92,14 +93,14 @@ const SortableCompetitorItem = ({ competitor, isDraggable, onRunClick, allCompet
 
     return (
         <div ref={setNodeRef} style={style}>
-            <CompetitorItem competitor={competitor} isDraggable={canDrag} dragHandle={canDrag ? {...attributes, ...listeners} : undefined} onRunClick={onRunClick} allCompetitors={allCompetitors} />
+            <CompetitorItem competitor={competitor} isDraggable={canDrag} dragHandle={canDrag ? {...attributes, ...listeners} : undefined} onRunClick={onRunClick} allArenas={allArenas} />
         </div>
     );
 };
 
 
 // --- CompetitorItem Component ---
-const CompetitorItem = ({ competitor, isDraggable, dragHandle, onRunClick, allCompetitors }: { competitor: DisplayCompetitor, isDraggable: boolean, dragHandle?: any, onRunClick: (run: ScheduledEvent) => void, allCompetitors: Competitor[] }) => {
+const CompetitorItem = ({ competitor, isDraggable, dragHandle, onRunClick, allArenas }: { competitor: DisplayCompetitor, isDraggable: boolean, dragHandle?: any, onRunClick: (run: ScheduledEvent) => void, allArenas: Arena[] }) => {
     
     const getSpecialtyIcons = (specialties: Specialty[] = []) => {
         if (!specialties || specialties.length === 0) {
@@ -162,9 +163,26 @@ const CompetitorItem = ({ competitor, isDraggable, dragHandle, onRunClick, allCo
 
                  <div className="text-xs text-muted-foreground/80 mt-1">{competitor.agency}</div>
                  {getSpecialtyIcons(competitor.specialties)}
+                 
+                 {competitor.runs && competitor.runs.length > 0 && (
+                    <div className="mt-3 space-y-1.5 border-t pt-2">
+                        {competitor.runs.map(run => {
+                             const arena = allArenas.find(a => a.id === run.arenaId);
+                             return (
+                                <button key={run.id} onClick={() => onRunClick(run)} className="w-full text-left text-xs bg-muted/50 p-1.5 rounded-md hover:bg-muted transition-colors flex items-center gap-2">
+                                     <Clock className="h-3 w-3 text-primary shrink-0" />
+                                     <div>
+                                        <span className="font-medium">{arena?.name || 'Unknown Arena'}</span>
+                                        <span className="text-muted-foreground ml-2">{format(parse(run.date, 'yyyy-MM-dd', new Date()), 'EEE, MMM dd')} @ {run.startTime}</span>
+                                     </div>
+                                 </button>
+                             )
+                        })}
+                    </div>
+                 )}
             </div>
              <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                <EditCompetitorDialog competitor={competitor} eventId={competitor.eventId} allCompetitors={allCompetitors} />
+                <EditCompetitorDialog competitor={competitor} eventId={competitor.eventId} allCompetitors={competitors} />
             </div>
         </div>
     );
@@ -424,6 +442,7 @@ export default function SchedulePage() {
                 return {
                     ...comp,
                     status,
+                    runs: (scheduledRunsByCompetitor[comp.id] || []).sort((a,b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime)),
                 }
             })
             .sort((a, b) => {
@@ -804,11 +823,11 @@ export default function SchedulePage() {
                                     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
                                         <SortableContext items={sortedCompetitors.map(c => c.id)} strategy={verticalListSortingStrategy}>
                                             {sortedCompetitors.map(comp => (
-                                                <SortableCompetitorItem key={comp.id} competitor={comp} isDraggable={isDraggable} onRunClick={handleRunClick} allCompetitors={competitors} />
+                                                <SortableCompetitorItem key={comp.id} competitor={comp} isDraggable={isDraggable} onRunClick={handleRunClick} allArenas={arenas} />
                                             ))}
                                         </SortableContext>
                                             <DragOverlay>
-                                            {activeCompetitor ? <CompetitorItem competitor={activeCompetitor} isDraggable={isDraggable} onRunClick={() => {}} allCompetitors={competitors} /> : null}
+                                            {activeCompetitor ? <CompetitorItem competitor={activeCompetitor} isDraggable={isDraggable} onRunClick={() => {}} allArenas={arenas} /> : null}
                                         </DragOverlay>
                                     </DndContext>
                                     )}
@@ -959,4 +978,3 @@ export default function SchedulePage() {
         </TooltipProvider>
     );
 }
-
