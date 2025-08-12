@@ -390,7 +390,7 @@ export default function JudgingPage() {
             </Card>
         </div>
          <div className="lg:col-span-2 space-y-6">
-            <Card>
+            <Card className="lg:col-span-3">
                  <CardHeader className="flex flex-row justify-between items-center">
                     <CardTitle>Teamwork Deductions</CardTitle>
                     <DropdownMenu>
