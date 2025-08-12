@@ -5,7 +5,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { collection, onSnapshot, doc, setDoc, deleteDoc, writeBatch, query, getDocs, getDoc, Timestamp, updateDoc, where } from 'firebase/firestore';
 import { generateTimeSlots } from '@/lib/schedule-helpers';
-import { Trash2, AlertTriangle, PlusCircle, Users, X, Eraser, Wand2, Clock, Loader2, FileDown, GripVertical, Upload, ListChecks, Hash, Gavel, ClipboardCheck } from 'lucide-react';
+import { Trash2, AlertTriangle, PlusCircle, Users, X, Eraser, Wand2, Clock, Loader2, FileDown, GripVertical, Upload, ListChecks, Hash, Gavel, ClipboardCheck, Dog } from 'lucide-react';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragOverlay, DragStartEvent, DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -43,7 +43,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useParams } from 'next/navigation';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { AiScheduleDialog } from '@/components/ai-schedule-dialog';
 import { EditCompetitorDialog } from '@/components/edit-competitor-dialog';
@@ -101,22 +101,30 @@ const SortableCompetitorItem = ({ competitor, isDraggable, onRunClick, allCompet
 // --- CompetitorItem Component ---
 const CompetitorItem = ({ competitor, isDraggable, dragHandle, onRunClick, allCompetitors }: { competitor: DisplayCompetitor, isDraggable: boolean, dragHandle?: any, onRunClick: (run: ScheduledEvent) => void, allCompetitors: Competitor[] }) => {
     
-    const getSpecialtyDisplay = (specialties: Specialty[] = []) => {
+    const getSpecialtyIcons = (specialties: Specialty[] = []) => {
         if (!specialties || specialties.length === 0) {
-            return "No specialty listed";
+            return null;
         }
-        return specialties.map(s => {
-            if (s.type === 'Detection' && s.detectionType) {
-                return `${s.type} (${s.detectionType})`;
-            }
-            return s.type;
-        }).join(', ');
+        const specialtyColors = {
+            'Bite Work': 'bg-orange-400',
+            'Detection (Narcotics)': 'bg-blue-400',
+            'Detection (Explosives)': 'bg-green-400',
+            'Any': 'bg-gray-400'
+        }
+        return (
+             <div className="flex gap-1.5 mt-2">
+                {specialties.map(s => {
+                    const key = s.type === 'Detection' ? `Detection (${s.detectionType})` : s.type;
+                    return <div key={key} className={cn("w-3 h-3 rounded-full", specialtyColors[key as keyof typeof specialtyColors])} title={key} />;
+                })}
+            </div>
+        )
     };
     
-    const statusClasses = {
-        unscheduled: 'bg-purple-100 dark:bg-purple-900/30 border-purple-500/30',
-        partiallyScheduled: 'bg-yellow-100 dark:bg-yellow-900/30 border-yellow-500/30',
-        fullyScheduled: 'bg-green-100 dark:bg-green-900/30 border-green-500/30',
+    const statusClasses: Record<SchedulingStatus, string> = {
+        unscheduled: 'border-l-4 border-l-orange-400',
+        partiallyScheduled: 'border-l-4 border-l-yellow-400',
+        fullyScheduled: 'border-l-4 border-l-green-500',
     };
 
     const handleDragStart = (e: React.DragEvent<HTMLDivElement>) => {
@@ -131,12 +139,15 @@ const CompetitorItem = ({ competitor, isDraggable, dragHandle, onRunClick, allCo
 
     return (
         <div
-            className={`border rounded-md p-3 mb-2 flex items-start gap-2 shadow-sm relative group ${isDraggable ? 'hover:shadow-md transition-all duration-200 ease-in-out transform hover:-translate-y-px' : ''} ${statusClasses[competitor.status]}`}
+            className={cn(`bg-card border rounded-lg p-3 mb-2 flex items-start gap-3 shadow-sm relative group transition-all duration-200 ease-in-out transform`,
+                isDraggable ? 'hover:shadow-md hover:-translate-y-px cursor-grab' : '', 
+                statusClasses[competitor.status]
+            )}
             draggable={isDraggable}
             onDragStart={handleDragStart}
         >
             {isDraggable && dragHandle && (
-                 <button {...dragHandle} className="p-1 -ml-1 mt-1 cursor-grab focus:outline-none focus:ring-2 focus:ring-primary rounded">
+                 <button {...dragHandle} className="p-1 -ml-1 mt-1 cursor-grab focus:outline-none focus:ring-2 focus:ring-primary rounded-md">
                     <GripVertical className="h-5 w-5 text-muted-foreground/50" />
                 </button>
             )}
@@ -144,13 +155,13 @@ const CompetitorItem = ({ competitor, isDraggable, dragHandle, onRunClick, allCo
                 <div className="flex items-center gap-2">
                      {competitor.bibNumber && <span className="font-bold text-lg text-primary/80 w-8 text-center">#{competitor.bibNumber}</span>}
                     <div>
-                        <span className="font-semibold text-primary">{competitor.dogName}</span>
-                        <span className="text-sm text-muted-foreground"> ({competitor.name})</span>
+                        <span className="font-semibold text-card-foreground">{competitor.dogName}</span>
+                        <div className="text-sm text-muted-foreground">{competitor.name}</div>
                     </div>
                 </div>
 
-                 <div className="text-xs text-muted-foreground/80">{competitor.agency}</div>
-                 <div className="text-xs text-muted-foreground/80 mt-1">{getSpecialtyDisplay(competitor.specialties)}</div>
+                 <div className="text-xs text-muted-foreground/80 mt-1">{competitor.agency}</div>
+                 {getSpecialtyIcons(competitor.specialties)}
             </div>
              <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
                 <EditCompetitorDialog competitor={competitor} eventId={competitor.eventId} allCompetitors={allCompetitors} />
@@ -214,35 +225,49 @@ const TimeSlot = ({
     const isScored = scheduledEvent?.status === 'scored';
     const canDragEvent = isDraggable && (!isScored || isAdmin);
     const slotId = `slot-${arenaId}-${date}-${startTime}`;
+
+    const specialtyColors: Record<string, string> = {
+        'Bite Work': 'bg-orange-500/20 text-orange-800 dark:text-orange-200 border-orange-500/50',
+        'Detection (Narcotics)': 'bg-blue-500/20 text-blue-800 dark:text-blue-200 border-blue-500/50',
+        'Detection (Explosives)': 'bg-green-500/20 text-green-800 dark:text-green-200 border-green-500/50',
+        'Any': 'bg-gray-500/20 text-gray-800 dark:text-gray-200 border-gray-500/50',
+    };
+    
+    const getRunSpecialty = (competitor: Competitor) => {
+        // This is a simplified logic. In a real app, you might store the specific run type.
+        if (competitor?.specialties?.length === 1) {
+            const s = competitor.specialties[0];
+            return s.type === 'Detection' ? `Detection (${s.detectionType})` : s.type;
+        }
+        return 'Any'; // Default or multiple
+    }
     
     const scheduledContent = scheduledEvent && eventCompetitor ? (
-        <div className="flex flex-col items-center justify-center p-1 group w-full h-full text-center">
+        <div className={cn("flex flex-col items-center justify-center p-2 group w-full h-full text-center rounded-md border", specialtyColors[getRunSpecialty(eventCompetitor)])}>
             <span className="font-bold text-sm">{eventCompetitor.dogName}</span>
-            <span className="text-xs text-muted-foreground">({eventCompetitor.name})</span>
+            <span className="text-xs text-muted-foreground">{eventCompetitor.agency}</span>
              {isDraggable && (!isScored || isAdmin) && (
                  <Button
                     variant="ghost"
                     size="icon"
                     onClick={(e) => { e.preventDefault(); removeScheduledEvent(scheduledEvent.id); }}
-                    className="absolute top-0 right-0 h-6 w-6 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                    className="absolute top-0.5 right-0.5 h-6 w-6 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity duration-200"
                     title="Remove from schedule"
                 >
                    <X className="h-4 w-4" />
                 </Button>
             )}
             <div className="absolute bottom-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                {isScored ? <ClipboardCheck className="h-4 w-4 text-primary/70" /> : <Gavel className="h-4 w-4 text-primary/70" /> }
+                {isScored ? <ClipboardCheck className="h-4 w-4 text-primary/70" /> : <Gavel className="h-4 w-4 text-muted-foreground/70" /> }
             </div>
         </div>
     ) : null;
 
-    const wrapperClasses = cn(`w-32 h-20 border border-dashed rounded-md flex items-center justify-center text-center text-sm transition-all duration-200 ease-in-out relative`,
+    const wrapperClasses = cn(`w-40 h-24 rounded-lg flex items-center justify-center text-center text-sm transition-all duration-200 ease-in-out relative`,
         {
-            'bg-green-100 dark:bg-green-900/30 border-green-500/50': scheduledEvent && !isScored,
-            'bg-blue-100 dark:bg-blue-900/30 border-blue-500/50 hover:shadow-md hover:border-blue-500': isScored,
-            'bg-background hover:bg-muted/80': !scheduledEvent && isDraggable,
-            'bg-secondary/50': !scheduledEvent && !isDraggable,
-            'border-primary ring-2 ring-primary': isOver,
+            'bg-background hover:bg-muted/80 border-2 border-dashed': !scheduledEvent && isDraggable,
+            'bg-card': !scheduledEvent && !isDraggable,
+            'border-primary ring-2 ring-primary ring-offset-2 ring-offset-background': isOver,
             'cursor-grab': canDragEvent,
             'cursor-pointer': !!scheduledEvent,
         }
@@ -263,7 +288,7 @@ const TimeSlot = ({
                     {scheduledContent}
                 </Link>
             ) : isDraggable ? (
-                <span className="text-muted-foreground text-xs">Drop Here</span>
+                <span className="text-muted-foreground text-xs pointer-events-none">Drop Here</span>
             ) : null}
         </div>
     );
@@ -287,14 +312,12 @@ export default function SchedulePage() {
     const [loading, setLoading] = useState({ event: true, arenas: true, schedule: true, competitors: true, rubrics: true });
     
     const [eventDays, setEventDays] = useState<Date[]>([]);
-    const [hiddenArenas, setHiddenArenas] = useState<Record<string, Set<string>>>({}); // { [date]: Set<arenaId> }
     
     const [newArenaName, setNewArenaName] = useState('');
     const [newArenaSpecialty, setNewArenaSpecialty] = useState<ArenaSpecialty>('Any');
     const [selectedRubricId, setSelectedRubricId] = useState<string>('none');
 
     const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
-    const scheduleContainerRef = useRef<HTMLDivElement>(null);
 
     // --- Firestore Data Fetching ---
     useEffect(() => {
@@ -444,42 +467,6 @@ export default function SchedulePage() {
         }
     };
 
-    const removeArenaForDay = async (arena: Arena, date: string) => {
-        if (!eventId) return;
-        try {
-            const scheduleQuery = query(
-                collection(db, `events/${eventId}/schedule`),
-                where("arenaId", "==", arena.id),
-                where("date", "==", date)
-            );
-            const scheduleSnapshot = await getDocs(scheduleQuery);
-    
-            if (scheduleSnapshot.empty) {
-                setHiddenArenas(prev => {
-                    const newHidden = { ...prev };
-                    if (!newHidden[date]) {
-                        newHidden[date] = new Set();
-                    }
-                    newHidden[date].add(arena.id);
-                    return newHidden;
-                });
-                toast({ title: 'Arena Hidden', description: `"${arena.name}" is now hidden for this day.` });
-                return;
-            }
-    
-            const batch = writeBatch(db);
-            scheduleSnapshot.forEach(doc => {
-                batch.delete(doc.ref);
-            });
-            
-            await batch.commit();
-    
-            toast({ title: 'Success', description: `Runs in "${arena.name}" for ${format(parse(date, 'yyyy-MM-dd', new Date()), 'MMM dd')} have been cleared.` });
-        } catch (error) {
-            console.error(error);
-            toast({ variant: 'destructive', title: 'Error', description: 'Could not perform this action.' });
-        }
-    };
 
     const handleDrop = async (e: React.DragEvent<HTMLDivElement>, arenaId: string, startTime: string, date: string) => {
         e.preventDefault();
@@ -664,13 +651,12 @@ export default function SchedulePage() {
             const docWidth = doc.internal.pageSize.getWidth();
             const docHeight = doc.internal.pageSize.getHeight();
             const margin = 40;
-            const contentWidth = docWidth - margin * 2;
             
-            const arenaColors: Record<ArenaSpecialty, string> = {
-                'Bite Work': '#ef4444',
-                'Detection (Narcotics)': '#3b82f6',
-                'Detection (Explosives)': '#f97316',
-                'Any': '#8b5cf6'
+            const specialtyColors: Record<string, string> = {
+                'Bite Work': '#fdba74', // orange-300
+                'Detection (Narcotics)': '#93c5fd', // blue-300
+                'Detection (Explosives)': '#86efac', // green-300
+                'Any': '#d1d5db' // gray-300
             };
 
             const groupedSchedule = schedule.reduce((acc, run) => {
@@ -689,127 +675,58 @@ export default function SchedulePage() {
                     runs.sort((a, b) => a.startTime.localeCompare(b.startTime));
                 });
             });
-
-            const addPageHeader = (pageNumber: number, date: Date, isContinuation: boolean) => {
-                doc.setFont('helvetica', 'bold');
-                doc.setFontSize(20);
-                doc.text(eventDetails.name, margin, margin);
-
-                doc.setFontSize(16);
-                const dateText = format(date, 'EEEE, MMMM dd, yyyy') + (isContinuation ? ' (cont.)' : '');
-                doc.text(dateText, margin, margin + 25);
-                doc.setDrawColor('#cccccc');
-                doc.line(margin, margin + 35, docWidth - margin, margin + 35);
-            };
-
-            const addWatermark = () => {
-                doc.setGState(new (doc as any).GState({ opacity: 0.1 }));
-                doc.setGState(new (doc as any).GState({ opacity: 1 }));
+            
+            const addPageHeader = (pageNumber: number) => {
+                 doc.setFontSize(22);
+                 doc.setFont('helvetica', 'bold');
+                 doc.text(eventDetails.name, margin, margin);
             };
 
             for (const day of eventDays) {
+                doc.addPage();
+                addPageHeader(doc.getNumberOfPages());
+                
                 const formattedDate = format(day, 'yyyy-MM-dd');
                 const daySchedule = groupedSchedule[formattedDate];
                 if (!daySchedule) continue;
 
-                let isFirstPageOfDay = true;
-                const dayArenas = arenas.filter(a => daySchedule[a.name] && daySchedule[a.name].length > 0);
-                if (dayArenas.length === 0) continue;
-
-                const numArenaColumns = dayArenas.length;
-                const colWidth = (contentWidth - (numArenaColumns - 1) * 15) / numArenaColumns;
-                let colCursors = dayArenas.map((_, i) => ({
-                    x: margin + i * (colWidth + 15),
-                    y: 0,
-                    runIndex: 0
-                }));
+                doc.setFontSize(16);
+                doc.setFont('helvetica', 'normal');
+                doc.text(format(day, 'EEEE, MMMM dd, yyyy'), margin, margin + 25);
                 
-                let pageNumber = doc.getNumberOfPages();
-                if(!isFirstPageOfDay) doc.addPage(); else if (day !== eventDays[0]) doc.addPage();
-                addWatermark();
-                addPageHeader(pageNumber, day, !isFirstPageOfDay);
-                
-                colCursors.forEach(c => c.y = margin + 85);
-                
-                dayArenas.forEach((arena, i) => {
-                    doc.setFont('helvetica', 'bold');
-                    doc.setFontSize(12);
-                    doc.setTextColor('#333333');
-                    doc.text(arena.name, colCursors[i].x, margin + 70);
+                const tableData = Object.entries(daySchedule).map(([arenaName, runs]) => {
+                    return [
+                        { content: arenaName, styles: { fontStyle: 'bold', fontSize: 12, fillColor: '#f3f4f6' } },
+                        ...runs.map(run => {
+                           const competitor = competitors.find(c => c.id === run.competitorId);
+                           if (!competitor) return `${run.startTime}: Error`;
+                           const competitorSpecialties = competitor.specialties.map(s => s.type === 'Detection' ? `Detection (${s.detectionType})` : s.type);
+                           const runSpecialty = competitorSpecialties[0] || 'Any'; // simplified for coloring
+                           return {
+                               content: `${run.startTime} - ${run.endTime}\n${competitor.dogName} (${competitor.name})\n${competitor.agency}`,
+                               styles: { fillColor: specialtyColors[runSpecialty] || '#e5e7eb' }
+                           };
+                        })
+                    ];
                 });
 
-
-                let runsLeftToDraw = dayArenas.some((arena) => (daySchedule[arena.name] || []).length > 0);
-                while(runsLeftToDraw) {
-                    runsLeftToDraw = false;
-                    dayArenas.forEach((arena, colIndex) => {
-                        const runs = daySchedule[arena.name] || [];
-                        const cursor = colCursors[colIndex];
-
-                        if(cursor.runIndex < runs.length) {
-                            runsLeftToDraw = true;
-                            const run = runs[cursor.runIndex];
-                            const competitor = competitors.find(c => c.id === run.competitorId);
-                            if (competitor) {
-                                const cardHeight = 40;
-
-                                if (cursor.y + cardHeight > docHeight - margin) {
-                                    // This column is full, need a new page.
-                                    return; // Will be handled by the outer loop check
-                                }
-
-                                const cardX = cursor.x;
-                                const cardY = cursor.y;
-                                
-                                // Card color bar
-                                doc.setFillColor(arenaColors[arena.specialtyType] || '#6b7280');
-                                doc.rect(cardX, cardY, 3, cardHeight, 'F');
-                                
-                                // Card content
-                                doc.setFont('helvetica', 'bold');
-                                doc.setFontSize(9);
-                                doc.setTextColor('#000000');
-                                doc.text(`${run.startTime} - ${run.endTime}`, cardX + 10, cardY + 12);
-            
-                                doc.setFont('helvetica', 'normal');
-                                doc.setFontSize(8);
-                                doc.text(`${competitor.dogName} (${competitor.name})`, cardX + 10, cardY + 24);
-                                doc.setTextColor('#6b7280');
-                                doc.text(competitor.agency, cardX + 10, cardY + 34);
-
-                                cursor.y += cardHeight + 8;
-                                cursor.runIndex++;
-                            }
-                        }
-                    });
-
-                    // Check if a new page is needed because at least one column is full
-                    const needsNewPage = colCursors.some((cursor, colIndex) => {
-                        const runs = daySchedule[dayArenas[colIndex].name] || [];
-                        if (cursor.runIndex < runs.length) {
-                             const cardHeight = 40;
-                             return cursor.y + cardHeight > docHeight - margin;
-                        }
-                        return false;
-                    });
-                    
-                    if (needsNewPage && runsLeftToDraw) {
-                        isFirstPageOfDay = false;
-                        doc.addPage();
-                        pageNumber++;
-                        addWatermark();
-                        addPageHeader(pageNumber, day, true); // It's a continuation page
-                        
-                        colCursors.forEach(c => c.y = margin + 85);
-                        dayArenas.forEach((arena, i) => {
-                            doc.setFont('helvetica', 'bold');
-                            doc.setFontSize(12);
-                            doc.setTextColor('#333333');
-                            doc.text(arena.name, colCursors[i].x, margin + 70);
-                        });
-                    }
+                const body = [];
+                const maxRows = Math.max(...tableData.map(col => col.length));
+                for(let i = 0; i < maxRows; i++) {
+                    const row = tableData.map(col => col[i] || '');
+                    body.push(row);
                 }
+
+                (doc as any).autoTable({
+                    startY: margin + 45,
+                    body: body,
+                    theme: 'grid',
+                    styles: { cellPadding: 6, fontSize: 9 },
+                    didDrawPage: (data: any) => addPageHeader(data.pageNumber)
+                });
             }
+            
+            doc.deletePage(1); // delete the initial blank page
 
             const totalPages = doc.getNumberOfPages();
             for (let j = 1; j <= totalPages; j++) {
@@ -862,259 +779,153 @@ export default function SchedulePage() {
     // --- Render ---
     return (
         <TooltipProvider>
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 xl:gap-6 h-full min-h-[calc(100vh-theme(spacing.16))]">
+            <div className="flex h-full min-h-[calc(100vh-theme(spacing.16))]">
                 {/* Left Panel: Competitor List & Arena Mgmt */}
-                 <div className="xl:col-span-1 flex flex-col gap-4">
-                    <Card className="flex-grow flex flex-col h-full min-h-0">
-                        <CardHeader className="flex flex-row items-center justify-between">
-                            <div>
-                                <CardTitle>Competitors</CardTitle>
-                                 <CardDescription>Unscheduled competitors are at the top. Drag to re-order.</CardDescription>
-                            </div>
-                            {isAdmin && (
-                                <CompetitorImportDialog eventId={eventId} />
+                 <div className="w-[380px] border-r flex flex-col">
+                    <div className="p-4 border-b">
+                        <h2 className="text-xl font-bold">Competitors</h2>
+                        <p className="text-sm text-muted-foreground">Drag competitors onto the schedule.</p>
+                    </div>
+                     <div className="flex-grow p-4 overflow-hidden relative">
+                         <ScrollArea className="absolute inset-0 h-full w-full p-0 pr-4">
+                            {loading.competitors ? (
+                                <div className="space-y-2">
+                                    <Skeleton className="h-20 w-full" /> <Skeleton className="h-20 w-full" /> <Skeleton className="h-20 w-full" />
+                                </div>
+                            ) : (
+                                <>
+                                    {competitors.length === 0 ? (
+                                        <div className="text-center text-muted-foreground p-8 border border-dashed rounded-md h-full flex flex-col justify-center items-center gap-4">
+                                            <Dog className="h-10 w-10 text-muted-foreground" />
+                                            <p>No competitors have been added to this event yet.</p>
+                                            {isAdmin && ( <div className="flex gap-2"> <AddCompetitorDialog eventId={eventId}/> <CompetitorImportDialog eventId={eventId}/> </div> )}
+                                        </div>
+                                    ) : (
+                                    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+                                        <SortableContext items={sortedCompetitors.map(c => c.id)} strategy={verticalListSortingStrategy}>
+                                            {sortedCompetitors.map(comp => (
+                                                <SortableCompetitorItem key={comp.id} competitor={comp} isDraggable={isDraggable} onRunClick={handleRunClick} allCompetitors={competitors} />
+                                            ))}
+                                        </SortableContext>
+                                            <DragOverlay>
+                                            {activeCompetitor ? <CompetitorItem competitor={activeCompetitor} isDraggable={isDraggable} onRunClick={() => {}} allCompetitors={competitors} /> : null}
+                                        </DragOverlay>
+                                    </DndContext>
+                                    )}
+                                </>
                             )}
-                        </CardHeader>
-                        <CardContent className="flex-grow p-0 overflow-hidden relative">
-                           <div className="absolute inset-0">
-                             <ScrollArea className="h-full w-full p-6">
-                              {loading.competitors ? (
-                                  <div className="space-y-2">
-                                      <Skeleton className="h-20 w-full" />
-                                      <Skeleton className="h-20 w-full" />
-                                      <Skeleton className="h-20 w-full" />
-                                  </div>
-                              ) : (
-                                  <>
-                                      {competitors.length === 0 ? (
-                                          <div className="text-center text-muted-foreground p-8 border border-dashed rounded-md h-full flex flex-col justify-center items-center gap-4">
-                                              <p>No competitors have been imported for this event yet.</p>
-                                              {isAdmin && (
-                                                <div className="flex gap-2">
-                                                    <AddCompetitorDialog eventId={eventId}/>
-                                                    <CompetitorImportDialog eventId={eventId}/>
-                                                </div>
-                                              )}
-                                          </div>
-                                      ) : (
-                                        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-                                            <SortableContext items={sortedCompetitors.map(c => c.id)} strategy={verticalListSortingStrategy}>
-                                                {sortedCompetitors.map(comp => (
-                                                    <SortableCompetitorItem key={comp.id} competitor={comp} isDraggable={isDraggable} onRunClick={handleRunClick} allCompetitors={competitors} />
-                                                ))}
-                                            </SortableContext>
-                                             <DragOverlay>
-                                                {activeCompetitor ? <CompetitorItem competitor={activeCompetitor} isDraggable={isDraggable} onRunClick={() => {}} allCompetitors={competitors} /> : null}
-                                            </DragOverlay>
-                                        </DndContext>
-                                      )}
-                                  </>
-                              )}
-                               </ScrollArea>
-                           </div>
-                        </CardContent>
-                        {isAdmin && competitors.length > 0 && (
-                            <CardFooter className="border-t pt-4 flex-wrap gap-2">
-                                <AddCompetitorDialog eventId={eventId}/>
-                            </CardFooter>
-                        )}
-                    </Card>
-
-                    {isAdmin && (
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Manage Arenas</CardTitle>
-                            </CardHeader>
-                            <CardContent className="space-y-3">
-                                <Input
-                                    type="text"
-                                    placeholder="New Arena Name"
-                                    value={newArenaName}
-                                    onChange={e => setNewArenaName(e.target.value)}
-                                />
-                                <div className="flex flex-col sm:flex-row gap-2">
-                                    <Select value={newArenaSpecialty} onValueChange={(val: ArenaSpecialty) => setNewArenaSpecialty(val)}>
-                                         <SelectTrigger>
-                                            <SelectValue placeholder="Select specialty" />
-                                         </SelectTrigger>
+                        </ScrollArea>
+                     </div>
+                     {isAdmin && (
+                         <div className="p-4 border-t space-y-4">
+                             <h3 className="text-lg font-semibold">Manage Arenas</h3>
+                             <div className="space-y-3">
+                                 <Input type="text" placeholder="New Arena Name" value={newArenaName} onChange={e => setNewArenaName(e.target.value)} />
+                                 <div className="flex flex-col sm:flex-row gap-2">
+                                     <Select value={newArenaSpecialty} onValueChange={(val: ArenaSpecialty) => setNewArenaSpecialty(val)}>
+                                         <SelectTrigger> <SelectValue placeholder="Select specialty" /> </SelectTrigger>
                                          <SelectContent>
-                                            <SelectItem value="Any">Any Specialty</SelectItem>
-                                            <SelectItem value="Bite Work">Bite Work</SelectItem>
-                                            <SelectItem value="Detection (Narcotics)">Detection (Narcotics)</SelectItem>
-                                            <SelectItem value="Detection (Explosives)">Detection (Explosives)</SelectItem>
-                                        </SelectContent>
-                                    </Select>
+                                             <SelectItem value="Any">Any Specialty</SelectItem> <SelectItem value="Bite Work">Bite Work</SelectItem>
+                                             <SelectItem value="Detection (Narcotics)">Detection (Narcotics)</SelectItem> <SelectItem value="Detection (Explosives)">Detection (Explosives)</SelectItem>
+                                         </SelectContent>
+                                     </Select>
                                      <Select value={selectedRubricId} onValueChange={setSelectedRubricId}>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Assign Rubric" />
-                                        </SelectTrigger>
+                                        <SelectTrigger> <SelectValue placeholder="Assign Rubric" /> </SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="none">No Rubric</SelectItem>
-                                            {rubrics.map((rubric) => (
-                                                <SelectItem key={rubric.id} value={rubric.id}>{rubric.name}</SelectItem>
-                                            ))}
+                                            {rubrics.map((rubric) => ( <SelectItem key={rubric.id} value={rubric.id}>{rubric.name}</SelectItem> ))}
                                             <Separator />
                                             <AssignRubricDialog onRubricCreated={(id) => setSelectedRubricId(id)}>
-                                                 <Button variant="ghost" className="w-full justify-start pl-2 font-normal">
-                                                    <PlusCircle className="mr-2 h-4 w-4" /> Create New Rubric
-                                                 </Button>
+                                                 <Button variant="ghost" className="w-full justify-start pl-2 font-normal"> <PlusCircle className="mr-2 h-4 w-4" /> Create New Rubric </Button>
                                             </AssignRubricDialog>
                                         </SelectContent>
                                     </Select>
-                                </div>
-                                <Button onClick={addArena} className="w-full">
-                                    <PlusCircle className="mr-2 h-4 w-4"/>
-                                    Add Arena
-                                </Button>
-                            </CardContent>
-                        </Card>
-                    )}
+                                 </div>
+                                 <Button onClick={addArena} className="w-full"> <PlusCircle className="mr-2 h-4 w-4"/> Add Arena </Button>
+                             </div>
+                         </div>
+                     )}
                 </div>
 
 
                 {/* Right Panel: Scheduler */}
-                <div className="xl:col-span-2 flex flex-col gap-4">
-                    <Card className="flex-grow">
-                         <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                            <div>
-                                <CardTitle>Event Schedule: {eventDetails?.name || <Skeleton className="h-6 w-48 inline-block" />}</CardTitle>
-                                <CardDescription>Drop competitors into time slots, or use the AI assistant.</CardDescription>
+                <div className="flex-1 flex flex-col">
+                    <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b">
+                        <div>
+                            <CardTitle className="text-2xl">{eventDetails?.name || <Skeleton className="h-8 w-64 inline-block" />}</CardTitle>
+                            <CardDescription>Drag and drop competitors into time slots to build the schedule.</CardDescription>
+                        </div>
+                        <div className="flex w-full sm:w-auto items-center justify-end gap-2 flex-wrap">
+                            {isAdmin && (
+                            <div className="flex-grow sm:flex-grow-0 flex items-center gap-2">
+                                <Button onClick={handleAssignBibs} variant="outline" disabled={competitors.length === 0} size="sm"> <Hash className="mr-2 h-4 w-4"/> Assign BIBs </Button>
+                                    <AiScheduleDialog eventId={eventId} arenas={arenas} competitors={sortedCompetitors} eventDays={eventDays} currentSchedule={schedule} />
                             </div>
-                            <div className="flex w-full sm:w-auto items-center justify-end gap-2 flex-wrap">
-                               {isAdmin && (
-                                <div className="flex-grow sm:flex-grow-0 flex items-center gap-2">
-                                    <Button onClick={handleAssignBibs} variant="outline" disabled={competitors.length === 0} size="sm">
-                                        <Hash className="mr-2 h-4 w-4"/>
-                                        Assign BIBs
-                                    </Button>
-                                     <AiScheduleDialog 
-                                        eventId={eventId}
-                                        arenas={arenas}
-                                        competitors={sortedCompetitors}
-                                        eventDays={eventDays}
-                                        currentSchedule={schedule}
-                                     />
-                                </div>
-                                )}
-                                <div className="flex items-center gap-2">
-                                <Button onClick={handleGeneratePdf} variant="outline" size="sm" className="w-full" disabled={isGeneratingPdf || schedule.length === 0}>
-                                    {isGeneratingPdf ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <FileDown className="mr-2 h-4 w-4"/>}
-                                    Download PDF
-                                </Button>
-                                {isAdmin && (
-                                     <AlertDialog>
-                                        <AlertDialogTrigger asChild>
-                                             <Button variant="destructive" size="sm" className="w-full" disabled={schedule.length === 0}>
-                                                <Eraser className="mr-2 h-4 w-4"/>
-                                                Clear
-                                            </Button>
-                                        </AlertDialogTrigger>
-                                        <AlertDialogContent>
-                                            <AlertDialogHeader>
-                                                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                                                <AlertDialogDescription>
-                                                    This will remove all scheduled runs for this event. This action cannot be undone.
-                                                </AlertDialogDescription>
-                                            </AlertDialogHeader>
-                                            <AlertDialogFooter>
-                                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                                <AlertDialogAction onClick={handleClearSchedule} className="bg-destructive hover:bg-destructive/90">
-                                                    Yes, clear schedule
-                                                </AlertDialogAction>
-                                            </AlertDialogFooter>
-                                        </AlertDialogContent>
-                                    </AlertDialog>
-                                )}
-                                </div>
+                            )}
+                            <div className="flex items-center gap-2">
+                            <Button onClick={handleGeneratePdf} variant="outline" size="sm" className="w-full" disabled={isGeneratingPdf || schedule.length === 0}>
+                                {isGeneratingPdf ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <FileDown className="mr-2 h-4 w-4"/>}
+                                Download PDF
+                            </Button>
+                            {isAdmin && (
+                                    <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                            <Button variant="destructive" size="sm" className="w-full" disabled={schedule.length === 0}> <Eraser className="mr-2 h-4 w-4"/> Clear </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                            <AlertDialogDescription> This will remove all scheduled runs for this event. This action cannot be undone. </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                            <AlertDialogAction onClick={handleClearSchedule} className="bg-destructive hover:bg-destructive/90"> Yes, clear schedule </AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
+                            )}
                             </div>
-                        </CardHeader>
-                        <CardContent>
-                             <div ref={scheduleContainerRef} className="overflow-x-auto relative pb-2 bg-card p-4">
-                                {isFullyLoading ? (
-                                    <div className="space-y-4">
-                                        <Skeleton className="h-10 w-full" />
-                                        <Skeleton className="h-24 w-full" />
-                                        <Skeleton className="h-24 w-full" />
-                                    </div>
-                                ) : eventDays.length === 0 ? (
-                                    <div className="text-center text-muted-foreground py-12 border-2 border-dashed rounded-lg h-96 flex flex-col justify-center items-center">
-                                        <AlertTriangle className="mx-auto h-8 w-8 text-muted-foreground" />
-                                        <p className="mt-4 font-semibold">Event Dates Not Set</p>
-                                        <p>The start and end dates for this event have not been configured.</p>
-                                    </div>
-                                ) : (
-                                <div className="space-y-8">
-                                    {eventDays.map(day => {
-                                        const formattedDate = format(day, 'yyyy-MM-dd');
-                                        const dayArenas = arenas.filter(arena => !hiddenArenas[formattedDate]?.has(arena.id));
-                                        
-                                        return (
-                                            <div key={day.toISOString()}>
-                                                <h3 className="text-lg font-semibold mb-3 sticky top-0 bg-card py-2 z-20">{format(day, 'EEEE, MMM dd')}</h3>
-                                                {dayArenas.length === 0 ? (
-                                                    <div className="text-center text-muted-foreground py-12 border-2 border-dashed rounded-lg h-96 flex flex-col justify-center items-center mt-4">
-                                                        <AlertTriangle className="mx-auto h-8 w-8 text-muted-foreground" />
-                                                        <p className="mt-4 font-semibold">No Arenas Found</p>
-                                                        {isAdmin ? (
-                                                            <p>Use the 'Manage Arenas' section to create one.</p>
-                                                        ) : (
-                                                            <p>The event administrator has not set up any arenas yet.</p>
-                                                        )}
-                                                    </div>
-                                                ) : (
-                                                    <div className="grid gap-2 min-w-max">
-                                                        {/* Header Row: Time Slots */}
-                                                        <div className="grid grid-flow-col auto-cols-fr gap-2 border-b-2 pb-2 sticky top-[4.2rem] bg-card z-10">
-                                                            <div className="w-48 font-semibold text-muted-foreground">Arenas / Time</div>
-                                                            {timeSlots.map(time => (
-                                                                <div key={time} className="w-32 text-center font-semibold text-muted-foreground">{time}</div>
-                                                            ))}
+                        </div>
+                    </CardHeader>
+                    <div className="flex-1 overflow-auto">
+                        {isFullyLoading ? (
+                            <div className="p-6 space-y-4"> <Skeleton className="h-10 w-full" /> <Skeleton className="h-24 w-full" /> <Skeleton className="h-24 w-full" /> </div>
+                        ) : eventDays.length === 0 ? (
+                            <div className="text-center text-muted-foreground py-12 border-2 border-dashed rounded-lg h-96 flex flex-col justify-center items-center m-6">
+                                <AlertTriangle className="mx-auto h-8 w-8 text-muted-foreground" />
+                                <p className="mt-4 font-semibold">Event Dates Not Set</p>
+                                <p>The start and end dates for this event have not been configured.</p>
+                            </div>
+                        ) : (
+                        <div className="p-4 lg:p-6 space-y-8">
+                            {eventDays.map(day => {
+                                const formattedDate = format(day, 'yyyy-MM-dd');
+                                
+                                return (
+                                    <div key={day.toISOString()}>
+                                        <h3 className="text-xl font-bold mb-4 sticky top-0 bg-background/80 backdrop-blur-sm py-3 z-10 -mt-3 pt-3">{format(day, 'EEEE, MMM dd')}</h3>
+                                        {arenas.length === 0 ? (
+                                            <div className="text-center text-muted-foreground py-12 border-2 border-dashed rounded-lg flex flex-col justify-center items-center mt-4 min-h-[200px]">
+                                                <AlertTriangle className="mx-auto h-8 w-8 text-muted-foreground" />
+                                                <p className="mt-4 font-semibold">No Arenas Found</p>
+                                                {isAdmin ? ( <p>Use the 'Manage Arenas' section to create one.</p> ) : ( <p>The event administrator has not set up any arenas yet.</p> )}
+                                            </div>
+                                        ) : (
+                                            <div className="space-y-6">
+                                                {arenas.map(arena => (
+                                                    <div key={arena.id}>
+                                                         <div className="flex items-center gap-3 mb-2">
+                                                            <div className="w-2 h-8 rounded-full bg-primary" />
+                                                            <div>
+                                                                <h4 className="text-lg font-semibold">{arena.name}</h4>
+                                                                <p className="text-sm text-muted-foreground">{arena.specialtyType}</p>
+                                                            </div>
                                                         </div>
-
-                                                        {/* Arena Rows */}
-                                                        {dayArenas.map(arena => {
-                                                            return (
-                                                                <div key={arena.id} className="grid grid-flow-col auto-cols-fr gap-2 items-center border-b py-2">
-                                                                    <div className="w-48 font-medium text-card-foreground flex items-center pr-2">
-                                                                        <div className="flex-grow">
-                                                                            <span className="font-bold">{arena.name}</span>
-                                                                            <span className="text-xs text-muted-foreground block">({arena.specialtyType})</span>
-                                                                             <div className="text-xs text-muted-foreground/80 flex items-center gap-1 mt-1">
-                                                                                <ListChecks className="h-3 w-3" /> 
-                                                                                <span>{arena.rubricName || 'No Rubric'}</span>
-                                                                                 {isAdmin && <EditArenaDialog eventId={eventId} arena={arena} rubrics={rubrics} />}
-                                                                            </div>
-                                                                        </div>
-                                                                        {isAdmin && (
-                                                                            <AlertDialog>
-                                                                                <Tooltip>
-                                                                                    <TooltipTrigger asChild>
-                                                                                        <AlertDialogTrigger asChild>
-                                                                                            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive text-sm h-8 w-8">
-                                                                                                <Trash2 className="h-4 w-4" />
-                                                                                            </Button>
-                                                                                        </AlertDialogTrigger>
-                                                                                    </TooltipTrigger>
-                                                                                    <TooltipContent>
-                                                                                        <p>Clear all runs in this arena for this day</p>
-                                                                                    </TooltipContent>
-                                                                                </Tooltip>
-                                                                                <AlertDialogContent>
-                                                                                    <AlertDialogHeader>
-                                                                                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                                                                                        <AlertDialogDescription>
-                                                                                            This will remove all scheduled runs in "{arena.name}" for {format(day, 'MMM dd')}. This action cannot be undone.
-                                                                                        </AlertDialogDescription>
-                                                                                    </AlertDialogHeader>
-                                                                                    <AlertDialogFooter>
-                                                                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                                                                        <AlertDialogAction onClick={() => removeArenaForDay(arena, formattedDate)}>Clear Runs for this Day</AlertDialogAction>
-                                                                                    </AlertDialogFooter>
-                                                                                </AlertDialogContent>
-                                                                            </AlertDialog>
-                                                                        )}
-                                                                    </div>
-                                                                    {timeSlots.map(time => (
+                                                        <ScrollArea className="w-full whitespace-nowrap">
+                                                            <div className="flex gap-4 pb-4">
+                                                                {timeSlots.map(time => (
+                                                                    <div key={time} className="flex flex-col items-center gap-1">
+                                                                        <span className="text-xs text-muted-foreground">{time}</span>
                                                                         <TimeSlot
                                                                             key={`${arena.id}-${time}`}
                                                                             arenaId={arena.id}
@@ -1128,22 +939,24 @@ export default function SchedulePage() {
                                                                             isAdmin={isAdmin}
                                                                             eventId={eventId}
                                                                         />
-                                                                    ))}
-                                                                </div>
-                                                            )
-                                                        })}
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                            <ScrollBar orientation="horizontal" />
+                                                        </ScrollArea>
                                                     </div>
-                                                )}
+                                                ))}
                                             </div>
-                                        )
-                                    })}
-                                </div>
-                                )}
-                            </div>
-                        </CardContent>
-                    </Card>
+                                        )}
+                                    </div>
+                                )
+                            })}
+                        </div>
+                        )}
+                    </div>
                 </div>
             </div>
         </TooltipProvider>
     );
 }
+

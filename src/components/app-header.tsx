@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import Link from "next/link";
@@ -16,6 +17,7 @@ import {
   ClipboardList,
   ClipboardCheck,
   Users,
+  Menu,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { auth } from "@/lib/firebase";
@@ -34,6 +36,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useSidebar } from "./ui/sidebar";
 
 function NavLink({ href, children, isActive, disabled }: { href: string, children: React.ReactNode, isActive?: boolean, disabled?: boolean }) {
     return (
@@ -46,6 +49,7 @@ function NavLink({ href, children, isActive, disabled }: { href: string, childre
 
 export function AppHeader() {
   const { user, role, isTrueAdmin, setViewAsRole, viewAsRole } = useAuth();
+  const { isMobile, toggleSidebar } = useSidebar();
   const router = useRouter();
   const params = useParams();
   const pathname = usePathname();
@@ -76,16 +80,18 @@ export function AppHeader() {
   
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background/80 backdrop-blur-sm px-4 sm:px-6 lg:px-8">
+       {isMobile && (
+        <Button variant="ghost" size="icon" onClick={toggleSidebar} className="-ml-2">
+            <Menu className="h-6 w-6" />
+            <span className="sr-only">Toggle Sidebar</span>
+        </Button>
+       )}
       <Link href="/dashboard" className="flex items-center gap-2 font-semibold text-lg">
-        <Dog className="h-6 w-6 text-primary" />
+        <div className="bg-primary p-1.5 rounded-lg">
+          <Dog className="h-5 w-5 text-primary-foreground" />
+        </div>
         <span className="hidden sm:inline-block">K9 Trial Pro</span>
       </Link>
-       <nav className="hidden md:flex items-center gap-2 mx-auto">
-            <NavLink href="/dashboard/events" isActive={pathname.startsWith('/dashboard/events')}><Calendar className="mr-2"/> Events</NavLink>
-            {eventId && <NavLink href={`/dashboard/events/${eventId}/schedule`} isActive={isActive('schedule')}><ClipboardCheck className="mr-2"/> Schedule</NavLink>}
-            {eventId && <NavLink href={`/dashboard/events/${eventId}/competitors`} isActive={isActive('competitors')}><Users className="mr-2"/> Competitors</NavLink>}
-            {eventId && <NavLink href={`/dashboard/events/${eventId}/leaderboard`} isActive={isActive('leaderboard')}><Trophy className="mr-2"/> Leaderboard</NavLink>}
-       </nav>
       <div className="ml-auto">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

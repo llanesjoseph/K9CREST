@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import Link from "next/link";
@@ -32,6 +33,7 @@ import {
   SidebarGroup,
   SidebarGroupLabel,
   SidebarRail,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -53,6 +55,7 @@ export function AppSidebar() {
   const pathname = usePathname();
   const params = useParams();
   const { user, role, isTrueAdmin, setViewAsRole, viewAsRole } = useAuth();
+  const { setOpenMobile } = useSidebar();
   const router = useRouter();
   const eventId = params ? (params.id as string) : null;
 
@@ -96,12 +99,13 @@ export function AppSidebar() {
     // Handle specific event pages
     if (eventId) {
         if(pathname === href) return true;
-        if(pathname.startsWith(href) && href !== `/dashboard/events/${eventId}`) return true;
+        if(pathname.startsWith(href) && href !== `/dashboard/events/${eventId}` && href !== '/dashboard/events') return true;
     }
 
     // Handle non-event pages
-    if (pathname.startsWith(href)) return true;
+    if (pathname.startsWith(href) && href !== '/dashboard') return true;
     if (pathname === '/dashboard' && href === '/dashboard') return true;
+    if (pathname === '/dashboard/events' && href === '/dashboard/events') return true;
     
     return false;
   };
@@ -109,16 +113,15 @@ export function AppSidebar() {
 
   return (
     <Sidebar collapsible="icon">
-      <SidebarRail />
       <SidebarHeader>
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" className="shrink-0 h-8 w-8">
-            <Dog className="w-5 h-5 text-primary" />
-          </Button>
-          <h1 className="text-lg font-semibold group-data-[collapsible=icon]:hidden">K9 Trial Pro</h1>
+            <div className="bg-sidebar-primary p-1.5 rounded-lg group-data-[collapsible=icon]:-ml-0.5">
+                <Dog className="w-5 h-5 text-sidebar-primary-foreground" />
+            </div>
+            <h1 className="text-lg font-semibold group-data-[collapsible=icon]:hidden">K9 Trial Pro</h1>
         </div>
       </SidebarHeader>
-      <SidebarContent className="p-0">
+      <SidebarContent className="p-2">
         <SidebarMenu>
           {menuItems.map((item) => (
             <SidebarMenuItem key={item.label}>
@@ -130,6 +133,7 @@ export function AppSidebar() {
                     side: "right",
                     }}
                     className="justify-start"
+                    onClick={() => setOpenMobile(false)}
                 >
                     <Link href={item.href}>
                     <item.icon className="h-5 w-5" />
@@ -153,6 +157,7 @@ export function AppSidebar() {
                                 side: "right",
                                 }}
                                 className="justify-start"
+                                onClick={() => setOpenMobile(false)}
                             >
                                 <Link href={item.href}>
                                 <item.icon className="h-5 w-5" />
@@ -188,7 +193,7 @@ export function AppSidebar() {
       </SidebarContent>
       <SidebarFooter className="flex flex-col gap-4 p-2 mt-auto">
         <Separator />
-        <Link href="/dashboard/settings" className="flex items-center gap-3 hover:bg-muted/50 rounded-md p-2 transition-colors">
+        <Link href="/dashboard/settings" className="flex items-center gap-3 hover:bg-sidebar-accent rounded-md p-2 transition-colors">
           <Avatar className="group-data-[collapsible=icon]:h-8 group-data-[collapsible=icon]:w-8">
             <AvatarImage src={user?.photoURL || `https://placehold.co/40x40`} data-ai-hint="person portrait" />
             <AvatarFallback>{user?.email?.[0].toUpperCase() || 'U'}</AvatarFallback>
@@ -207,4 +212,5 @@ export function AppSidebar() {
     </Sidebar>
   );
 }
+
 
