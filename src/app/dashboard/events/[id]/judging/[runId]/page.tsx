@@ -469,9 +469,9 @@ export default function JudgingPage() {
                    {deductionCategories.map((cat) => (
                        <div key={cat.category} className="border rounded-md p-4 space-y-2">
                           <h4 className="font-semibold mb-2">{cat.category}</h4>
-                          <div className="space-y-3">
-                               {cat.items.map(item => (
-                                  <div key={item} className="flex items-center space-x-2">
+                          <div>
+                               {cat.items.map((item, index) => (
+                                  <div key={item} className={cn("flex items-center space-x-2", index < cat.items.length - 1 && 'mb-3')}>
                                       <Checkbox 
                                           id={`deduction-${item.replace(/\s+/g, '-')}`}
                                           checked={existingDeductionNotes.has(item)}
