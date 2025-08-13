@@ -210,10 +210,6 @@ export default function JudgingPage() {
   }, [finds, run]);
 
   const existingDeductionNotes = useMemo(() => new Set(deductions.map(d => d.note)), [deductions]);
-  
-  const canStartRun = useMemo(() => !isReadOnly && run?.status === 'scheduled', [isReadOnly, run]);
-  const canStopRun = useMemo(() => !isReadOnly && run?.status === 'in_progress', [isReadOnly, run]);
-  const canSubmitScores = useMemo(() => !isReadOnly && run?.status === 'paused', [isReadOnly, run]);
 
   const getRelativeTime = useCallback((timestamp: any) => {
     if (!timestamp || !run?.startAt) return null;
@@ -337,6 +333,9 @@ export default function JudgingPage() {
     }
   };
 
+  const canStartRun = !isReadOnly && run?.status === 'scheduled';
+  const canStopRun = !isReadOnly && run?.status === 'in_progress';
+  const canSubmitScores = !isReadOnly && run?.status === 'paused';
 
   if (loading || !run) {
       return (
