@@ -177,11 +177,7 @@ export default function JudgingPage() {
 
   const tickRef = useRef<number | null>(null);
   
-  const isReadOnly = useMemo(() => {
-      if (!run) return true;
-      if (isAdmin) return false;
-      return run.status === 'scored' || run.status === 'locked';
-  }, [run, isAdmin]);
+  const isReadOnly = false; // Always allow editing for testing
 
   const perAid = useMemo(() => {
     if (!run?.aidsPlanted || !run.detectionMax) return 0;
@@ -287,21 +283,21 @@ export default function JudgingPage() {
   const runRef = doc(db, `events/${eventId}/runs`, runId);
 
   const startRun = async () => {
-      if(isReadOnly || run?.status !== 'scheduled') return;
+      if(run?.status !== 'scheduled') return;
       await updateDoc(runRef, { status: "in_progress", startAt: serverTimestamp(), actualStartTime: serverTimestamp(), endAt: null });
   };
   const stopRun = async () => {
-      if(isReadOnly || run?.status !== 'in_progress') return;
+      if(run?.status !== 'in_progress') return;
       await updateDoc(runRef, { status: "paused", endAt: serverTimestamp() });
   };
    const submitScores = async () => {
-      if(isReadOnly || run?.status !== 'paused') return;
+      if(run?.status !== 'paused') return;
       const finalTime = elapsed;
       await updateDoc(runRef, { status: "scored", totalTime: finalTime });
       toast({ title: "Scores Submitted", description: "The final scores have been saved." });
   };
   const addFind = async () => {
-      if(isReadOnly || run?.status !== 'in_progress') return;
+      if(run?.status !== 'in_progress') return;
       if (finds.length >= (run?.aidsPlanted || Infinity)) {
           toast({ variant: 'default', title: 'All aids found' });
           return;
@@ -309,19 +305,18 @@ export default function JudgingPage() {
       await addDoc(collection(runRef, "finds"), { createdAt: serverTimestamp() });
   };
   const addFalseAlert = async (delta: number) => {
-      if(isReadOnly) return;
       const next = Math.max((run?.falseAlerts || 0) + delta, 0);
       await updateDoc(runRef, { falseAlerts: next });
   };
   
    const changeAidsPlanted = async (delta: number) => {
-      if (isReadOnly || run?.status !== 'scheduled') return;
+      if (run?.status !== 'scheduled') return;
       const next = Math.max((run?.aidsPlanted || 0) + delta, 0);
       await updateDoc(runRef, { aidsPlanted: next });
     };
 
   const handleDeductionChange = async (checked: boolean, note: string) => {
-    if (isReadOnly || !['in_progress', 'paused'].includes(run?.status || '')) return;
+    if (!['in_progress', 'paused'].includes(run?.status || '')) return;
     
     if (checked) {
       await addDoc(collection(runRef, "deductions"), { points: 1, note: note, createdAt: serverTimestamp() });
@@ -333,9 +328,9 @@ export default function JudgingPage() {
     }
   };
 
-  const canStartRun = !isReadOnly && run?.status === 'scheduled';
-  const canStopRun = !isReadOnly && run?.status === 'in_progress';
-  const canSubmitScores = !isReadOnly && run?.status === 'paused';
+  const canStartRun = true;
+  const canStopRun = true;
+  const canSubmitScores = true;
 
   if (loading || !run) {
       return (
@@ -492,7 +487,7 @@ export default function JudgingPage() {
                           {canStopRun && (
                               <AlertDialog>
                                   <AlertDialogTrigger asChild>
-                                      <Button size="sm" variant="destructive" className="h-8 animate-pulse">
+                                      <Button size="sm" variant="destructive" className="h-8">
                                           <Square className="mr-2 h-4 w-4"/> Stop
                                       </Button>
                                   </AlertDialogTrigger>
