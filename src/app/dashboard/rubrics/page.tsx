@@ -70,7 +70,8 @@ const phaseSchema = z.object({
 const rubricSchema = z.object({
   id: z.string().optional(),
   name: z.string().min(1, "Rubric name is required."),
-  totalPoints: z.coerce.number({ required_error: "Total points are required." }).min(1, "Total points must be greater than 0."),
+  judgingInterface: z.enum(["phases", "detection"]).default("phases"),
+  totalPoints: z.coerce.number({ required_error: "Total points are required." }).min(1, "Total points must be greater than 0.").optional(),
   phases: z.array(phaseSchema),
 });
 
@@ -101,7 +102,12 @@ export default function ManageRubricsPage() {
         }
         setIsCreating(true);
         try {
-            const docRef = await addDoc(collection(db, "rubrics"), { name: newRubricName.trim(), phases: [], totalPoints: 100 });
+            const docRef = await addDoc(collection(db, "rubrics"), { 
+                name: newRubricName.trim(), 
+                phases: [], 
+                totalPoints: 100,
+                judgingInterface: "phases" // Default to phase-based
+            });
             setSelectedRubricId(docRef.id);
             setNewRubricName("");
              toast({ title: "Success", description: "Rubric created successfully." });
@@ -225,16 +231,18 @@ function RubricEditor({ rubric }: { rubric: Rubric }) {
 
     const totalPoints = useWatch({ control: form.control, name: 'totalPoints' });
     const phases = useWatch({ control: form.control, name: 'phases' });
+    const judgingInterface = useWatch({ control: form.control, name: 'judgingInterface' });
 
     const isDistributionEnabled = useMemo(() => {
-        return typeof totalPoints === 'number' && totalPoints > 0;
-    }, [totalPoints]);
+        return judgingInterface === 'phases' && typeof totalPoints === 'number' && totalPoints > 0;
+    }, [judgingInterface, totalPoints]);
     
     const pointBasedExerciseCount = useMemo(() => {
+        if (judgingInterface !== 'phases') return 0;
         return phases.reduce((count, phase) => {
             return count + (phase.exercises?.filter(ex => ex.type === 'points' || ex.type === 'pass/fail').length || 0);
         }, 0);
-    }, [phases]);
+    }, [phases, judgingInterface]);
     
     const pointsPerExercise = useMemo(() => {
         if (!isDistributionEnabled || pointBasedExerciseCount === 0) return null;
@@ -266,8 +274,9 @@ function RubricEditor({ rubric }: { rubric: Rubric }) {
             const rubricRef = doc(db, "rubrics", data.id);
             const dataToSave = { 
                 name: data.name, 
-                phases: data.phases, 
-                totalPoints: data.totalPoints 
+                judgingInterface: data.judgingInterface,
+                phases: data.judgingInterface === 'phases' ? data.phases : [], 
+                totalPoints: data.judgingInterface === 'phases' ? data.totalPoints : null,
             };
             await updateDoc(rubricRef, dataToSave);
             toast({
@@ -292,13 +301,13 @@ function RubricEditor({ rubric }: { rubric: Rubric }) {
             <CardHeader>
                 <CardTitle>Configure Rubric</CardTitle>
                 <CardDescription>
-                    Define the phases and exercises for this rubric. Changes are saved when you click the "Save Rubric" button.
+                    Define the name, interface, and scoring rules for this rubric.
                 </CardDescription>
             </CardHeader>
             <CardContent>
                 <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <FormField
                                 control={form.control}
                                 name="name"
@@ -311,76 +320,112 @@ function RubricEditor({ rubric }: { rubric: Rubric }) {
                                     </FormItem>
                                 )}
                             />
-                             <FormField
+                            <FormField
                                 control={form.control}
-                                name="totalPoints"
+                                name="judgingInterface"
                                 render={({ field }) => (
                                     <FormItem>
-                                    <FormLabel>Total Points</FormLabel>
-                                    <FormControl>
-                                        <Input type="number" {...field} placeholder="e.g., 100" onChange={e => field.onChange(e.target.value === '' ? undefined : Number(e.target.value))} value={field.value ?? ''} />
-                                    </FormControl>
+                                    <FormLabel>Judging Interface</FormLabel>
+                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                         <FormControl>
+                                            <SelectTrigger><SelectValue placeholder="Select interface" /></SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                            <SelectItem value="phases">Phases & Exercises</SelectItem>
+                                            <SelectItem value="detection">Detection & Teamwork</SelectItem>
+                                        </SelectContent>
+                                    </Select>
                                     </FormItem>
                                 )}
                             />
                         </div>
-                        {isDistributionEnabled && (
-                            <div className="text-sm text-muted-foreground bg-accent/50 p-3 rounded-md">
-                               Point distribution is active. Each of the <strong>{pointBasedExerciseCount}</strong> point-based & pass/fail exercises will be worth <strong>{pointsPerExercise?.toFixed(2) ?? 0}</strong> points.
-                            </div>
-                        )}
-                        <Separator />
-                        <Accordion type="multiple" className="w-full space-y-4" value={openAccordionItems} onValueChange={setOpenAccordionItems}>
-                            {fields.map((phase, phaseIndex) => (
-                                <AccordionItem key={phase.id || phaseIndex} value={`item-${phaseIndex}`} className="border rounded-lg bg-background">
-                                    <AccordionTrigger className="p-4 hover:no-underline">
-                                        <div className="flex items-center gap-4 flex-grow">
-                                            <GripVertical className="h-5 w-5 text-muted-foreground" />
-                                            <FormField
-                                                control={form.control}
-                                                name={`phases.${phaseIndex}.name`}
-                                                render={({ field }) => <Input {...field} className="text-lg font-semibold border-none shadow-none focus-visible:ring-0 p-0 h-auto" onClick={(e) => e.stopPropagation()} />}
-                                            />
+                        
+                        {judgingInterface === 'phases' && (
+                          <>
+                            <Separator />
+                            <FormField
+                                control={form.control}
+                                name="totalPoints"
+                                render={({ field }) => (
+                                    <FormItem>
+                                    <FormLabel>Total Available Points</FormLabel>
+                                    <FormControl>
+                                        <Input type="number" {...field} placeholder="e.g., 100" onChange={e => field.onChange(e.target.value === '' ? undefined : Number(e.target.value))} value={field.value ?? ''} />
+                                    </FormControl>
+                                     <FormDescription>Points will be distributed among exercises.</FormDescription>
+                                    </FormItem>
+                                )}
+                            />
+                            {isDistributionEnabled && (
+                                <div className="text-sm text-muted-foreground bg-accent/50 p-3 rounded-md">
+                                Point distribution is active. Each of the <strong>{pointBasedExerciseCount}</strong> point-based & pass/fail exercises will be worth <strong>{pointsPerExercise?.toFixed(2) ?? 0}</strong> points.
+                                </div>
+                            )}
+                            <Accordion type="multiple" className="w-full space-y-4" value={openAccordionItems} onValueChange={setOpenAccordionItems}>
+                                {fields.map((phase, phaseIndex) => (
+                                    <AccordionItem key={phase.id || phaseIndex} value={`item-${phaseIndex}`} className="border rounded-lg bg-background">
+                                        <AccordionTrigger className="p-4 hover:no-underline">
+                                            <div className="flex items-center gap-4 flex-grow">
+                                                <GripVertical className="h-5 w-5 text-muted-foreground" />
+                                                <FormField
+                                                    control={form.control}
+                                                    name={`phases.${phaseIndex}.name`}
+                                                    render={({ field }) => <Input {...field} className="text-lg font-semibold border-none shadow-none focus-visible:ring-0 p-0 h-auto" onClick={(e) => e.stopPropagation()} />}
+                                                />
+                                            </div>
+                                        </AccordionTrigger>
+                                        <AccordionContent className="p-4 pt-0">
+                                        <PhaseExercises control={form.control} phaseIndex={phaseIndex} isDistributionEnabled={isDistributionEnabled} />
+                                        <div className="flex justify-end mt-4">
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="sm"
+                                                className="text-destructive hover:text-destructive"
+                                                onClick={() => remove(phaseIndex)}
+                                            >
+                                                <Trash2 className="mr-2 h-4 w-4" />
+                                                Remove Phase
+                                            </Button>
                                         </div>
-                                    </AccordionTrigger>
-                                    <AccordionContent className="p-4 pt-0">
-                                    <PhaseExercises control={form.control} phaseIndex={phaseIndex} isDistributionEnabled={isDistributionEnabled} />
-                                    <div className="flex justify-end mt-4">
-                                        <Button
-                                            type="button"
-                                            variant="ghost"
-                                            size="sm"
-                                            className="text-destructive hover:text-destructive"
-                                            onClick={() => remove(phaseIndex)}
-                                        >
-                                            <Trash2 className="mr-2 h-4 w-4" />
-                                            Remove Phase
-                                        </Button>
-                                    </div>
-                                    </AccordionContent>
-                                </AccordionItem>
-                            ))}
-                        </Accordion>
-                        {fields.length === 0 && (
-                            <div className="text-center text-muted-foreground py-12 border-2 border-dashed rounded-lg">
-                                <p className="font-semibold">No phases defined yet.</p>
-                                <p>Click "Add Phase" to get started building your scoring rubric.</p>
-                            </div>
-                        )}
-                        <div className="flex justify-between items-center mt-6">
-                            <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => append({ name: "New Phase", exercises: [] })}
-                            >
-                                <PlusCircle className="mr-2 h-4 w-4" /> Add Phase
-                            </Button>
-                            <div className="flex gap-2">
-                                <Button type="submit" disabled={isSubmitting}>
-                                {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                                Save Rubric
+                                        </AccordionContent>
+                                    </AccordionItem>
+                                ))}
+                            </Accordion>
+                            {fields.length === 0 && (
+                                <div className="text-center text-muted-foreground py-12 border-2 border-dashed rounded-lg">
+                                    <p className="font-semibold">No phases defined yet.</p>
+                                    <p>Click "Add Phase" to get started building your scoring rubric.</p>
+                                </div>
+                            )}
+                            <div className="mt-6">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={() => append({ name: "New Phase", exercises: [] })}
+                                >
+                                    <PlusCircle className="mr-2 h-4 w-4" /> Add Phase
                                 </Button>
                             </div>
+                          </>
+                        )}
+                        {judgingInterface === 'detection' && (
+                            <div className="text-sm text-muted-foreground bg-accent/50 p-3 rounded-md space-y-2">
+                                <p>The <strong>Detection & Teamwork</strong> interface uses a fixed scoring model:</p>
+                                <ul className="list-disc pl-5">
+                                    <li>**Detection Score:** 75 points max, based on number of aids found.</li>
+                                    <li>**Teamwork Score:** 25 points max, reduced by deductions.</li>
+                                    <li>**False Alerts:** Configurable point penalty per alert.</li>
+                                </ul>
+                                <p>This configuration is managed at the event level, not in the rubric.</p>
+                            </div>
+                        )}
+                        
+                        <div className="flex justify-end items-center mt-6">
+                            <Button type="submit" disabled={isSubmitting}>
+                            {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                            Save Rubric
+                            </Button>
                         </div>
                     </form>
                 </Form>
@@ -512,3 +557,5 @@ function ExerciseItem({ control, phaseIndex, exerciseIndex, remove, isDistributi
         </div>
     )
 }
+
+    
