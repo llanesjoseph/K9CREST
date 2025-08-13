@@ -204,6 +204,17 @@ export default function JudgingPage() {
     return Math.max(Math.floor((endMs - startMs) / 1000), 0);
   }, [run?.startAt, run?.endAt, now]);
   
+    const allAidsFound = useMemo(() => {
+        if (!run) return false;
+        return finds.length >= (run.aidsPlanted || 0);
+    }, [finds, run]);
+
+    const existingDeductionNotes = useMemo(() => new Set(deductions.map(d => d.note)), [deductions]);
+  
+    const canStartRun = useMemo(() => !isReadOnly && run?.status === 'scheduled', [isReadOnly, run]);
+    const canStopRun = useMemo(() => !isReadOnly && run?.status === 'in_progress', [isReadOnly, run]);
+    const canSubmitScores = useMemo(() => !isReadOnly && run?.status === 'paused', [isReadOnly, run]);
+
   const getRelativeTime = useCallback((timestamp: any) => {
     if (!timestamp || !run?.startAt) return null;
     const startMs = run.startAt.toMillis ? run.startAt.toMillis() : Date.parse(run.startAt);
@@ -211,12 +222,6 @@ export default function JudgingPage() {
     return Math.max(Math.floor((eventMs - startMs) / 1000), 0);
   }, [run?.startAt]);
   
-  const allAidsFound = useMemo(() => run ? finds.length >= (run.aidsPlanted || 0) : false, [finds, run]);
-  const existingDeductionNotes = useMemo(() => new Set(deductions.map(d => d.note)), [deductions]);
-  
-  const canStartRun = useMemo(() => !isReadOnly && run?.status === 'scheduled', [isReadOnly, run]);
-  const canStopRun = useMemo(() => !isReadOnly && run?.status === 'in_progress', [isReadOnly, run]);
-  const canSubmitScores = useMemo(() => !isReadOnly && run?.status === 'paused', [isReadOnly, run]);
 
   useEffect(() => {
     if (!eventId || !runId) return;
@@ -444,7 +449,7 @@ export default function JudgingPage() {
           <CardContent className="p-1">
                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-1 gap-y-1">
                    {deductionCategories.map((cat) => (
-                       <div key={cat.category} className="border rounded-md p-1 space-y-1">
+                       <div key={cat.category} className="border rounded-md p-1 space-y-0.5">
                           <h4 className="font-semibold text-sm mb-1 px-1">{cat.category}</h4>
                           <div className="space-y-0.5">
                                {cat.items.map((item) => (
@@ -530,3 +535,5 @@ function Stat({ label, value, big }: { label: string; value: string; big?: boole
     </div>
   );
 }
+
+    
