@@ -449,9 +449,9 @@ export default function JudgingPage() {
           <CardContent className="p-1">
                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-1 gap-y-1">
                    {deductionCategories.map((cat) => (
-                       <div key={cat.category} className="border rounded-md p-1 space-y-0.5">
+                       <div key={cat.category} className="border rounded-md p-2 space-y-1">
                           <h4 className="font-semibold text-sm mb-1 px-1">{cat.category}</h4>
-                          <div className="space-y-0.5">
+                          <div className="space-y-1">
                                {cat.items.map((item) => (
                                   <div key={item} className="flex items-center space-x-2 p-1 rounded-sm hover:bg-muted">
                                       <Checkbox 
@@ -476,14 +476,14 @@ export default function JudgingPage() {
       </Card>
       
       <div className="fixed bottom-0 left-0 right-0 z-40">
-          <div className="bg-background/95 backdrop-blur-sm border-t -mx-4 sm:-mx-6 lg:-mx-8">
+          <div className="bg-background/95 backdrop-blur-sm border-t">
               <div className="max-w-4xl mx-auto p-2 px-4 sm:px-6 lg:px-8">
                    <div className="flex items-center justify-between gap-4">
                       {/* Left Side: Actions */}
                       <div className="flex items-center gap-2">
-                          <div className="font-mono text-lg font-bold text-primary tracking-tighter flex items-center gap-2">
+                          <div className="font-mono text-base font-bold text-primary tracking-tighter flex items-center gap-2">
                               <TimerIcon className="h-4 w-4 text-muted-foreground" />
-                              <span className="w-16">{formatClock(elapsed)}</span>
+                              <span className="w-14">{formatClock(elapsed)}</span>
                           </div>
                            {canStartRun && (
                               <Button onClick={startRun} size="sm" className="h-8 bg-green-600 hover:bg-green-700">
@@ -529,11 +529,9 @@ export default function JudgingPage() {
 
 function Stat({ label, value, big }: { label: string; value: string; big?: boolean }) {
   return (
-    <div className={cn("text-center", big && "bg-primary/10 text-primary p-1 rounded-md")}>
+    <div className={cn("text-center", big && "bg-primary/10 text-primary py-1 px-2 rounded-md")}>
       <div className={cn("text-[10px] uppercase tracking-wider text-muted-foreground", big && "text-primary/80")}>{label}</div>
       <div className={cn("text-xs font-bold", big && "text-base")}>{value}</div>
     </div>
   );
 }
-
-    
