@@ -274,7 +274,17 @@ export function PhaseBasedScoring({ eventId, runId, isReadOnly, eventData, runDa
                                         <Switch
                                             id={`switch-${phaseIndex}-${exerciseIndex}`}
                                             checked={field.value === 1 || field.value === true}
-                                            onCheckedChange={(isChecked) => field.onChange(isChecked ? 1 : 0)}
+                                            onCheckedChange={(isChecked) => {
+                                                const pointValue = isChecked ? 1 : 0;
+                                                field.onChange(pointValue);
+                                                
+                                                // Check for time penalty
+                                                const isTimePenalty = exercise.maxPoints && exercise.maxPoints < 0;
+                                                if (isTimePenalty) {
+                                                    const timeAdjustment = Math.abs(exercise.maxPoints!);
+                                                    setElapsedTime(prev => prev + (isChecked ? timeAdjustment : -timeAdjustment));
+                                                }
+                                            }}
                                             disabled={isReadOnly}
                                         />
                                     )}
@@ -311,5 +321,3 @@ export function PhaseBasedScoring({ eventId, runId, isReadOnly, eventData, runDa
     </div>
   );
 }
-
-    
