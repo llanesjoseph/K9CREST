@@ -120,7 +120,19 @@ export function PhaseBasedScoring({ eventId, runId, isReadOnly, eventData, runDa
   }, [rubricData, runData, form]);
   
   const handleStartTimer = () => {
-    if(!isReadOnly) setIsTimerRunning(true);
+    if(!isReadOnly) {
+        if (runData?.actualStartTime) {
+            // This is a resume
+             const serverStartTime = runData.actualStartTime.toDate();
+             const lastElapsedTime = runData.totalTime || 0;
+             const correctedStartTime = Date.now() - (lastElapsedTime * 1000);
+             setIsTimerRunning(true);
+        } else {
+            // This is a fresh start
+            updateDoc(doc(db, `events/${eventId}/schedule`, runId), { actualStartTime: new Date() });
+            setIsTimerRunning(true);
+        }
+    }
   }
 
   const handleStopTimer = () => {
@@ -275,15 +287,15 @@ export function PhaseBasedScoring({ eventId, runId, isReadOnly, eventData, runDa
                                             id={`switch-${phaseIndex}-${exerciseIndex}`}
                                             checked={field.value === 1 || field.value === true}
                                             onCheckedChange={(isChecked) => {
-                                                const pointValue = isChecked ? 1 : 0;
-                                                field.onChange(pointValue);
+                                                const isTimePenalty = typeof exercise.maxPoints === 'number' && exercise.maxPoints < 0;
                                                 
-                                                // Check for time penalty
-                                                const isTimePenalty = exercise.maxPoints && exercise.maxPoints < 0;
                                                 if (isTimePenalty) {
                                                     const timeAdjustment = Math.abs(exercise.maxPoints!);
                                                     setElapsedTime(prev => prev + (isChecked ? timeAdjustment : -timeAdjustment));
                                                 }
+                                                
+                                                const pointValue = isChecked ? 1 : 0;
+                                                field.onChange(pointValue);
                                             }}
                                             disabled={isReadOnly}
                                         />
@@ -321,3 +333,5 @@ export function PhaseBasedScoring({ eventId, runId, isReadOnly, eventData, runDa
     </div>
   );
 }
+
+    

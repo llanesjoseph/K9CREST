@@ -633,8 +633,8 @@ function ExerciseItem({ control, phaseIndex, exerciseIndex, remove, isDistributi
         name: `phases.${phaseIndex}.exercises.${exerciseIndex}`,
     });
 
-    const showMaxPoints = exerciseType === 'points' || (exerciseType === 'pass/fail' && exerciseValue.maxPoints! > 0);
-    const showPenalty = exerciseType === 'pass/fail' && exerciseValue.maxPoints! < 0;
+    const showMaxPoints = exerciseType === 'points' || (exerciseType === 'pass/fail' && (!exerciseValue.maxPoints || exerciseValue.maxPoints > 0));
+    const showPenalty = exerciseType === 'pass/fail' && exerciseValue.maxPoints && exerciseValue.maxPoints < 0;
 
     
     return (
@@ -680,7 +680,7 @@ function ExerciseItem({ control, phaseIndex, exerciseIndex, remove, isDistributi
                       name={`phases.${phaseIndex}.exercises.${exerciseIndex}.maxPoints`}
                       render={({ field }) => (
                         <FormItem className="w-full">
-                          <FormLabel>{showPenalty ? 'Penalty Points' : 'Max Points'}</FormLabel>
+                          <FormLabel>{showPenalty ? 'Time Penalty (seconds)' : 'Max Points'}</FormLabel>
                           <FormControl>
                             <Input 
                                 {...field} 
@@ -718,3 +718,5 @@ function ExerciseItem({ control, phaseIndex, exerciseIndex, remove, isDistributi
         </div>
     )
 }
+
+    
