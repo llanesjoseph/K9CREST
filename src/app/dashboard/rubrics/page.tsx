@@ -38,8 +38,8 @@ import {
 } from "@/components/ui/accordion";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, useMemo } from "react";
-import { collection, onSnapshot, doc, getDoc, setDoc, updateDoc, addDoc, deleteDoc } from "firebase/firestore";
+import { useEffect, useState, useMemo, useCallback } from "react";
+import { collection, onSnapshot, doc, getDoc, setDoc, updateDoc, addDoc, deleteDoc, query, where, getDocs, writeBatch } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/components/auth-provider";
 import {
@@ -85,6 +85,53 @@ const defaultDetectionRubric: Rubric = {
     phases: [],
 };
 
+const defaultTacticalRubrics = [
+    {
+        name: "Car Jump Challenge",
+        judgingInterface: "phases",
+        totalPoints: 25,
+        phases: [
+            {
+                name: "Car Jump",
+                exercises: [
+                    { name: "Successful deploy over vehicle", type: "points", maxPoints: 15 },
+                    { name: "Verbal out", type: "points", maxPoints: 5 },
+                    { name: "Recall", type: "points", maxPoints: 5 },
+                ]
+            }
+        ]
+    },
+    {
+        name: "E-Bike Pursuit Challenge",
+        judgingInterface: "phases",
+        totalPoints: 25,
+        phases: [
+            {
+                name: "E-Bike Pursuit",
+                exercises: [
+                    { name: "Handler Challenges Decoy", type: "points", maxPoints: 5 },
+                    { name: "Successfully Sends Dog", type: "points", maxPoints: 5 },
+                    { name: "Successful Verbal Recall", type: "points", maxPoints: 15 },
+                ]
+            }
+        ]
+    },
+    {
+        name: "Bonus Challenge",
+        judgingInterface: "phases",
+        totalPoints: 25,
+        phases: [
+            {
+                name: "Bonus Challenge",
+                exercises: [
+                    { name: "Successful Deployment", type: "points", maxPoints: 15 },
+                    { name: "Successful Recall", type: "points", maxPoints: 10 },
+                ]
+            }
+        ]
+    },
+];
+
 
 export default function ManageRubricsPage() {
     const { isAdmin } = useAuth();
@@ -95,14 +142,37 @@ export default function ManageRubricsPage() {
     const [newRubricName, setNewRubricName] = useState("");
     const { toast } = useToast();
 
+     const seedDefaultRubrics = useCallback(async (existingRubrics: Rubric[]) => {
+        const existingNames = new Set(existingRubrics.map(r => r.name));
+        const rubricsToCreate = defaultTacticalRubrics.filter(r => !existingNames.has(r.name));
+
+        if (rubricsToCreate.length > 0) {
+            const batch = writeBatch(db);
+            const rubricsCollection = collection(db, "rubrics");
+            rubricsToCreate.forEach(rubricData => {
+                const docRef = doc(rubricsCollection);
+                batch.set(docRef, rubricData);
+            });
+            await batch.commit();
+            console.log(`Seeded ${rubricsToCreate.length} tactical rubrics.`);
+        }
+    }, []);
+
+
     useEffect(() => {
         const unsub = onSnapshot(collection(db, "rubrics"), (snapshot) => {
             const rubricsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Rubric));
             setRubrics(rubricsData);
+            
+            // One-time seeding of default tactical rubrics if they don't exist
+            if (isLoading) { // Only run once on initial load
+                seedDefaultRubrics(rubricsData);
+            }
+
             setIsLoading(false);
         });
         return () => unsub();
-    }, []);
+    }, [isLoading, seedDefaultRubrics]);
 
     const handleCreateRubric = async () => {
         if (newRubricName.trim() === "") {
@@ -140,7 +210,12 @@ export default function ManageRubricsPage() {
         }
     }
 
-    const allDisplayRubrics = [defaultDetectionRubric, ...rubrics];
+    const allDisplayRubrics = [defaultDetectionRubric, ...rubrics].sort((a, b) => {
+        if (a.id === 'default-detection') return -1;
+        if (b.id === 'default-detection') return 1;
+        return a.name.localeCompare(b.name);
+    });
+    
     const selectedRubric = allDisplayRubrics.find(r => r.id === selectedRubricId);
 
     if (isLoading) {
@@ -339,7 +414,7 @@ function RubricEditor({ rubric }: { rubric: Rubric }) {
                                 render={({ field }) => (
                                     <FormItem>
                                     <FormLabel>Judging Interface</FormLabel>
-                                    <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isDefaultRubric}>
+                                    <Select onValueChange={field.onChange} value={field.value} disabled={isDefaultRubric}>
                                          <FormControl>
                                             <SelectTrigger><SelectValue placeholder="Select interface" /></SelectTrigger>
                                         </FormControl>
