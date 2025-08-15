@@ -27,6 +27,8 @@ export const CompetitorSchema = z.object({
   dogBio: z.string().optional(),
   dogImage: z.string().optional(),
 });
+export type Competitor = z.infer<typeof CompetitorSchema>;
+
 
 export const ArenaSchema = z.object({
   id: z.string(),
@@ -35,6 +37,8 @@ export const ArenaSchema = z.object({
   rubricId: z.string().nullable().optional(),
   rubricName: z.string().nullable().optional(),
 });
+export type Arena = z.infer<typeof ArenaSchema>;
+
 
 export const InputSchema = z.object({
   competitors: z.array(CompetitorSchema),
@@ -78,6 +82,8 @@ export const ScheduledRunSchema = z.object({
     startAt: z.custom<Timestamp>().optional(),
     endAt: z.custom<Timestamp>().optional(),
 });
+export type ScheduledEvent = z.infer<typeof ScheduledRunSchema>;
+
 
 export const OutputSchema = z.object({
   schedule: z.array(ScheduledRunSchema.omit({ id: true })),
@@ -94,6 +100,3 @@ export const OutputSchema = z.object({
 
 export type GenerateScheduleInput = z.infer<typeof InputSchema>;
 export type GenerateScheduleOutput = z.infer<typeof OutputSchema>;
-export type Competitor = z.infer<typeof CompetitorSchema>;
-export type Arena = z.infer<typeof ArenaSchema>;
-export type ScheduledEvent = z.infer<typeof ScheduledRunSchema>;

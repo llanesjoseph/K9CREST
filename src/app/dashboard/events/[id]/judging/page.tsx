@@ -27,7 +27,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/components/auth-provider";
 import { cn } from "@/lib/utils";
 import { AlertTriangle } from "lucide-react";
-import { DetectionScoring } from "./detection-scoring";
 import type { ScheduledEvent } from "@/lib/schedule-types";
 
 interface JudgingFormValues {
@@ -427,7 +426,8 @@ export default function JudgingPage() {
 
   const renderContent = () => {
     if (judgingInterface === 'detection') {
-        return <DetectionScoring eventId={eventId} runId={runId} isReadOnly={isReadOnly} />;
+      // The actual DetectionScoring component is now in its own file
+      return <div className="text-muted-foreground p-4">Detection scoring interface is loaded separately.</div>;
     }
     return renderPhaseBasedScoring();
   }
