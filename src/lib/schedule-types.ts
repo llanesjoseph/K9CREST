@@ -1,4 +1,3 @@
-
 import { z } from "zod";
 import type { Timestamp } from "firebase/firestore";
 
@@ -21,11 +20,11 @@ export const CompetitorSchema = z.object({
   name: z.string(),
   dogName: z.string(),
   agency: z.string(),
-  specialties: z.array(SpecialtySchema),
-  bibNumber: z.string().optional(),
+  specialties: z.array(SpecialtySchema).optional().default([]),
+  bibNumber: z.string().optional().nullable(),
   eventId: z.string(),
-  dogBio: z.string().optional(),
-  dogImage: z.string().optional(),
+  dogBio: z.string().optional().nullable(),
+  dogImage: z.string().optional().nullable(),
 });
 export type Competitor = z.infer<typeof CompetitorSchema>;
 
@@ -67,20 +66,20 @@ export const ScheduledRunSchema = z.object({
     endTime: z.string().regex(/^\d{2}:\d{2}$/),
     date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
     status: z.enum(['scheduled', 'in_progress', 'paused', 'scored', 'locked']).default('scheduled'),
-    actualStartTime: z.custom<Timestamp>().optional(),
-    actualEndTime: z.custom<Timestamp>().optional(),
-    scores: z.array(ScorePhaseSchema).optional(),
-    notes: z.string().optional(),
-    totalTime: z.number().optional(),
-    judgeName: z.string().optional(),
+    actualStartTime: z.custom<Timestamp>().optional().nullable(),
+    actualEndTime: z.custom<Timestamp>().optional().nullable(),
+    scores: z.array(ScorePhaseSchema).optional().nullable(),
+    notes: z.string().optional().nullable(),
+    totalTime: z.number().optional().nullable(),
+    judgeName: z.string().optional().nullable(),
     // Detection specific fields
-    judgingInterface: z.enum(["phases", "detection"]).optional(),
-    detectionMax: z.number().optional(),
-    teamworkMax: z.number().optional(),
-    falseAlertPenalty: z.number().optional(),
-    falseAlerts: z.number().optional(),
-    startAt: z.custom<Timestamp>().optional(),
-    endAt: z.custom<Timestamp>().optional(),
+    judgingInterface: z.enum(["phases", "detection"]).optional().nullable(),
+    detectionMax: z.number().optional().nullable(),
+    teamworkMax: z.number().optional().nullable(),
+    falseAlertPenalty: z.number().optional().nullable(),
+    falseAlerts: z.number().optional().nullable(),
+    startAt: z.custom<Timestamp>().optional().nullable(),
+    endAt: z.custom<Timestamp>().optional().nullable(),
 });
 export type ScheduledEvent = z.infer<typeof ScheduledRunSchema>;
 

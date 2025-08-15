@@ -21,13 +21,14 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState, useRef, useMemo } from "react";
-import { doc, getDoc, updateDoc, onSnapshot } from "firebase/firestore";
+import { doc, getDoc, updateDoc, onSnapshot, serverTimestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/components/auth-provider";
 import { cn } from "@/lib/utils";
 import { AlertTriangle } from "lucide-react";
 import { DetectionScoring } from "./detection-scoring";
+import type { ScheduledEvent } from "@/lib/schedule-types";
 
 interface JudgingFormValues {
     scores: {
@@ -47,7 +48,7 @@ export default function JudgingPage() {
   const { toast } = useToast();
   const router = useRouter();
   const params = useParams();
-  const { isAdmin } = useAuth();
+  const { user, isAdmin } = useAuth();
   const eventId = params.id as string;
   const runId = params.runId as string;
   
@@ -55,13 +56,12 @@ export default function JudgingPage() {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [eventData, setEventData] = useState<any>(null);
-  const [runData, setRunData] = useState<any>(null);
+  const [runData, setRunData] = useState<ScheduledEvent | null>(null);
   const [competitorData, setCompetitorData] = useState<any>(null);
   const [arenaData, setArenaData] = useState<any>(null);
   const [rubricData, setRubricData] = useState<any>(null);
   const [judgingInterface, setJudgingInterface] = useState<"phases" | "detection" | null>(null);
   
-  // Stopwatch state
   const [isTimerRunning, setIsTimerRunning] = useState(false);
   const [elapsedTime, setElapsedTime] = useState(0);
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -72,7 +72,6 @@ export default function JudgingPage() {
   }, [runData, isAdmin]);
 
   const pageTitle = isReadOnly ? "View Scorecard" : "Judge Scoring Interface";
-
 
   const form = useForm<JudgingFormValues>({
       defaultValues: { scores: [], notes: "", totalTime: 0 }
@@ -86,18 +85,18 @@ export default function JudgingPage() {
       };
   }, []);
   
-    useEffect(() => {
-        if (isTimerRunning) {
-            const startTime = Date.now() - elapsedTime * 1000;
-            timerIntervalRef.current = setInterval(() => {
-                setElapsedTime((Date.now() - startTime) / 1000);
-            }, 100);
-        } else {
-            if (timerIntervalRef.current) {
-                clearInterval(timerIntervalRef.current);
-            }
+  useEffect(() => {
+    if (isTimerRunning) {
+        const startTime = Date.now() - elapsedTime * 1000;
+        timerIntervalRef.current = setInterval(() => {
+            setElapsedTime((Date.now() - startTime) / 1000);
+        }, 100);
+    } else {
+        if (timerIntervalRef.current) {
+            clearInterval(timerIntervalRef.current);
         }
-    }, [isTimerRunning, elapsedTime]);
+    }
+  }, [isTimerRunning, elapsedTime]);
 
   useEffect(() => {
     if (!eventId || !runId) return;
@@ -105,25 +104,26 @@ export default function JudgingPage() {
     const runRef = doc(db, `events/${eventId}/schedule`, runId);
     const unsubscribe = onSnapshot(runRef, async (runSnap) => {
       try {
-        setLoading(true);
+        if (!loading) setLoading(true);
+
         if (!runSnap.exists()) {
             throw new Error("Run not found for this event.");
         }
         
-        const run = runSnap.data();
+        const run = { id: runSnap.id, ...runSnap.data() } as ScheduledEvent;
         setRunData(run);
         
         const eventRef = doc(db, 'events', eventId);
-        const eventSnap = await getDoc(eventRef);
-        if (!eventSnap.exists()) throw new Error("Event not found.");
-        const event = eventSnap.data();
-        setEventData(event);
-
-        const [competitorSnap, arenaSnap] = await Promise.all([
+        
+        const [eventSnap, competitorSnap, arenaSnap] = await Promise.all([
+             getDoc(eventRef),
              run.competitorId ? getDoc(doc(db, `events/${eventId}/competitors`, run.competitorId)) : null,
              run.arenaId ? getDoc(doc(db, `events/${eventId}/arenas`, run.arenaId)) : null,
         ]);
         
+        if (!eventSnap.exists()) throw new Error("Event not found.");
+        setEventData(eventSnap.data());
+
         if(competitorSnap?.exists()) {
              setCompetitorData(competitorSnap.data());
         }
@@ -189,11 +189,11 @@ export default function JudgingPage() {
     });
     
     return () => unsubscribe();
-  }, [eventId, runId, toast, form, router, isAdmin]);
+  }, [eventId, runId, toast, form, router, isAdmin, loading]);
   
   const handleStartTimer = () => {
     if(!isReadOnly) {
-        updateDoc(doc(db, `events/${eventId}/schedule`, runId), { actualStartTime: new Date() });
+        updateDoc(doc(db, `events/${eventId}/schedule`, runId), { actualStartTime: serverTimestamp() });
         setIsTimerRunning(true);
     }
   }
@@ -221,7 +221,7 @@ export default function JudgingPage() {
             notes: data.notes,
             totalTime: finalTime,
             status: 'scored',
-            actualEndTime: new Date(),
+            actualEndTime: serverTimestamp(),
         });
         
         toast({

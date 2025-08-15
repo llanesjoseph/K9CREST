@@ -201,16 +201,16 @@ export function DetectionScoring({ eventId, runId, isReadOnly }: DetectionScorin
   }, [run?.startAt, run?.endAt, now]);
   
   const allAidsFound = useMemo(() => {
-      if (!run) return false;
-      return finds.length >= (run.aidsPlanted || 0);
+      if (!run || !run.aidsPlanted) return false;
+      return finds.length >= run.aidsPlanted;
   }, [finds, run]);
 
   const existingDeductionNotes = useMemo(() => new Set(deductions.map(d => d.note)), [deductions]);
 
   const getRelativeTime = useCallback((timestamp: any) => {
     if (!timestamp || !run?.startAt) return null;
-    const startMs = run.startAt.toMillis ? run.startAt.toMillis() : Date.parse(run.startAt);
-    const eventMs = timestamp.toMillis ? timestamp.toMillis() : Date.parse(timestamp);
+    const startMs = run.startAt.toMillis();
+    const eventMs = timestamp.toMillis();
     return Math.max(Math.floor((eventMs - startMs) / 1000), 0);
   }, [run?.startAt]);
   
@@ -344,11 +344,11 @@ export function DetectionScoring({ eventId, runId, isReadOnly }: DetectionScorin
                         {run.status === 'scheduled' && !isReadOnly ? (
                              <span className="flex items-center gap-1">
                                 <Button onClick={() => changeAidsPlanted(-1)} variant="outline" size="icon" className="h-5 w-5 rounded-full"><Minus className="h-3 w-3" /></Button>
-                                <span className="font-bold text-foreground w-4 text-center">{run.aidsPlanted}</span>
+                                <span className="font-bold text-foreground w-4 text-center">{run.aidsPlanted || 0}</span>
                                 <Button onClick={() => changeAidsPlanted(1)} variant="outline" size="icon" className="h-5 w-5 rounded-full"><Plus className="h-3 w-3"/></Button>
                             </span>
                         ) : (
-                             <span className="font-bold text-foreground">{run.aidsPlanted}</span>
+                             <span className="font-bold text-foreground">{run.aidsPlanted || 0}</span>
                         )}
                     </span>
                      <span>False Alert: -{run.falseAlertPenalty || 0} pts</span>
@@ -371,7 +371,7 @@ export function DetectionScoring({ eventId, runId, isReadOnly }: DetectionScorin
                 ) : (
                     <>
                     <Button onClick={addFind} disabled={isReadOnly || run.status !== 'in_progress'} size="sm">
-                        Log Find ({finds.length}/{run.aidsPlanted})
+                        Log Find ({finds.length}/{run.aidsPlanted || 0})
                     </Button>
                     <div className="w-full min-h-[40px]">
                         <ul className="space-y-1 text-xs text-muted-foreground list-decimal pl-4">

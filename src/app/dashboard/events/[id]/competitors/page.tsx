@@ -5,13 +5,11 @@ import { useState, useEffect } from "react";
 import type { DocumentData } from "firebase/firestore";
 import { collection, onSnapshot, query, getDocs } from "firebase/firestore";
 import { useParams } from "next/navigation";
-import { Hash } from "lucide-react";
 
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/components/auth-provider";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -31,7 +29,6 @@ import {
 import { CompetitorImportDialog } from "@/components/competitor-import-dialog";
 import { AddCompetitorDialog } from "@/components/add-competitor-dialog";
 import type { Competitor, Specialty } from "@/lib/schedule-types";
-
 
 interface UserProfile {
     id: string;
@@ -56,11 +53,14 @@ export default function CompetitorsPage() {
     if (!eventId) return;
 
     const competitorsQuery = query(collection(db, `events/${eventId}/competitors`));
-    const usersQuery = query(collection(db, `users`));
-
+    
+    // Using onSnapshot to listen for real-time updates
     const unsubscribe = onSnapshot(competitorsQuery, async (competitorsSnap) => {
+        setLoading(true);
         const competitorsData = competitorsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Competitor));
         
+        // Fetch all user profiles to map additional details like photoURL and email
+        const usersQuery = query(collection(db, `users`));
         const usersSnap = await getDocs(usersQuery);
         const usersData = usersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as UserProfile));
         const userMap = new Map(usersData.map(u => [u.displayName, u]));
@@ -76,21 +76,25 @@ export default function CompetitorsPage() {
 
         setCompetitors(displayCompetitors);
         setLoading(false);
+    }, (error) => {
+        console.error("Error fetching competitors:", error);
+        setLoading(false);
     });
 
     return () => unsubscribe();
   }, [eventId]);
   
-  const getSpecialtyDisplay = (specialties: Specialty[] = []) => {
+  const getSpecialtyDisplay = (specialties?: Specialty[]) => {
     if (!specialties || specialties.length === 0) {
         return <Badge variant="outline">No Specialty</Badge>;
     }
-    return specialties.map(s => {
-        let label: string = s.type;
+    return specialties.map((s, index) => {
+        let label = s.type;
         if (s.type === 'Detection' && s.detectionType) {
             label = s.detectionType;
         }
-        return <Badge key={label} variant="secondary">{label}</Badge>;
+        // Using index for key as specialty objects might not be unique
+        return <Badge key={`${label}-${index}`} variant="secondary">{label}</Badge>;
     })
   };
 
@@ -147,7 +151,7 @@ export default function CompetitorsPage() {
                   <TableCell>
                     <div className="flex items-center gap-3">
                         <Avatar>
-                            <AvatarImage src={competitor.photoURL} data-ai-hint="person portrait" />
+                            <AvatarImage src={competitor.photoURL || undefined} data-ai-hint="person portrait" />
                             <AvatarFallback>{competitor.name?.charAt(0).toUpperCase()}</AvatarFallback>
                         </Avatar>
                         <div>
