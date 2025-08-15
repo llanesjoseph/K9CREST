@@ -26,6 +26,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
+import { inviteUser } from '@/ai/flows/invite-user';
 
 const formSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address." }),
@@ -53,9 +54,7 @@ export function InviteUserDialog({ triggerAsLink = false }: InviteUserDialogProp
   const onSubmit = async (data: FormValues) => {
     setIsSubmitting(true);
     try {
-        // TODO: Call Genkit flow to create user and send invite email.
-        console.log("Inviting user:", data);
-        await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
+        await inviteUser({ email: data.email, role: data.role });
 
         toast({
             title: 'User Invited',
@@ -64,12 +63,12 @@ export function InviteUserDialog({ triggerAsLink = false }: InviteUserDialogProp
         
         form.reset();
         setIsOpen(false);
-    } catch (error) {
+    } catch (error: any) {
         console.error('Error inviting user:', error);
         toast({
             variant: 'destructive',
             title: 'Error',
-            description: 'Failed to invite user. Please try again.',
+            description: `Failed to invite user: ${error.message}`,
         });
     } finally {
         setIsSubmitting(false);
