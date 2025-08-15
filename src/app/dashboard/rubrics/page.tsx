@@ -284,16 +284,16 @@ export default function ManageRubricsPage() {
                         <CardTitle>Rubric Library</CardTitle>
                         <CardDescription>Select a rubric to edit or create a new one.</CardDescription>
                     </CardHeader>
-                    <CardContent className="space-y-4">
-                        <div className="space-y-2">
+                    <CardContent>
+                         <div className="flex flex-col gap-2">
                              {allDisplayRubrics.map(rubric => (
                                 <div key={rubric.id} className="flex items-center justify-between gap-2">
                                     <Button 
                                         variant={selectedRubricId === rubric.id ? "secondary" : "ghost"} 
-                                        className="flex-grow justify-start truncate"
+                                        className="flex-1 justify-start h-auto"
                                         onClick={() => setSelectedRubricId(rubric.id!)}
                                     >
-                                        {rubric.name}
+                                        <span className="text-left py-1">{rubric.name}</span>
                                     </Button>
                                     {isAdmin && rubric.id !== defaultDetectionRubric.id ? (
                                          <AlertDialog>
@@ -322,7 +322,7 @@ export default function ManageRubricsPage() {
                             ))}
                         </div>
                         {isAdmin && (
-                            <div className="space-y-2 border-t pt-4">
+                            <div className="space-y-2 border-t pt-4 mt-4">
                                 <Input 
                                     placeholder="New rubric name..." 
                                     value={newRubricName}
