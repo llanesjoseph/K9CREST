@@ -118,7 +118,7 @@ const defaultTacticalRubrics: Omit<Rubric, 'id'>[] = [
         ]
     },
     {
-        name: "Bonus Challenge",
+        name: "Bonus Challenge (Tactical)",
         judgingInterface: "phases",
         totalPoints: 25,
         phases: [
@@ -128,6 +128,53 @@ const defaultTacticalRubrics: Omit<Rubric, 'id'>[] = [
                     { name: "Successful Deployment", type: "points", maxPoints: 15 },
                     { name: "Successful Recall", type: "points", maxPoints: 10 },
                     { name: "PENALTY: Hit by Ball", type: "pass/fail", maxPoints: -10 },
+                ]
+            }
+        ]
+    },
+    {
+        name: "Trojan Horse",
+        judgingInterface: "phases",
+        totalPoints: 25,
+        phases: [
+            {
+                name: "Trojan Horse",
+                exercises: [
+                    { name: "Successful Van Deployment", type: "points", maxPoints: 10 },
+                    { name: "Engages Decoy", type: "points", maxPoints: 10 },
+                    { name: "Hard Out", type: "points", maxPoints: 5 },
+                ]
+            }
+        ]
+    },
+    {
+        name: "Long Call-By",
+        judgingInterface: "phases",
+        totalPoints: 25,
+        phases: [
+            {
+                name: "Long Call-By",
+                exercises: [
+                    { name: "Stays in Down", type: "points", maxPoints: 10 },
+                    { name: "Call to a Heel (*No Bite)", type: "points", maxPoints: 10 },
+                    { name: "Shoulder Carry", type: "points", maxPoints: 5 },
+                ]
+            }
+        ]
+    },
+    {
+        name: "Bonus Challenge (Handler Protection)",
+        judgingInterface: "phases",
+        totalPoints: 25,
+        phases: [
+            {
+                name: "Bonus Challenge",
+                exercises: [
+                    { name: "1 Shot while Shoulder Carrying", type: "points", maxPoints: 5 },
+                    { name: "Successful Deployment", type: "points", maxPoints: 5 },
+                    { name: "Engages Decoy", type: "points", maxPoints: 10 },
+                    { name: "Hard Out", type: "points", maxPoints: 5 },
+                    { name: "PENALTY: Missed shot", type: "pass/fail", maxPoints: -10 },
                 ]
             }
         ]
