@@ -303,7 +303,7 @@ export default function AnalysisPage() {
                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                     <Skeleton className="h-28" /><Skeleton className="h-28" /><Skeleton className="h-28" /><Skeleton className="h-28" />
                  </div>
-            ) : !analysisData ? (
+            ) : !analysisData || analysisData.runs.length === 0 ? (
                  <Card>
                      <CardContent className="pt-6">
                         <div className="text-center text-muted-foreground py-12 flex flex-col items-center gap-4">

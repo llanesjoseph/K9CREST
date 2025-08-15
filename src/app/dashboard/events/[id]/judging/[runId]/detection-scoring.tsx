@@ -270,16 +270,21 @@ export function DetectionScoring({ eventId, runId, isReadOnly }: DetectionScorin
   
   const stopRun = async () => {
       if(run?.status !== 'in_progress' || isReadOnly) return;
-      const finalTime = elapsed;
-      await updateDoc(runRef, { status: "paused", endAt: serverTimestamp(), totalTime: finalTime });
+      await updateDoc(runRef, { status: "paused", endAt: serverTimestamp() });
   };
 
    const submitScores = async () => {
       if(run?.status !== 'paused' || isReadOnly) return;
-      const finalTime = run.totalTime || elapsed;
+      
+      let finalTime = run?.totalTime || 0;
+      if (run?.startAt && run.endAt) {
+          finalTime = (run.endAt.toMillis() - run.startAt.toMillis()) / 1000;
+      }
+      
       await updateDoc(runRef, { status: "scored", totalTime: finalTime });
       toast({ title: "Scores Submitted", description: "The final scores have been saved." });
   };
+
   const addFind = async () => {
       if(run?.status !== 'in_progress' || isReadOnly) return;
       if (finds.length >= (run?.aidsPlanted || Infinity)) {

@@ -15,6 +15,8 @@ export const SpecialtySchema = z.object({
   type: z.enum(["Bite Work", "Detection"]),
   detectionType: z.enum(["Narcotics", "Explosives"]).optional(),
 });
+export type Specialty = z.infer<typeof SpecialtySchema>;
+
 
 export const CompetitorSchema = z.object({
   id: z.string(),
@@ -23,6 +25,7 @@ export const CompetitorSchema = z.object({
   agency: z.string(),
   specialties: z.array(SpecialtySchema),
   bibNumber: z.string().optional(),
+  eventId: z.string(),
 });
 
 export const ArenaSchema = z.object({
@@ -53,6 +56,7 @@ const ScorePhaseSchema = z.object({
 });
 
 export const ScheduledRunSchema = z.object({
+    id: z.string(),
     competitorId: z.string(),
     arenaId: z.string(),
     startTime: z.string().regex(/^\d{2}:\d{2}$/),
@@ -67,7 +71,7 @@ export const ScheduledRunSchema = z.object({
 });
 
 export const OutputSchema = z.object({
-  schedule: z.array(ScheduledRunSchema),
+  schedule: z.array(ScheduledRunSchema.omit({ id: true })),
   // Extra diagnostics; your UI can ignore these safely
   diagnostics: z.object({
     requiredRuns: z.number(),
@@ -84,6 +88,4 @@ export type GenerateScheduleInput = z.infer<typeof InputSchema>;
 export type GenerateScheduleOutput = z.infer<typeof OutputSchema>;
 export type Competitor = z.infer<typeof CompetitorSchema>;
 export type Arena = z.infer<typeof ArenaSchema>;
-export type ScheduledEvent = z.infer<typeof ScheduledRunSchema> & { id: string };
-
-    
+export type ScheduledEvent = z.infer<typeof ScheduledRunSchema>;
