@@ -2,7 +2,24 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Link from "next/link";
+import type { DocumentData } from "firebase/firestore";
+import { collection, onSnapshot, query, getDocs } from "firebase/firestore";
+import { useParams } from "next/navigation";
+import { Hash } from "lucide-react";
+
+import { db } from "@/lib/firebase";
+import { useAuth } from "@/components/auth-provider";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -11,19 +28,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useParams } from "next/navigation";
-import { collection, onSnapshot, query, DocumentData, getDocs } from "firebase/firestore";
-import { db } from "@/lib/firebase";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
-import type { Competitor, Specialty } from "@/lib/schedule-types";
-import { useAuth } from "@/components/auth-provider";
 import { CompetitorImportDialog } from "@/components/competitor-import-dialog";
 import { AddCompetitorDialog } from "@/components/add-competitor-dialog";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Hash } from "lucide-react";
+import type { Competitor, Specialty } from "@/lib/schedule-types";
 
 
 interface UserProfile {
@@ -79,9 +86,9 @@ export default function CompetitorsPage() {
         return <Badge variant="outline">No Specialty</Badge>;
     }
     return specialties.map(s => {
-        let label = s.type;
+        let label: string = s.type;
         if (s.type === 'Detection' && s.detectionType) {
-            label = `${s.detectionType}`;
+            label = s.detectionType;
         }
         return <Badge key={label} variant="secondary">{label}</Badge>;
     })

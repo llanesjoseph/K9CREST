@@ -1,15 +1,14 @@
 
 import { z } from "zod";
-import { Timestamp } from "firebase/firestore";
+import type { Timestamp } from "firebase/firestore";
 
-export const SpecialtyLabel = z.enum([
+export const SpecialtyLabelSchema = z.enum([
   "Any",
   "Bite Work",
   "Detection (Narcotics)",
   "Detection (Explosives)",
 ]);
-
-export type SpecialtyLabel = z.infer<typeof SpecialtyLabel>;
+export type SpecialtyLabel = z.infer<typeof SpecialtyLabelSchema>;
 
 export const SpecialtySchema = z.object({
   type: z.enum(["Bite Work", "Detection"]),
@@ -25,12 +24,14 @@ export const CompetitorSchema = z.object({
   specialties: z.array(SpecialtySchema),
   bibNumber: z.string().optional(),
   eventId: z.string(),
+  dogBio: z.string().optional(),
+  dogImage: z.string().optional(),
 });
 
 export const ArenaSchema = z.object({
   id: z.string(),
   name: z.string(),
-  specialtyType: SpecialtyLabel,
+  specialtyType: SpecialtyLabelSchema,
   rubricId: z.string().nullable().optional(),
   rubricName: z.string().nullable().optional(),
 });
@@ -61,20 +62,21 @@ export const ScheduledRunSchema = z.object({
     startTime: z.string().regex(/^\d{2}:\d{2}$/),
     endTime: z.string().regex(/^\d{2}:\d{2}$/),
     date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-    status: z.enum(['scheduled', 'in_progress', 'paused', 'scored', 'locked']).optional(),
-    actualStartTime: z.instanceof(Timestamp).optional(),
-    actualEndTime: z.instanceof(Timestamp).optional(),
+    status: z.enum(['scheduled', 'in_progress', 'paused', 'scored', 'locked']).default('scheduled'),
+    actualStartTime: z.custom<Timestamp>().optional(),
+    actualEndTime: z.custom<Timestamp>().optional(),
     scores: z.array(ScorePhaseSchema).optional(),
     notes: z.string().optional(),
     totalTime: z.number().optional(),
     judgeName: z.string().optional(),
+    // Detection specific fields
     judgingInterface: z.enum(["phases", "detection"]).optional(),
     detectionMax: z.number().optional(),
     teamworkMax: z.number().optional(),
     falseAlertPenalty: z.number().optional(),
     falseAlerts: z.number().optional(),
-    startAt: z.instanceof(Timestamp).optional(),
-    endAt: z.instanceof(Timestamp).optional(),
+    startAt: z.custom<Timestamp>().optional(),
+    endAt: z.custom<Timestamp>().optional(),
 });
 
 export const OutputSchema = z.object({
@@ -84,7 +86,7 @@ export const OutputSchema = z.object({
     placedRuns: z.number(),
     unplacedRuns: z.array(z.object({
       competitorId: z.string(),
-      specialtyType: SpecialtyLabel,
+      specialtyType: SpecialtyLabelSchema,
       reason: z.string(),
     })),
   }).optional(),
