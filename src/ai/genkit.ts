@@ -1,9 +1,2 @@
-
-import {genkit} from 'genkit';
-import {googleAI} from '@genkit-ai/googleai';
-
-export const ai = genkit({
-  plugins: [googleAI({
-    apiKey: process.env.GEMINI_API_KEY,
-  })],
-});
+// This file is intentionally left empty.
+// Genkit initialization has been removed to resolve build issues.

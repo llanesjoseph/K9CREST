@@ -1,14 +1,12 @@
-
 'use server';
 /**
- * @fileOverview An AI agent that invites a new user to the platform.
+ * @fileOverview Invites a new user to the platform.
  *
  * - inviteUser - Creates a user, sets their role via custom claims, and saves their info to Firestore.
  * - InviteUserInput - The input type for the inviteUser function.
  * - InviteUserOutput - The return type for the inviteUser function.
  */
 
-import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 import { getAuth } from 'firebase-admin/auth';
 import { adminDb } from '@/lib/firebase-admin';
@@ -31,17 +29,8 @@ export type InviteUserOutput = z.infer<typeof InviteUserOutputSchema>;
 export async function inviteUser(
   input: InviteUserInput
 ): Promise<InviteUserOutput> {
-  return inviteUserFlow(input);
-}
+    const { email, role } = InviteUserInputSchema.parse(input);
 
-
-const inviteUserFlow = ai.defineFlow(
-  {
-    name: 'inviteUserFlow',
-    inputSchema: InviteUserInputSchema,
-    outputSchema: InviteUserOutputSchema,
-  },
-  async ({ email, role }) => {
     try {
       const auth = getAuth();
       
@@ -100,11 +89,10 @@ const inviteUserFlow = ai.defineFlow(
       };
 
     } catch (error: any) {
-      console.error("Error in inviteUserFlow: ", error);
+      console.error("Error in inviteUser: ", error);
       if (error.code === 'auth/email-already-exists') {
         throw new Error(`A user with the email ${email} already exists.`);
       }
       throw new Error(`Failed to create or invite user: ${error.message}`);
     }
-  }
-);
+}
