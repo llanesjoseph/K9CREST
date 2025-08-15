@@ -54,6 +54,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Separator } from "@/components/ui/separator";
+import { cn } from "@/lib/utils";
 
 const exerciseSchema = z.object({
   id: z.string().optional(),
@@ -218,8 +219,7 @@ export default function ManageRubricsPage() {
             const rubricsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Rubric));
             setRubrics(rubricsData);
             
-            // One-time seeding of default tactical rubrics if they don't exist
-            if (isLoading) { // Only run once on initial load
+            if (isLoading) {
                 seedDefaultRubrics(rubricsData);
             }
 
@@ -239,7 +239,7 @@ export default function ManageRubricsPage() {
                 name: newRubricName.trim(), 
                 phases: [], 
                 totalPoints: 100,
-                judgingInterface: "phases" // Default to phase-based
+                judgingInterface: "phases"
             });
             setSelectedRubricId(docRef.id);
             setNewRubricName("");
@@ -631,8 +631,8 @@ function ExerciseItem({ control, phaseIndex, exerciseIndex, remove, isDistributi
         name: `phases.${phaseIndex}.exercises.${exerciseIndex}`,
     });
 
-    const showMaxPoints = exerciseType === 'points' || (exerciseType === 'pass/fail' && exerciseValue.maxPoints > 0);
-    const showPenalty = exerciseType === 'pass/fail' && exerciseValue.maxPoints < 0;
+    const showMaxPoints = exerciseType === 'points' || (exerciseType === 'pass/fail' && exerciseValue.maxPoints! > 0);
+    const showPenalty = exerciseType === 'pass/fail' && exerciseValue.maxPoints! < 0;
 
     
     return (
@@ -716,5 +716,3 @@ function ExerciseItem({ control, phaseIndex, exerciseIndex, remove, isDistributi
         </div>
     )
 }
-
-    
