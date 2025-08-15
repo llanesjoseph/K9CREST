@@ -1,9 +1,10 @@
 
 "use client";
 
-import { useForm, Controller } from "react-hook-form";
+import type { Control, FieldValues } from "react-hook-form";
+import { useForm, Controller, useFieldArray, useWatch } from "react-hook-form";
 import Link from "next/link";
-import { ChevronLeft, Save, Loader2, Play, Square, TimerIcon } from "lucide-react";
+import { ChevronLeft, Save, Loader2, Play, Square, TimerIcon, GripVertical, Trash2, PlusCircle, Lock } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -20,12 +21,16 @@ import { useToast } from "@/hooks/use-toast";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/components/auth-provider";
 import { cn } from "@/lib/utils";
+import type { ScheduledEvent } from "@/lib/schedule-types";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
 
 interface JudgingFormValues {
     scores: {
@@ -43,20 +48,15 @@ interface JudgingFormValues {
 
 interface PhaseBasedScoringProps {
     eventId: string;
-    runId: string;
-    isReadOnly: boolean;
-    eventData: any;
-    runData: any;
-    competitorData: any;
-    arenaData: any;
+    runData: ScheduledEvent;
     rubricData: any;
+    isReadOnly: boolean;
 }
 
-export function PhaseBasedScoring({ eventId, runId, isReadOnly, eventData, runData, competitorData, arenaData, rubricData }: PhaseBasedScoringProps) {
+export function PhaseBasedScoring({ eventId, runData, rubricData, isReadOnly }: PhaseBasedScoringProps) {
   const { toast } = useToast();
   const router = useRouter();
   
-  // Stopwatch state
   const [isTimerRunning, setIsTimerRunning] = useState(false);
   const [elapsedTime, setElapsedTime] = useState(0);
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -89,7 +89,6 @@ export function PhaseBasedScoring({ eventId, runId, isReadOnly, eventData, runDa
     }, [isTimerRunning, elapsedTime]);
 
   useEffect(() => {
-    // Initialize form with rubric structure and existing scores
     const initialScores = (rubricData?.phases || []).map((phase: any) => ({
       phaseName: phase.name,
       exercises: phase.exercises.map((ex: any) => {
@@ -121,17 +120,8 @@ export function PhaseBasedScoring({ eventId, runId, isReadOnly, eventData, runDa
   
   const handleStartTimer = () => {
     if(!isReadOnly) {
-        if (runData?.actualStartTime) {
-            // This is a resume
-             const serverStartTime = runData.actualStartTime.toDate();
-             const lastElapsedTime = runData.totalTime || 0;
-             const correctedStartTime = Date.now() - (lastElapsedTime * 1000);
-             setIsTimerRunning(true);
-        } else {
-            // This is a fresh start
-            updateDoc(doc(db, `events/${eventId}/schedule`, runId), { actualStartTime: new Date() });
-            setIsTimerRunning(true);
-        }
+        updateDoc(doc(db, `events/${eventId}/schedule`, runData.id), { actualStartTime: new Date() });
+        setIsTimerRunning(true);
     }
   }
 
@@ -143,22 +133,22 @@ export function PhaseBasedScoring({ eventId, runId, isReadOnly, eventData, runDa
   }
 
   async function onSubmit(data: JudgingFormValues) {
-    if(!runId || !eventId || isReadOnly) return;
+    if(!runData.id || !eventId || isReadOnly) return;
     setIsSubmitting(true);
     
-    // Make sure timer is stopped and final time is recorded before submitting
     if (isTimerRunning) {
         setIsTimerRunning(false);
     }
     const finalTime = isTimerRunning ? elapsedTime : form.getValues('totalTime');
 
     try {
-        const runRef = doc(db, `events/${eventId}/schedule`, runId);
+        const runRef = doc(db, `events/${eventId}/schedule`, runData.id);
         await updateDoc(runRef, {
             scores: data.scores,
             notes: data.notes,
             totalTime: finalTime,
-            status: 'scored' // Mark as scored
+            status: 'scored',
+            actualEndTime: new Date()
         });
         
         toast({
@@ -187,7 +177,7 @@ export function PhaseBasedScoring({ eventId, runId, isReadOnly, eventData, runDa
   };
 
   return (
-    <div className="flex flex-col gap-6 max-w-4xl mx-auto">
+    <div className="flex flex-col gap-6">
        <Card className={cn("border-primary/50", isTimerRunning && "bg-yellow-50 dark:bg-yellow-900/10")}>
             <CardContent className="pt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div className="flex items-center gap-3 text-primary">
@@ -270,7 +260,7 @@ export function PhaseBasedScoring({ eventId, runId, isReadOnly, eventData, runDa
                           isReadOnly ? (
                             <div className="flex items-center justify-end gap-2 text-right">
                                 <span className="font-mono text-lg">
-                                    {(exercise.score === 1 || exercise.score === true) ? (exercise.maxPoints || 1) : 0}
+                                    {((exercise.score as any) === 1 || exercise.score === true) ? (exercise.maxPoints || 1) : 0}
                                 </span>
                                 <span className="text-sm text-muted-foreground">
                                     / {exercise.maxPoints} pts
@@ -286,17 +276,7 @@ export function PhaseBasedScoring({ eventId, runId, isReadOnly, eventData, runDa
                                         <Switch
                                             id={`switch-${phaseIndex}-${exerciseIndex}`}
                                             checked={field.value === 1 || field.value === true}
-                                            onCheckedChange={(isChecked) => {
-                                                const isTimePenalty = typeof exercise.maxPoints === 'number' && exercise.maxPoints < 0;
-                                                
-                                                if (isTimePenalty) {
-                                                    const timeAdjustment = Math.abs(exercise.maxPoints!);
-                                                    setElapsedTime(prev => prev + (isChecked ? timeAdjustment : -timeAdjustment));
-                                                }
-                                                
-                                                const pointValue = isChecked ? 1 : 0;
-                                                field.onChange(pointValue);
-                                            }}
+                                            onCheckedChange={(isChecked) => field.onChange(isChecked ? 1 : 0)}
                                             disabled={isReadOnly}
                                         />
                                     )}
@@ -333,5 +313,3 @@ export function PhaseBasedScoring({ eventId, runId, isReadOnly, eventData, runDa
     </div>
   );
 }
-
-    

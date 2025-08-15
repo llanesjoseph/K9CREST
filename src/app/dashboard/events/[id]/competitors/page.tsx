@@ -18,7 +18,7 @@ import { collection, onSnapshot, query, DocumentData, getDocs } from "firebase/f
 import { db } from "@/lib/firebase";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { Competitor, Specialty } from "@/lib/schedule-types";
+import type { Competitor, Specialty } from "@/lib/schedule-types";
 import { useAuth } from "@/components/auth-provider";
 import { CompetitorImportDialog } from "@/components/competitor-import-dialog";
 import { AddCompetitorDialog } from "@/components/add-competitor-dialog";
@@ -54,7 +54,6 @@ export default function CompetitorsPage() {
     const unsubscribe = onSnapshot(competitorsQuery, async (competitorsSnap) => {
         const competitorsData = competitorsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Competitor));
         
-        // Fetch users to map emails
         const usersSnap = await getDocs(usersQuery);
         const usersData = usersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as UserProfile));
         const userMap = new Map(usersData.map(u => [u.displayName, u]));
@@ -166,4 +165,3 @@ export default function CompetitorsPage() {
     </Card>
   );
 }
-

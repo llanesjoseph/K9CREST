@@ -17,7 +17,6 @@ export const SpecialtySchema = z.object({
 });
 export type Specialty = z.infer<typeof SpecialtySchema>;
 
-
 export const CompetitorSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -64,15 +63,22 @@ export const ScheduledRunSchema = z.object({
     date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
     status: z.enum(['scheduled', 'in_progress', 'paused', 'scored', 'locked']).optional(),
     actualStartTime: z.instanceof(Timestamp).optional(),
+    actualEndTime: z.instanceof(Timestamp).optional(),
     scores: z.array(ScorePhaseSchema).optional(),
     notes: z.string().optional(),
     totalTime: z.number().optional(),
     judgeName: z.string().optional(),
+    judgingInterface: z.enum(["phases", "detection"]).optional(),
+    detectionMax: z.number().optional(),
+    teamworkMax: z.number().optional(),
+    falseAlertPenalty: z.number().optional(),
+    falseAlerts: z.number().optional(),
+    startAt: z.instanceof(Timestamp).optional(),
+    endAt: z.instanceof(Timestamp).optional(),
 });
 
 export const OutputSchema = z.object({
   schedule: z.array(ScheduledRunSchema.omit({ id: true })),
-  // Extra diagnostics; your UI can ignore these safely
   diagnostics: z.object({
     requiredRuns: z.number(),
     placedRuns: z.number(),
