@@ -5,7 +5,7 @@ import { useFieldArray, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import Link from "next/link";
-import { PlusCircle, Trash2, ChevronLeft, GripVertical, CheckCircle, XCircle, Loader2, Save } from "lucide-react";
+import { PlusCircle, Trash2, ChevronLeft, GripVertical, CheckCircle, XCircle, Loader2, Save, Lock } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -78,6 +78,14 @@ const rubricSchema = z.object({
 
 type Rubric = z.infer<typeof rubricSchema>;
 
+const defaultDetectionRubric: Rubric = {
+    id: 'default-detection',
+    name: "Detection & Teamwork",
+    judgingInterface: "detection",
+    phases: [],
+};
+
+
 export default function ManageRubricsPage() {
     const { isAdmin } = useAuth();
     const [rubrics, setRubrics] = useState<Rubric[]>([]);
@@ -120,7 +128,7 @@ export default function ManageRubricsPage() {
     };
     
     const handleDeleteRubric = async (rubricId: string, rubricName: string) => {
-        if(!rubricId) return;
+        if(!rubricId || rubricId === defaultDetectionRubric.id) return;
         try {
             await deleteDoc(doc(db, "rubrics", rubricId));
             toast({ title: "Rubric Deleted", description: `Rubric "${rubricName}" has been deleted.` });
@@ -132,7 +140,8 @@ export default function ManageRubricsPage() {
         }
     }
 
-    const selectedRubric = rubrics.find(r => r.id === selectedRubricId);
+    const allDisplayRubrics = [defaultDetectionRubric, ...rubrics];
+    const selectedRubric = allDisplayRubrics.find(r => r.id === selectedRubricId);
 
     if (isLoading) {
         return <div className="flex justify-center items-center h-64"><Loader2 className="h-8 w-8 animate-spin" /></div>
@@ -148,7 +157,7 @@ export default function ManageRubricsPage() {
                     </CardHeader>
                     <CardContent className="space-y-4">
                         <div className="space-y-2">
-                             {rubrics.map(rubric => (
+                             {allDisplayRubrics.map(rubric => (
                                 <div key={rubric.id} className="flex items-center gap-2">
                                     <Button 
                                         variant={selectedRubricId === rubric.id ? "secondary" : "ghost"} 
@@ -157,7 +166,7 @@ export default function ManageRubricsPage() {
                                     >
                                         {rubric.name}
                                     </Button>
-                                    {isAdmin && (
+                                    {isAdmin && rubric.id !== defaultDetectionRubric.id ? (
                                          <AlertDialog>
                                             <AlertDialogTrigger asChild>
                                                 <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0"><Trash2 className="h-4 w-4 text-destructive/70" /></Button>
@@ -177,6 +186,8 @@ export default function ManageRubricsPage() {
                                                 </AlertDialogFooter>
                                             </AlertDialogContent>
                                         </AlertDialog>
+                                    ) : (
+                                        <div className="h-8 w-8 shrink-0"></div>
                                     )}
                                 </div>
                             ))}
@@ -219,6 +230,7 @@ function RubricEditor({ rubric }: { rubric: Rubric }) {
     const { toast } = useToast();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [openAccordionItems, setOpenAccordionItems] = useState<string[]>([]);
+    const isDefaultRubric = rubric.id === defaultDetectionRubric.id;
 
     const form = useForm<Rubric>({
         resolver: zodResolver(rubricSchema),
@@ -269,7 +281,7 @@ function RubricEditor({ rubric }: { rubric: Rubric }) {
     }, [rubric, form]);
 
     async function onSubmit(data: Rubric) {
-        if (!data.id) return;
+        if (!data.id || isDefaultRubric) return;
         setIsSubmitting(true);
         try {
             const rubricRef = doc(db, "rubrics", data.id);
@@ -316,18 +328,18 @@ function RubricEditor({ rubric }: { rubric: Rubric }) {
                                     <FormItem>
                                     <FormLabel>Rubric Name</FormLabel>
                                     <FormControl>
-                                        <Input {...field} />
+                                        <Input {...field} readOnly={isDefaultRubric} />
                                     </FormControl>
                                     </FormItem>
                                 )}
                             />
-                            <FormField
+                             <FormField
                                 control={form.control}
                                 name="judgingInterface"
                                 render={({ field }) => (
                                     <FormItem>
                                     <FormLabel>Judging Interface</FormLabel>
-                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                    <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isDefaultRubric}>
                                          <FormControl>
                                             <SelectTrigger><SelectValue placeholder="Select interface" /></SelectTrigger>
                                         </FormControl>
@@ -414,20 +426,30 @@ function RubricEditor({ rubric }: { rubric: Rubric }) {
                             <div className="text-sm text-muted-foreground bg-accent/50 p-3 rounded-md space-y-2">
                                 <p>The <strong>Detection & Teamwork</strong> interface uses a fixed scoring model:</p>
                                 <ul className="list-disc pl-5">
-                                    <li>**Detection Score:** 75 points max, based on number of aids found.</li>
-                                    <li>**Teamwork Score:** 25 points max, reduced by deductions.</li>
+                                    <li>**Detection Score:** Based on number of aids found.</li>
+                                    <li>**Teamwork Score:** Based on deductions.</li>
                                     <li>**False Alerts:** Configurable point penalty per alert.</li>
                                 </ul>
-                                <p>This configuration is managed at the event level, not in the rubric.</p>
+                                <p>The point values for these are configured in the scoring interface, not in the rubric.</p>
                             </div>
                         )}
                         
-                        <div className="flex justify-end items-center mt-6">
-                            <Button type="submit" disabled={isSubmitting}>
-                            {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                            Save Rubric
-                            </Button>
-                        </div>
+                        {!isDefaultRubric && (
+                            <div className="flex justify-end items-center mt-6">
+                                <Button type="submit" disabled={isSubmitting}>
+                                {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                                Save Rubric
+                                </Button>
+                            </div>
+                        )}
+                         {isDefaultRubric && (
+                            <div className="flex justify-end items-center mt-6">
+                                <Button type="submit" disabled>
+                                    <Lock className="mr-2 h-4 w-4" />
+                                    Default Rubric (Cannot be saved)
+                                </Button>
+                            </div>
+                        )}
                     </form>
                 </Form>
             </CardContent>
@@ -558,6 +580,3 @@ function ExerciseItem({ control, phaseIndex, exerciseIndex, remove, isDistributi
         </div>
     )
 }
-
-
-    
