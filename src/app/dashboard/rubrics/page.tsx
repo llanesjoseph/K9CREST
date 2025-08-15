@@ -287,10 +287,10 @@ export default function ManageRubricsPage() {
                     <CardContent className="space-y-4">
                         <div className="space-y-2">
                              {allDisplayRubrics.map(rubric => (
-                                <div key={rubric.id} className="flex items-center gap-2">
+                                <div key={rubric.id} className="flex items-center justify-between gap-2">
                                     <Button 
                                         variant={selectedRubricId === rubric.id ? "secondary" : "ghost"} 
-                                        className="w-full justify-start"
+                                        className="flex-grow justify-start truncate"
                                         onClick={() => setSelectedRubricId(rubric.id!)}
                                     >
                                         {rubric.name}
