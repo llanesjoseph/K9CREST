@@ -30,6 +30,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { AlertTriangle, Clock, Server, UserCheck, BarChart2, Hourglass, LineChart, Percent } from "lucide-react";
 import { ResponsiveContainer, AreaChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Area, ReferenceLine } from 'recharts';
 import { differenceInMinutes, parse, format, eachMinuteOfInterval, addMinutes, startOfDay, endOfDay } from "date-fns";
+import { ScheduledEvent } from "@/lib/schedule-types";
+
 
 interface Event {
     id: string;
@@ -127,7 +129,7 @@ export default function AnalysisPage() {
 
                 const competitorsMap = new Map(competitorsSnap.docs.map(doc => [doc.id, doc.data()]));
                 const arenasMap = new Map(arenasSnap.docs.map(doc => [doc.id, doc.data()]));
-                const runs = runsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                const runs = runsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as ScheduledEvent));
                 
                 if (runs.length === 0) {
                     setAnalysisData(null);
@@ -427,7 +429,7 @@ export default function AnalysisPage() {
                                             <TableCell>{run.arenaName}</TableCell>
                                             <TableCell>{run.judgeName}</TableCell>
                                             <TableCell>{run.scheduledTime}</TableCell>
-                                            <TableCell>{run.actualStartTime?.toDate().toLocaleTimeString()}</TableCell>
+                                            <TableCell>{run.actualStartTime?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</TableCell>
                                             <TableCell className={`text-right font-mono ${run.startVariance! > 2 ? 'text-destructive' : 'text-green-600'}`}>{run.startVariance!.toFixed(0)}</TableCell>
                                         </TableRow>
                                     ))}
@@ -440,8 +442,5 @@ export default function AnalysisPage() {
         </div>
     );
 }
-
-
-      
 
     

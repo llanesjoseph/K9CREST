@@ -40,14 +40,30 @@ export const InputSchema = z.object({
   timeSlots: z.array(z.string().regex(/^\d{2}:\d{2}$/)),
 });
 
+const ScoreExerciseSchema = z.object({
+  exerciseName: z.string(),
+  score: z.union([z.number(), z.boolean()]),
+  type: z.string(),
+  maxPoints: z.number().optional(),
+});
+
+const ScorePhaseSchema = z.object({
+  phaseName: z.string(),
+  exercises: z.array(ScoreExerciseSchema),
+});
+
 export const ScheduledRunSchema = z.object({
     competitorId: z.string(),
     arenaId: z.string(),
     startTime: z.string().regex(/^\d{2}:\d{2}$/),
     endTime: z.string().regex(/^\d{2}:\d{2}$/),
     date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-    status: z.enum(['scheduled', 'scored']).optional(),
+    status: z.enum(['scheduled', 'in_progress', 'paused', 'scored', 'locked']).optional(),
     actualStartTime: z.instanceof(Timestamp).optional(),
+    scores: z.array(ScorePhaseSchema).optional(),
+    notes: z.string().optional(),
+    totalTime: z.number().optional(),
+    judgeName: z.string().optional(),
 });
 
 export const OutputSchema = z.object({

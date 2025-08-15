@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
-import { doc, onSnapshot, updateDoc, addDoc, collection, serverTimestamp, getDocs, deleteDoc, writeBatch, query, where, setDoc, getDoc, orderBy } from "firebase/firestore";
+import { doc, onSnapshot, updateDoc, addDoc, collection, serverTimestamp, getDocs, deleteDoc, writeBatch, query, where, setDoc, getDoc, orderBy, Timestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
 import { useParams, useRouter } from "next/navigation";
@@ -138,8 +138,8 @@ type RunData = {
   aidsPlanted?: number;
   falseAlertPenalty?: number;
   falseAlerts?: number;
-  startAt?: any; // Firestore Timestamp
-  endAt?: any;   // Firestore Timestamp
+  startAt?: Timestamp; // Firestore Timestamp
+  endAt?: Timestamp;   // Firestore Timestamp
   status: "scheduled" | "in_progress" | "paused" | "scored" | "locked";
   competitorId?: string;
   arenaId?: string;
@@ -195,8 +195,8 @@ export function DetectionScoring({ eventId, runId, isReadOnly }: DetectionScorin
 
   const elapsed = useMemo(() => {
     if (!run?.startAt) return 0;
-    const startMs = run.startAt.toMillis ? run.startAt.toMillis() : Date.parse(run.startAt);
-    const endMs = run?.endAt ? (run.endAt.toMillis ? run.endAt.toMillis() : Date.parse(run.endAt)) : now;
+    const startMs = run.startAt.toMillis();
+    const endMs = run?.endAt ? run.endAt.toMillis() : now;
     return Math.max(Math.floor((endMs - startMs) / 1000), 0);
   }, [run?.startAt, run?.endAt, now]);
   
@@ -218,32 +218,13 @@ export function DetectionScoring({ eventId, runId, isReadOnly }: DetectionScorin
   useEffect(() => {
     if (!eventId || !runId) return;
     
-    const runRef = doc(db, `events/${eventId}/runs`, runId);
+    const runRef = doc(db, `events/${eventId}/schedule`, runId);
     
     const unsubRun = onSnapshot(runRef, async (s) => {
         if (!s.exists()) {
-            const oldRunRef = doc(db, `events/${eventId}/schedule`, runId);
-            const oldRunSnap = await getDoc(oldRunRef);
-            if (oldRunSnap.exists()) {
-                const oldData = oldRunSnap.data();
-                const eventSnap = await getDoc(doc(db, 'events', eventId));
-                const eventData = eventSnap.data();
-                
-                const newRunData: RunData = {
-                    ...oldData,
-                    status: oldData.status === 'scored' ? 'scored' : 'scheduled',
-                    detectionMax: eventData?.detectionMax || 75,
-                    teamworkMax: eventData?.teamworkMax || 25,
-                    aidsPlanted: oldData?.aidsPlanted || 5,
-                    falseAlertPenalty: eventData?.falseAlertPenalty || 5,
-                    falseAlerts: 0,
-                };
-                await setDoc(runRef, newRunData);
-            } else {
-                 toast({ variant: "destructive", title: "Error", description: "Run not found." });
-                 router.push(`/dashboard/events/${eventId}/schedule`);
-                 return;
-            }
+            toast({ variant: "destructive", title: "Error", description: "Run not found." });
+            router.push(`/dashboard/events/${eventId}/schedule`);
+            return;
         }
         const runData = { id: s.id, ...s.data() } as RunData;
         setRun(runData);
@@ -280,19 +261,22 @@ export function DetectionScoring({ eventId, runId, isReadOnly }: DetectionScorin
     return () => { if (tickRef.current) window.clearInterval(tickRef.current); };
   }, [run?.status]);
 
-  const runRef = doc(db, `events/${eventId}/runs`, runId);
+  const runRef = doc(db, `events/${eventId}/schedule`, runId);
 
   const startRun = async () => {
       if(run?.status !== 'scheduled' || isReadOnly) return;
       await updateDoc(runRef, { status: "in_progress", startAt: serverTimestamp(), actualStartTime: serverTimestamp(), endAt: null });
   };
+  
   const stopRun = async () => {
       if(run?.status !== 'in_progress' || isReadOnly) return;
-      await updateDoc(runRef, { status: "paused", endAt: serverTimestamp() });
+      const finalTime = elapsed;
+      await updateDoc(runRef, { status: "paused", endAt: serverTimestamp(), totalTime: finalTime });
   };
+
    const submitScores = async () => {
       if(run?.status !== 'paused' || isReadOnly) return;
-      const finalTime = elapsed;
+      const finalTime = run.totalTime || elapsed;
       await updateDoc(runRef, { status: "scored", totalTime: finalTime });
       toast({ title: "Scores Submitted", description: "The final scores have been saved." });
   };
@@ -473,7 +457,7 @@ export function DetectionScoring({ eventId, runId, isReadOnly }: DetectionScorin
                                       </Button>
                                   </AlertDialogTrigger>
                                   <AlertDialogContent>
-                                      <AlertDialogHeader><AlertDialogTitle>Stop Timer?</AlertDialogTitle><AlertDialogDescription>This will stop the timer but allow you to continue making adjustments to the scores.</AlertDialogDescription></AlertDialogHeader>
+                                      <AlertDialogHeader><AlertDialogTitle>Stop Timer?</AlertDialogTitle><AlertDialogDescription>This will stop the timer and lock the final time for this run.</AlertDialogDescription></AlertDialogHeader>
                                       <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={stopRun}>Yes, Stop Timer</AlertDialogAction></AlertDialogFooter>
                                   </AlertDialogContent>
                               </AlertDialog>
@@ -510,6 +494,5 @@ function Stat({ label, value, big }: { label: string; value: string; big?: boole
     </div>
   );
 }
-
 
     

@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { doc, getDoc, onSnapshot } from "firebase/firestore";
+import { doc, getDoc, onSnapshot, setDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
 import { useParams, useRouter } from "next/navigation";
@@ -59,12 +59,26 @@ export default function JudgingPageRouter() {
                     throw new Error("Run not found for this event.");
                 }
                 const run = { id: runSnap.id, ...runSnap.data() };
-                setRunData(run);
                 
                 const eventRef = doc(db, 'events', eventId);
                 const eventSnap = await getDoc(eventRef);
                 if (!eventSnap.exists()) throw new Error("Event not found.");
-                setEventData(eventSnap.data());
+                const event = eventSnap.data();
+                setEventData(event);
+
+                // For detection, we may need to migrate the run data to its own doc
+                if (run.judgingInterface === 'detection' && !run.detectionMax) {
+                    const migratedRun = {
+                        ...run,
+                        detectionMax: event.detectionMax || 75,
+                        teamworkMax: event.teamworkMax || 25,
+                        falseAlertPenalty: event.falseAlertPenalty || 5,
+                    };
+                    await setDoc(runRef, migratedRun, { merge: true });
+                    setRunData(migratedRun);
+                } else {
+                    setRunData(run);
+                }
 
                 const [competitorSnap, arenaSnap] = await Promise.all([
                     run.competitorId ? getDoc(doc(db, `events/${eventId}/competitors`, run.competitorId)) : null,
@@ -202,3 +216,5 @@ export default function JudgingPageRouter() {
         </div>
     );
 }
+
+    

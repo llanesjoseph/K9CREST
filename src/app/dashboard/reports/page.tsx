@@ -39,6 +39,7 @@ import { db } from "@/lib/firebase";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Trophy, Users, List, BarChart2, Timer, Shield } from "lucide-react";
+import { ScheduledEvent, Competitor } from "@/lib/schedule-types";
 
 
 interface Event {
@@ -88,8 +89,8 @@ export default function ReportsPage() {
                     getDocs(scheduleQuery)
                 ]);
 
-                const competitors = competitorsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                const runs = runsSnap.docs.map(doc => doc.data());
+                const competitors = competitorsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Competitor));
+                const runs = runsSnap.docs.map(doc => doc.data() as ScheduledEvent);
                 
                 if (runs.length === 0) {
                     setReportData(null); // No data to report
@@ -346,3 +347,5 @@ export default function ReportsPage() {
     </div>
   );
 }
+
+    

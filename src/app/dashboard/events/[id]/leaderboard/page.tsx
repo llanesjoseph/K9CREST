@@ -25,6 +25,7 @@ import { useParams } from "next/navigation";
 import { collection, query, where, onSnapshot, DocumentData, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ScheduledEvent, Competitor } from "@/lib/schedule-types";
 
 interface Score {
   phaseName: string;
@@ -86,8 +87,8 @@ export default function LeaderboardPage() {
                         getDocs(scheduleQuery)
                     ]);
                     
-                    const competitors = competitorsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    const runs = scheduleSnap.docs.map(doc => doc.data());
+                    const competitors = competitorsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Competitor));
+                    const runs = scheduleSnap.docs.map(doc => doc.data() as ScheduledEvent);
 
                     const competitorMap = new Map(competitors.map(c => [c.id, c]));
                     const competitorStats: Record<string, { totalScore: number; totalTime: number; data: any }> = {};
@@ -286,3 +287,5 @@ export default function LeaderboardPage() {
     </div>
   );
 }
+
+    
