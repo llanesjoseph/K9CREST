@@ -85,7 +85,7 @@ const defaultDetectionRubric: Rubric = {
     phases: [],
 };
 
-const defaultTacticalRubrics = [
+const defaultTacticalRubrics: Omit<Rubric, 'id'>[] = [
     {
         name: "Car Jump Challenge",
         judgingInterface: "phases",
@@ -97,6 +97,7 @@ const defaultTacticalRubrics = [
                     { name: "Successful deploy over vehicle", type: "points", maxPoints: 15 },
                     { name: "Verbal out", type: "points", maxPoints: 5 },
                     { name: "Recall", type: "points", maxPoints: 5 },
+                    { name: "PENALTY: Handler out of cover", type: "pass/fail", maxPoints: -10 },
                 ]
             }
         ]
@@ -126,6 +127,7 @@ const defaultTacticalRubrics = [
                 exercises: [
                     { name: "Successful Deployment", type: "points", maxPoints: 15 },
                     { name: "Successful Recall", type: "points", maxPoints: 10 },
+                    { name: "PENALTY: Hit by Ball", type: "pass/fail", maxPoints: -10 },
                 ]
             }
         ]
@@ -147,16 +149,21 @@ export default function ManageRubricsPage() {
         const rubricsToCreate = defaultTacticalRubrics.filter(r => !existingNames.has(r.name));
 
         if (rubricsToCreate.length > 0) {
-            const batch = writeBatch(db);
-            const rubricsCollection = collection(db, "rubrics");
-            rubricsToCreate.forEach(rubricData => {
-                const docRef = doc(rubricsCollection);
-                batch.set(docRef, rubricData);
-            });
-            await batch.commit();
-            console.log(`Seeded ${rubricsToCreate.length} tactical rubrics.`);
+            try {
+                const batch = writeBatch(db);
+                const rubricsCollection = collection(db, "rubrics");
+                rubricsToCreate.forEach(rubricData => {
+                    const docRef = doc(rubricsCollection);
+                    batch.set(docRef, rubricData);
+                });
+                await batch.commit();
+                console.log(`Seeded ${rubricsToCreate.length} tactical rubrics.`);
+            } catch (error) {
+                console.error("Error seeding default rubrics:", error);
+                toast({ variant: "destructive", title: "Seeding Error", description: "Could not create default starter rubrics."})
+            }
         }
-    }, []);
+    }, [toast]);
 
 
     useEffect(() => {
@@ -328,7 +335,7 @@ function RubricEditor({ rubric }: { rubric: Rubric }) {
     const pointBasedExerciseCount = useMemo(() => {
         if (judgingInterface !== 'phases') return 0;
         return phases.reduce((count, phase) => {
-            return count + (phase.exercises?.filter(ex => ex.type === 'points' || ex.type === 'pass/fail').length || 0);
+            return count + (phase.exercises?.filter(ex => ex.type === 'points' || (ex.type === 'pass/fail' && ex.maxPoints! > 0)).length || 0);
         }, 0);
     }, [phases, judgingInterface]);
     
@@ -342,7 +349,8 @@ function RubricEditor({ rubric }: { rubric: Rubric }) {
             const currentPhases = form.getValues('phases');
             currentPhases.forEach((phase, phaseIndex) => {
                 phase.exercises.forEach((exercise, exerciseIndex) => {
-                    if (exercise.type === 'points' || exercise.type === 'pass/fail') {
+                     const ex = form.getValues(`phases.${phaseIndex}.exercises.${exerciseIndex}`);
+                    if (ex.type === 'points' || (ex.type === 'pass/fail' && ex.maxPoints! > 0)) {
                         form.setValue(`phases.${phaseIndex}.exercises.${exerciseIndex}.maxPoints`, pointsPerExercise, { shouldDirty: true });
                     }
                 });
@@ -571,8 +579,14 @@ function ExerciseItem({ control, phaseIndex, exerciseIndex, remove, isDistributi
         control,
         name: `phases.${phaseIndex}.exercises.${exerciseIndex}.type`,
     });
+     const exerciseValue = useWatch({
+        control,
+        name: `phases.${phaseIndex}.exercises.${exerciseIndex}`,
+    });
 
-    const showMaxPoints = exerciseType === 'points' || exerciseType === 'pass/fail';
+    const showMaxPoints = exerciseType === 'points' || (exerciseType === 'pass/fail' && exerciseValue.maxPoints > 0);
+    const showPenalty = exerciseType === 'pass/fail' && exerciseValue.maxPoints < 0;
+
     
     return (
         <div className="flex items-start gap-4 p-4 rounded-md border bg-secondary/50">
@@ -611,20 +625,20 @@ function ExerciseItem({ control, phaseIndex, exerciseIndex, remove, isDistributi
               )}
             />
             <div className="h-full flex items-end">
-                {showMaxPoints && (
+                {(showMaxPoints || showPenalty) && (
                     <FormField
                       control={control}
                       name={`phases.${phaseIndex}.exercises.${exerciseIndex}.maxPoints`}
                       render={({ field }) => (
                         <FormItem className="w-full">
-                          <FormLabel>{exerciseType === 'time' ? 'Max Time (sec)' : 'Max Points'}</FormLabel>
+                          <FormLabel>{showPenalty ? 'Penalty Points' : 'Max Points'}</FormLabel>
                           <FormControl>
                             <Input 
                                 {...field} 
                                 type="number" 
-                                placeholder={exerciseType === 'time' ? "e.g., 60" : "e.g., 10"}
-                                readOnly={isDistributionEnabled}
-                                className={isDistributionEnabled ? 'bg-muted/70' : ''}
+                                placeholder={showPenalty ? "-10" : "10"}
+                                readOnly={isDistributionEnabled && !showPenalty}
+                                className={cn(isDistributionEnabled && !showPenalty ? 'bg-muted/70' : '', showPenalty ? 'border-destructive' : '')}
                                 value={field.value ?? ''}
                                 onChange={e => field.onChange(e.target.value === '' ? undefined : Number(e.target.value))}
                             />
@@ -655,3 +669,5 @@ function ExerciseItem({ control, phaseIndex, exerciseIndex, remove, isDistributi
         </div>
     )
 }
+
+    
