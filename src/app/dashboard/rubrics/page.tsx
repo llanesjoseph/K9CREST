@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useFieldArray, useForm, useWatch } from "react-hook-form";
@@ -631,8 +630,8 @@ function ExerciseItem({ control, phaseIndex, exerciseIndex, remove, isDistributi
         name: `phases.${phaseIndex}.exercises.${exerciseIndex}`,
     });
 
-    const showMaxPoints = exerciseType === 'points' || (exerciseType === 'pass/fail' && (!exerciseValue.maxPoints || exerciseValue.maxPoints > 0));
-    const showPenalty = exerciseType === 'pass/fail' && exerciseValue.maxPoints && exerciseValue.maxPoints < 0;
+    const showMaxPoints = exerciseType === 'points' || (exerciseType === 'pass/fail' && (!exerciseValue?.maxPoints || exerciseValue.maxPoints > 0));
+    const showPenalty = exerciseType === 'pass/fail' && exerciseValue?.maxPoints && exerciseValue.maxPoints < 0;
 
     
     return (
