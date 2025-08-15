@@ -119,21 +119,6 @@ const defaultTacticalRubrics: Omit<Rubric, 'id'>[] = [
         ]
     },
     {
-        name: "Bonus Challenge (Tactical)",
-        judgingInterface: "phases",
-        totalPoints: 25,
-        phases: [
-            {
-                name: "Bonus Challenge",
-                exercises: [
-                    { name: "Successful Deployment", type: "points", maxPoints: 15 },
-                    { name: "Successful Recall", type: "points", maxPoints: 10 },
-                    { name: "PENALTY: Hit by Ball", type: "pass/fail", maxPoints: -10 },
-                ]
-            }
-        ]
-    },
-    {
         name: "Trojan Horse",
         judgingInterface: "phases",
         totalPoints: 25,
@@ -163,7 +148,7 @@ const defaultTacticalRubrics: Omit<Rubric, 'id'>[] = [
             }
         ]
     },
-    {
+     {
         name: "Bonus Challenge (Handler Protection)",
         judgingInterface: "phases",
         totalPoints: 25,
@@ -176,6 +161,21 @@ const defaultTacticalRubrics: Omit<Rubric, 'id'>[] = [
                     { name: "Engages Decoy", type: "points", maxPoints: 10 },
                     { name: "Hard Out", type: "points", maxPoints: 5 },
                     { name: "PENALTY: Missed shot", type: "pass/fail", maxPoints: -10 },
+                ]
+            }
+        ]
+    },
+    {
+        name: "Bonus Challenge (Tactical)",
+        judgingInterface: "phases",
+        totalPoints: 25,
+        phases: [
+            {
+                name: "Bonus Challenge",
+                exercises: [
+                    { name: "Successful Deployment", type: "points", maxPoints: 15 },
+                    { name: "Successful Recall", type: "points", maxPoints: 10 },
+                    { name: "PENALTY: Hit by Ball", type: "pass/fail", maxPoints: -10 },
                 ]
             }
         ]
@@ -284,45 +284,43 @@ export default function ManageRubricsPage() {
                         <CardTitle>Rubric Library</CardTitle>
                         <CardDescription>Select a rubric to edit or create a new one.</CardDescription>
                     </CardHeader>
-                    <CardContent>
-                         <div className="flex flex-col gap-2">
-                             {allDisplayRubrics.map(rubric => (
-                                <div key={rubric.id} className="flex items-center justify-between gap-1">
-                                    <Button 
-                                        variant={selectedRubricId === rubric.id ? "secondary" : "ghost"} 
-                                        className="flex-1 justify-start h-auto text-left"
-                                        onClick={() => setSelectedRubricId(rubric.id!)}
-                                    >
-                                        <span className="py-1">{rubric.name}</span>
-                                    </Button>
-                                    {isAdmin && rubric.id !== defaultDetectionRubric.id ? (
-                                         <AlertDialog>
-                                            <AlertDialogTrigger asChild>
-                                                <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0"><Trash2 className="h-4 w-4 text-destructive/70" /></Button>
-                                            </AlertDialogTrigger>
-                                            <AlertDialogContent>
-                                                <AlertDialogHeader>
-                                                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                                                    <AlertDialogDescription>
-                                                        This will permanently delete the rubric "{rubric.name}". This action cannot be undone.
-                                                    </AlertDialogDescription>
-                                                </AlertDialogHeader>
-                                                <AlertDialogFooter>
-                                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                                    <AlertDialogAction onClick={() => handleDeleteRubric(rubric.id!, rubric.name)} className="bg-destructive hover:bg-destructive/90">
-                                                        Yes, delete rubric
-                                                    </AlertDialogAction>
-                                                </AlertDialogFooter>
-                                            </AlertDialogContent>
-                                        </AlertDialog>
-                                    ) : (
-                                        <div className="h-8 w-8 shrink-0 flex items-center justify-center">
-                                            {rubric.id === defaultDetectionRubric.id && <Lock className="h-4 w-4 text-muted-foreground" />}
-                                        </div>
-                                    )}
-                                </div>
-                            ))}
-                        </div>
+                    <CardContent className="space-y-1">
+                         {allDisplayRubrics.map(rubric => (
+                            <div key={rubric.id} className="flex items-center justify-between gap-1">
+                                <Button 
+                                    variant={selectedRubricId === rubric.id ? "secondary" : "ghost"} 
+                                    className="flex-1 justify-start h-auto text-left"
+                                    onClick={() => setSelectedRubricId(rubric.id!)}
+                                >
+                                    <span className="py-1">{rubric.name}</span>
+                                </Button>
+                                {isAdmin && rubric.id !== defaultDetectionRubric.id ? (
+                                     <AlertDialog>
+                                        <AlertDialogTrigger asChild>
+                                            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0"><Trash2 className="h-4 w-4 text-destructive/70" /></Button>
+                                        </AlertDialogTrigger>
+                                        <AlertDialogContent>
+                                            <AlertDialogHeader>
+                                                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                                <AlertDialogDescription>
+                                                    This will permanently delete the rubric "{rubric.name}". This action cannot be undone.
+                                                </AlertDialogDescription>
+                                            </AlertDialogHeader>
+                                            <AlertDialogFooter>
+                                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                <AlertDialogAction onClick={() => handleDeleteRubric(rubric.id!, rubric.name)} className="bg-destructive hover:bg-destructive/90">
+                                                    Yes, delete rubric
+                                                </AlertDialogAction>
+                                            </AlertDialogFooter>
+                                        </AlertDialogContent>
+                                    </AlertDialog>
+                                ) : (
+                                    <div className="h-8 w-8 shrink-0 flex items-center justify-center">
+                                        {rubric.id === defaultDetectionRubric.id && <Lock className="h-4 w-4 text-muted-foreground" />}
+                                    </div>
+                                )}
+                            </div>
+                        ))}
                         {isAdmin && (
                             <div className="space-y-2 border-t pt-4 mt-4">
                                 <Input 
@@ -718,5 +716,3 @@ function ExerciseItem({ control, phaseIndex, exerciseIndex, remove, isDistributi
         </div>
     )
 }
-
-    
