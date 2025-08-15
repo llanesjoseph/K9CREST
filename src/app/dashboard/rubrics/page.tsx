@@ -287,13 +287,13 @@ export default function ManageRubricsPage() {
                     <CardContent>
                          <div className="flex flex-col gap-2">
                              {allDisplayRubrics.map(rubric => (
-                                <div key={rubric.id} className="flex items-center justify-between gap-2">
+                                <div key={rubric.id} className="flex items-center justify-between gap-1">
                                     <Button 
                                         variant={selectedRubricId === rubric.id ? "secondary" : "ghost"} 
-                                        className="flex-1 justify-start h-auto"
+                                        className="flex-1 justify-start h-auto text-left"
                                         onClick={() => setSelectedRubricId(rubric.id!)}
                                     >
-                                        <span className="text-left py-1">{rubric.name}</span>
+                                        <span className="py-1">{rubric.name}</span>
                                     </Button>
                                     {isAdmin && rubric.id !== defaultDetectionRubric.id ? (
                                          <AlertDialog>
@@ -316,7 +316,9 @@ export default function ManageRubricsPage() {
                                             </AlertDialogContent>
                                         </AlertDialog>
                                     ) : (
-                                        <div className="h-8 w-8 shrink-0"></div>
+                                        <div className="h-8 w-8 shrink-0 flex items-center justify-center">
+                                            {rubric.id === defaultDetectionRubric.id && <Lock className="h-4 w-4 text-muted-foreground" />}
+                                        </div>
                                     )}
                                 </div>
                             ))}
