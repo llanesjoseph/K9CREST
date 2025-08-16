@@ -89,7 +89,7 @@ export default function CompetitorsPage() {
         return <Badge variant="outline">No Specialty</Badge>;
     }
     return specialties.map((s, index) => {
-        let label = s.type;
+        let label: string = s.type;
         if (s.type === 'Detection' && s.detectionType) {
             label = s.detectionType;
         }

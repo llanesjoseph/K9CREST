@@ -2,7 +2,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
-import { doc, onSnapshot, updateDoc, addDoc, collection, serverTimestamp, getDocs, deleteDoc, writeBatch, query, where, setDoc, getDoc, orderBy, type Timestamp } from "firebase/firestore";
+import type { Timestamp } from "firebase/firestore";
+import { doc, onSnapshot, updateDoc, addDoc, collection, serverTimestamp, getDocs, deleteDoc, writeBatch, query, where, setDoc, getDoc, orderBy } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
@@ -147,8 +148,8 @@ type RunData = {
   totalTime?: number;
 };
 
-type Find = { id: string; createdAt?: any };
-type Deduction = { id: string; points: number; note: string; createdAt?: any };
+type Find = { id: string; createdAt?: Timestamp };
+type Deduction = { id: string; points: number; note: string; createdAt?: Timestamp };
 
 function formatClock(s: number) {
     if (!Number.isFinite(s)) return '00:00';
@@ -207,7 +208,7 @@ export function DetectionScoring({ eventId, runId, isReadOnly }: DetectionScorin
 
   const existingDeductionNotes = useMemo(() => new Set(deductions.map(d => d.note)), [deductions]);
 
-  const getRelativeTime = useCallback((timestamp: any) => {
+  const getRelativeTime = useCallback((timestamp: Timestamp | undefined) => {
     if (!timestamp || !run?.startAt) return null;
     const startMs = run.startAt.toMillis();
     const eventMs = timestamp.toMillis();
