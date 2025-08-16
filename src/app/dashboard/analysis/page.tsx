@@ -1,7 +1,7 @@
 
 "use client";
 
-import type { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import {
   Card,
   CardContent,
@@ -446,3 +446,5 @@ export default function AnalysisPage() {
         </div>
     );
 }
+
+      

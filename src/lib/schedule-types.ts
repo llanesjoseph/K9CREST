@@ -102,3 +102,5 @@ export const OutputSchema = z.object({
 
 export type GenerateScheduleInput = z.infer<typeof InputSchema>;
 export type GenerateScheduleOutput = z.infer<typeof OutputSchema>;
+
+      
