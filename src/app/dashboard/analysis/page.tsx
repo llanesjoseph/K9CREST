@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from "react";
@@ -44,7 +43,7 @@ interface RunData {
     id:string;
     scheduledTime: string;
     scheduledDateTime: Date;
-    actualStartTime: Timestamp;
+    actualStartTime: Timestamp | null;
     actualStartTimeDate: Date;
     actualEndTimeDate: Date;
     judgeName: string | null;
@@ -67,7 +66,6 @@ interface AnalysisData {
     avgDelay: number;
     totalOverrun: number;
     totalTurnaroundTime: number;
-
     turnaroundCount: number;
     byArena: Record<string, { totalDelay: number; count: number; totalTurnaround: number; turnaroundCount: number; }>;
     byJudge: Record<string, { totalDelay: number; count: number; }>;
@@ -142,7 +140,7 @@ export default function AnalysisPage() {
                     const scheduledDateTime = parse(`${run.date} ${run.startTime}`, 'yyyy-MM-dd HH:mm', new Date());
                     const actualStartTimeDate = run.actualStartTime?.toDate();
 
-                    if (!run.actualStartTime || !actualStartTimeDate) {
+                    if (!actualStartTimeDate) {
                         return acc; // Skip runs without a valid start time
                     }
 
@@ -161,11 +159,11 @@ export default function AnalysisPage() {
                         id: run.id,
                         scheduledTime: `${run.date} ${run.startTime}`,
                         scheduledDateTime,
-                        actualStartTime: run.actualStartTime,
+                        actualStartTime: run.actualStartTime || null,
                         actualStartTimeDate,
                         actualEndTimeDate,
-                        judgeName: run.judgeName ?? null,
-                        arenaName: arena?.name ?? null,
+                        judgeName: run.judgeName || null,
+                        arenaName: arena?.name || null,
                         arenaId: run.arenaId,
                         competitorName: competitor?.name,
                         startVariance,
@@ -458,5 +456,3 @@ export default function AnalysisPage() {
         </div>
     );
 }
-
-    

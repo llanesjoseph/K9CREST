@@ -20,13 +20,19 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState, useRef, useMemo } from "react";
-import { doc, getDoc, updateDoc, onSnapshot, serverTimestamp } from "firebase/firestore";
+import { doc, getDoc, updateDoc, onSnapshot, serverTimestamp, DocumentData } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/components/auth-provider";
 import { cn } from "@/lib/utils";
 import { DetectionScoring } from "./detection-scoring";
 import type { ScheduledEvent } from "@/lib/schedule-types";
+
+interface Rubric extends DocumentData {
+    id: string;
+    judgingInterface?: 'phases' | 'detection';
+    phases?: any[];
+}
 
 interface JudgingFormValues {
     scores: {
@@ -57,7 +63,7 @@ export default function JudgingPage() {
   const [runData, setRunData] = useState<ScheduledEvent | null>(null);
   const [competitorData, setCompetitorData] = useState<any>(null);
   const [arenaData, setArenaData] = useState<any>(null);
-  const [rubricData, setRubricData] = useState<any>(null);
+  const [rubricData, setRubricData] = useState<Rubric | null>(null);
   const [judgingInterface, setJudgingInterface] = useState<"phases" | "detection" | null>(null);
   
   const [isTimerRunning, setIsTimerRunning] = useState(false);
@@ -126,7 +132,7 @@ export default function JudgingPage() {
              setCompetitorData(competitorSnap.data());
         }
 
-        let finalRubric = null;
+        let finalRubric: Rubric | null = null;
         if(arenaSnap?.exists()) {
             const arena = arenaSnap.data();
             setArenaData(arena);
@@ -134,7 +140,7 @@ export default function JudgingPage() {
                 const rubricRef = doc(db, 'rubrics', arena.rubricId);
                 const rubricSnap = await getDoc(rubricRef);
                 if (rubricSnap.exists()) {
-                    finalRubric = { id: rubricSnap.id, ...rubricSnap.data() };
+                    finalRubric = { id: rubricSnap.id, ...rubricSnap.data() } as Rubric;
                     setRubricData(finalRubric);
                     setJudgingInterface(finalRubric.judgingInterface || "phases");
                 }
