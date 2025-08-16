@@ -70,7 +70,7 @@ interface AnalysisData {
     turnaroundCount: number;
     byArena: Record<string, { totalDelay: number; count: number; totalTurnaround: number; turnaroundCount: number; }>;
     byJudge: Record<string, { totalDelay: number; count: number; }>;
-    runs: RunData[];
+    runs: (RunData & { startVariance: number; actualStartTimeDate: Date })[];
     pacingData: PacingDataPoint[];
 }
 
@@ -137,7 +137,7 @@ export default function AnalysisPage() {
                     return;
                 }
 
-                const processedRuns: RunData[] = runs.map(run => {
+                const processedRuns: (RunData & { startVariance: number; actualStartTimeDate: Date })[] = runs.map(run => {
                     let startVariance: number | undefined = undefined;
                     const scheduledDateTime = parse(`${run.date} ${run.startTime}`, 'yyyy-MM-dd HH:mm', new Date());
                     const actualStartTimeDate = run.actualStartTime?.toDate();
@@ -169,7 +169,7 @@ export default function AnalysisPage() {
                 );
 
 
-                const initialData: AnalysisData = {
+                const initialData: Omit<AnalysisData, 'runs'> = {
                     totalRuns: processedRuns.length,
                     onTimeRuns: 0,
                     avgDelay: 0,
@@ -178,7 +178,6 @@ export default function AnalysisPage() {
                     turnaroundCount: 0,
                     byArena: {},
                     byJudge: {},
-                    runs: processedRuns.sort((a,b) => b.startVariance! - a.startVariance!),
                     pacingData: [],
                 };
 
@@ -208,10 +207,10 @@ export default function AnalysisPage() {
                     if(!acc[run.arenaId]) acc[run.arenaId] = [];
                     acc[run.arenaId].push(run);
                     return acc;
-                }, {} as Record<string, RunData[]>);
+                }, {} as Record<string, (RunData & { startVariance: number; actualStartTimeDate: Date })[]>);
 
                 for(const arenaId in runsByArena) {
-                    const arenaRuns = [...runsByArena[arenaId]].sort((a,b) => a.actualStartTimeDate!.getTime() - b.actualStartTimeDate!.getTime());
+                    const arenaRuns = [...runsByArena[arenaId]].sort((a,b) => a.actualStartTimeDate.getTime() - b.actualStartTimeDate.getTime());
                     for(let i = 1; i < arenaRuns.length; i++) {
                         const prevRun = arenaRuns[i-1];
                         const currentRun = arenaRuns[i];
@@ -247,8 +246,13 @@ export default function AnalysisPage() {
                         return { time: format(interval, 'HH:mm'), scheduledPercent, actualPercent };
                      });
                 }
+                
+                const finalAnalysisData: AnalysisData = {
+                    ...result,
+                    runs: processedRuns.sort((a,b) => b.startVariance - a.startVariance),
+                }
 
-                setAnalysisData(result);
+                setAnalysisData(finalAnalysisData);
 
             } catch (error) {
                 console.error("Error generating analysis:", error);
@@ -433,8 +437,8 @@ export default function AnalysisPage() {
                                             <TableCell>{run.arenaName}</TableCell>
                                             <TableCell>{run.judgeName}</TableCell>
                                             <TableCell>{run.scheduledTime}</TableCell>
-                                            <TableCell>{run.actualStartTime?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</TableCell>
-                                            <TableCell className={`text-right font-mono ${run.startVariance! > 2 ? 'text-destructive' : 'text-green-600'}`}>{run.startVariance!.toFixed(0)}</TableCell>
+                                            <TableCell>{run.actualStartTimeDate?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</TableCell>
+                                            <TableCell className={`text-right font-mono ${run.startVariance > 2 ? 'text-destructive' : 'text-green-600'}`}>{run.startVariance.toFixed(0)}</TableCell>
                                         </TableRow>
                                     ))}
                                 </TableBody>
