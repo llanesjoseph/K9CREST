@@ -52,7 +52,7 @@ interface RunData {
     arenaId: string;
     competitorName?: string;
     startVariance?: number;
-    totalTime?: number;
+    totalTime?: number | null;
 }
 
 interface PacingDataPoint {
