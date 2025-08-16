@@ -1,4 +1,3 @@
-
 import { z } from "zod";
 import type { Timestamp } from "firebase/firestore";
 
@@ -102,5 +101,3 @@ export const OutputSchema = z.object({
 
 export type GenerateScheduleInput = z.infer<typeof InputSchema>;
 export type GenerateScheduleOutput = z.infer<typeof OutputSchema>;
-
-      

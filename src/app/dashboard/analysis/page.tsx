@@ -1,7 +1,9 @@
-
 "use client";
 
 import { useState, useEffect } from "react";
+import type { DocumentData, Timestamp } from "firebase/firestore";
+import { collection, onSnapshot, getDocs, query, where } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 import {
   Card,
   CardContent,
@@ -24,8 +26,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { collection, onSnapshot, getDocs, query, where, DocumentData, Timestamp } from "firebase/firestore";
-import { db } from "@/lib/firebase";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlertTriangle, Clock, BarChart2, Hourglass, UserCheck } from "lucide-react";
 import { ResponsiveContainer, AreaChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Area } from 'recharts';
@@ -446,5 +446,3 @@ export default function AnalysisPage() {
         </div>
     );
 }
-
-      

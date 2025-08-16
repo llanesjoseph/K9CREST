@@ -1,9 +1,8 @@
-
 "use client";
 
 import { useForm, Controller } from "react-hook-form";
 import Link from "next/link";
-import { ChevronLeft, Save, Loader2, Play, Square, TimerIcon } from "lucide-react";
+import { ChevronLeft, Save, Loader2, Play, Square, TimerIcon, AlertTriangle } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -26,7 +25,6 @@ import { db } from "@/lib/firebase";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/components/auth-provider";
 import { cn } from "@/lib/utils";
-import { AlertTriangle } from "lucide-react";
 import { DetectionScoring } from "./detection-scoring";
 import type { ScheduledEvent } from "@/lib/schedule-types";
 
@@ -48,7 +46,7 @@ export default function JudgingPage() {
   const { toast } = useToast();
   const router = useRouter();
   const params = useParams();
-  const { user, isAdmin } = useAuth();
+  const { isAdmin } = useAuth();
   const eventId = params.id as string;
   const runId = params.runId as string;
   
@@ -104,7 +102,7 @@ export default function JudgingPage() {
     const runRef = doc(db, `events/${eventId}/schedule`, runId);
     const unsubscribe = onSnapshot(runRef, async (runSnap) => {
       try {
-        if (!loading) setLoading(true);
+        if (loading) setLoading(true);
 
         if (!runSnap.exists()) {
             throw new Error("Run not found for this event.");
