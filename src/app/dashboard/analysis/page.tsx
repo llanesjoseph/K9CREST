@@ -47,8 +47,8 @@ interface RunData {
     actualStartTime?: Timestamp | null;
     actualStartTimeDate?: Date;
     actualEndTimeDate?: Date;
-    judgeName?: string;
-    arenaName?: string;
+    judgeName?: string | null;
+    arenaName?: string | null;
     arenaId: string;
     competitorName?: string;
     startVariance?: number;
