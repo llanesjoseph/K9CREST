@@ -20,6 +20,7 @@ import { db, storage } from '@/lib/firebase';
 import { useAuth } from '@/components/auth-provider';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
+import type { Competitor } from '@/lib/schedule-types';
 
 const profileSchema = z.object({
   handlerName: z.string().min(1, 'Handler name is required.'),
@@ -49,18 +50,16 @@ export default function SettingsPage() {
 
   useEffect(() => {
     const fetchCompetitorData = async () => {
-      if (!user?.uid) {
+      if (!user?.uid || !user.displayName) {
         setIsLoading(false);
         return;
       };
 
       setIsLoading(true);
       try {
-        // This logic finds the first competitor profile associated with the user's name
-        // across all events. A more robust system might use a dedicated user profile collection.
         const eventsRef = collection(db, 'events');
         const eventsSnapshot = await getDocs(eventsRef);
-        let foundCompetitor = null;
+        let foundCompetitor: Competitor | null = null;
         
         for (const eventDoc of eventsSnapshot.docs) {
            const competitorsRef = collection(db, `events/${eventDoc.id}/competitors`);
@@ -68,8 +67,8 @@ export default function SettingsPage() {
            const competitorSnapshot = await getDocs(q);
            if (!competitorSnapshot.empty) {
                const competitorDoc = competitorSnapshot.docs[0];
-               foundCompetitor = { id: competitorDoc.id, ...competitorDoc.data() };
-               break; // Found the first one, stop searching
+               foundCompetitor = { id: competitorDoc.id, ...competitorDoc.data() } as Competitor;
+               break; 
            }
         }
 
@@ -84,7 +83,6 @@ export default function SettingsPage() {
             setImageUrl(foundCompetitor.dogImage);
           }
         } else {
-            // If no competitor found, still allow creation by pre-filling handler name
             form.reset({
                 handlerName: user?.displayName || '',
                 dogName: '',
@@ -119,7 +117,6 @@ export default function SettingsPage() {
     
     try {
       let newImageUrl = imageUrl;
-      // Handle image upload if a new one is selected
       if (data.dogImage && data.dogImage[0]) {
         const file = data.dogImage[0];
         const storageRef = ref(storage, `k9_images/${user.uid}/${file.name}`);
@@ -132,10 +129,8 @@ export default function SettingsPage() {
       const eventsRef = collection(db, 'events');
       const eventsSnapshot = await getDocs(eventsRef);
 
-      // Find all instances of this competitor across all events to update them
       for (const eventDoc of eventsSnapshot.docs) {
           const competitorsRef = collection(db, `events/${eventDoc.id}/competitors`);
-          // A more direct link like a `userId` field would be more robust
           const q = query(competitorsRef, where("name", "==", user.displayName)); 
           const competitorDocs = await getDocs(q);
 
@@ -143,8 +138,8 @@ export default function SettingsPage() {
                batch.update(competitorDoc.ref, {
                   name: data.handlerName,
                   dogName: data.dogName,
-                  dogBio: data.dogBio,
-                  dogImage: newImageUrl,
+                  dogBio: data.dogBio || null,
+                  dogImage: newImageUrl || null,
                });
           });
       }
@@ -302,3 +297,5 @@ export default function SettingsPage() {
     </div>
   );
 }
+
+    
