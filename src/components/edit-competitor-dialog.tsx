@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState } from 'react';
@@ -138,3 +139,4 @@ export function EditCompetitorDialog({ eventId, competitor, allCompetitors }: Ed
     </Dialog>
   );
 }
+

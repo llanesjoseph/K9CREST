@@ -240,7 +240,7 @@ const CompetitorItem = ({ competitor, isDraggable, dragHandle, onRunClick, allAr
                  )}
             </div>
              <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                <EditCompetitorDialog competitor={competitor} eventId={competitor.eventId} allCompetitors={allCompetitors} />
+                <EditCompetitorDialog competitor={competitor} eventId={competitor.eventId!} allCompetitors={allCompetitors} />
             </div>
         </div>
     );
