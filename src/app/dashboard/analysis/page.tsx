@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -32,7 +33,6 @@ import { ResponsiveContainer, AreaChart, CartesianGrid, XAxis, YAxis, Tooltip, L
 import { differenceInMinutes, parse, format, eachMinuteOfInterval, addMinutes, startOfDay, endOfDay } from "date-fns";
 import type { ScheduledEvent } from "@/lib/schedule-types";
 
-
 interface Event {
     id: string;
     name: string;
@@ -44,7 +44,7 @@ interface RunData {
     id:string;
     scheduledTime: string;
     scheduledDateTime: Date;
-    actualStartTime: Timestamp | null;
+    actualStartTime: Timestamp;
     actualStartTimeDate: Date;
     actualEndTimeDate: Date;
     judgeName: string | null;
@@ -138,40 +138,42 @@ export default function AnalysisPage() {
                     return;
                 }
                 
-                const processedRuns = runs
-                    .map(run => {
-                        const scheduledDateTime = parse(`${run.date} ${run.startTime}`, 'yyyy-MM-dd HH:mm', new Date());
-                        const actualStartTimeDate = run.actualStartTime?.toDate();
+                const processedRuns: RunData[] = runs.reduce((acc: RunData[], run) => {
+                    const scheduledDateTime = parse(`${run.date} ${run.startTime}`, 'yyyy-MM-dd HH:mm', new Date());
+                    const actualStartTimeDate = run.actualStartTime?.toDate();
 
-                        let startVariance: number | undefined = undefined;
-                        if (actualStartTimeDate) {
-                            startVariance = differenceInMinutes(actualStartTimeDate, scheduledDateTime);
-                        }
+                    if (!run.actualStartTime || !actualStartTimeDate) {
+                        return acc; // Skip runs without a valid start time
+                    }
 
-                        const totalTime = run.totalTime ?? null;
-                        const actualEndTimeDate = actualStartTimeDate && totalTime !== null ? addMinutes(actualStartTimeDate, totalTime / 60) : undefined;
-                        
-                        const competitor = competitorsMap.get(run.competitorId);
-                        const arena = arenasMap.get(run.arenaId);
+                    const startVariance = differenceInMinutes(actualStartTimeDate, scheduledDateTime);
+                    const totalTime = run.totalTime ?? null;
+                    const actualEndTimeDate = totalTime !== null ? addMinutes(actualStartTimeDate, totalTime / 60) : null;
+                    
+                    if (actualEndTimeDate === null) {
+                         return acc; // Skip runs without a valid end time for turnaround calc
+                    }
 
-                        return {
-                            id: run.id,
-                            scheduledTime: `${run.date} ${run.startTime}`,
-                            scheduledDateTime,
-                            actualStartTime: run.actualStartTime ?? null,
-                            actualStartTimeDate,
-                            actualEndTimeDate,
-                            judgeName: run.judgeName ?? null,
-                            arenaName: arena?.name ?? null,
-                            arenaId: run.arenaId,
-                            competitorName: competitor?.name,
-                            startVariance,
-                            totalTime,
-                        };
-                    })
-                    .filter((run): run is RunData =>
-                        run.startVariance !== undefined && run.actualStartTimeDate !== undefined && run.actualEndTimeDate !== undefined
-                    );
+                    const competitor = competitorsMap.get(run.competitorId);
+                    const arena = arenasMap.get(run.arenaId);
+
+                    acc.push({
+                        id: run.id,
+                        scheduledTime: `${run.date} ${run.startTime}`,
+                        scheduledDateTime,
+                        actualStartTime: run.actualStartTime,
+                        actualStartTimeDate,
+                        actualEndTimeDate,
+                        judgeName: run.judgeName ?? null,
+                        arenaName: arena?.name ?? null,
+                        arenaId: run.arenaId,
+                        competitorName: competitor?.name,
+                        startVariance,
+                        totalTime,
+                    });
+
+                    return acc;
+                }, []);
 
 
                 const initialData: Omit<AnalysisData, 'runs' | 'pacingData'> = {
@@ -456,3 +458,5 @@ export default function AnalysisPage() {
         </div>
     );
 }
+
+    
