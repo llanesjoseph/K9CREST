@@ -137,7 +137,7 @@ export default function AnalysisPage() {
                     return;
                 }
 
-                const processedRuns: (RunData & { startVariance: number; actualStartTimeDate: Date })[] = runs.map(run => {
+                const processedRuns = runs.map(run => {
                     let startVariance: number | undefined = undefined;
                     const scheduledDateTime = parse(`${run.date} ${run.startTime}`, 'yyyy-MM-dd HH:mm', new Date());
                     const actualStartTimeDate = run.actualStartTime?.toDate();
@@ -169,7 +169,7 @@ export default function AnalysisPage() {
                 );
 
 
-                const initialData: Omit<AnalysisData, 'runs'> = {
+                const initialData: Omit<AnalysisData, 'runs' | 'pacingData'> = {
                     totalRuns: processedRuns.length,
                     onTimeRuns: 0,
                     avgDelay: 0,
@@ -178,7 +178,6 @@ export default function AnalysisPage() {
                     turnaroundCount: 0,
                     byArena: {},
                     byJudge: {},
-                    pacingData: [],
                 };
 
                 const result = processedRuns.reduce((acc, run) => {
@@ -228,12 +227,13 @@ export default function AnalysisPage() {
                 }
 
                 // Generate Pacing Data
+                let pacingData: PacingDataPoint[] = [];
                 const event = events.find(e => e.id === selectedEventId);
                 if (event?.startDate) {
                     const eventStart = startOfDay(event.startDate.toDate());
                     const eventEnd = endOfDay(event.endDate?.toDate() || event.startDate.toDate());
                      const timeIntervals = eachMinuteOfInterval({ start: eventStart, end: eventEnd }, { step: 30 });
-                     result.pacingData = timeIntervals.map(interval => {
+                     pacingData = timeIntervals.map(interval => {
                         const totalRuns = processedRuns.length;
                         if (totalRuns === 0) return { time: format(interval, 'HH:mm'), scheduledPercent: 0, actualPercent: 0 };
 
@@ -249,6 +249,7 @@ export default function AnalysisPage() {
                 
                 const finalAnalysisData: AnalysisData = {
                     ...result,
+                    pacingData,
                     runs: processedRuns.sort((a,b) => b.startVariance - a.startVariance),
                 }
 

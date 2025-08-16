@@ -1,5 +1,5 @@
-import { z } from "zod";
 import type { Timestamp } from "firebase/firestore";
+import { z } from "zod";
 
 export const SpecialtyLabelSchema = z.enum([
   "Any",
@@ -73,7 +73,6 @@ export const ScheduledRunSchema = z.object({
     notes: z.string().optional().nullable(),
     totalTime: z.number().optional().nullable(),
     judgeName: z.string().optional().nullable(),
-    // Detection specific fields
     judgingInterface: z.enum(["phases", "detection"]).optional().nullable(),
     detectionMax: z.number().optional().nullable(),
     teamworkMax: z.number().optional().nullable(),
