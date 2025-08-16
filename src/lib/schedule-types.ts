@@ -72,8 +72,40 @@ export const ScheduledRunSchema = z.object({
     falseAlertPenalty: z.number().optional().nullable(),
     falseAlerts: z.number().optional().nullable(),
     startAt: z.custom<Timestamp>().optional().nullable(),
-    endAt: z.custom<Timestamp>().optional().nullable(),
+  endAt: z.custom<Timestamp>().optional().nullable(),
 });
 export type ScheduledEvent = z.infer<typeof ScheduledRunSchema>;
+
+export const InputSchema = z.object({
+  eventDays: z.array(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)),
+  timeSlots: z.array(z.string().regex(/^\d{2}:\d{2}$/)),
+  arenas: z.array(ArenaSchema),
+  competitors: z.array(CompetitorSchema),
+});
+export type GenerateScheduleInput = z.infer<typeof InputSchema>;
+
+export const OutputSchema = z.object({
+  schedule: z.array(
+    z.object({
+      competitorId: z.string(),
+      arenaId: z.string(),
+      startTime: z.string().regex(/^\d{2}:\d{2}$/),
+      endTime: z.string().regex(/^\d{2}:\d{2}$/),
+      date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    })
+  ),
+  diagnostics: z.object({
+    requiredRuns: z.number(),
+    placedRuns: z.number(),
+    unplacedRuns: z.array(
+      z.object({
+        competitorId: z.string(),
+        specialtyType: SpecialtyLabelSchema,
+        reason: z.string(),
+      })
+    ),
+  }),
+});
+export type GenerateScheduleOutput = z.infer<typeof OutputSchema>;
 
     
