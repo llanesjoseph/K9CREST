@@ -3,25 +3,15 @@
 
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import type { Timestamp } from "firebase/firestore";
-import { doc, onSnapshot, updateDoc, addDoc, collection, serverTimestamp, getDocs, deleteDoc, writeBatch, query, where, setDoc, getDoc, orderBy } from "firebase/firestore";
+import { doc, onSnapshot, updateDoc, addDoc, collection, serverTimestamp, deleteDoc, writeBatch, getDoc, orderBy, query } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ChevronLeft, Gavel, Loader2, Play, Square, TimerIcon, Plus, Minus, Trash2, MessageSquarePlus, ChevronDown, Save, CheckCircle } from "lucide-react";
+import { Loader2, Play, Square, TimerIcon, Plus, Minus, Trash2, Save, CheckCircle } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
-import Link from "next/link";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -34,119 +24,22 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
 import { Checkbox } from "@/components/ui/checkbox";
+import type { ScheduledEvent } from "@/lib/schedule-types";
 
 const deductionCategories = [
-    {
-        category: "Handler–Dog Communication Breakdowns",
-        items: [
-            "Delayed responses to commands",
-            "Misinterpreted commands",
-            "Handler over-commanding",
-            "Conflicting signals (body/voice)",
-            "Handler talking over the dog’s work",
-            "Tone mismatches",
-        ]
-    },
-    {
-        category: "Lack of Cohesion in Movement",
-        items: [
-            "Dog forges/lags/drifts",
-            "Frequent tight leash corrections",
-            "Dog crosses handler path unexpectedly",
-            "Handler out of sync with dog’s pace",
-            "Overhandling/micromanaging",
-            "Dog physically collides with handler",
-        ]
-    },
-    {
-        category: "Search / Task Flow Disruptions",
-        items: [
-            "Handler pulls dog off productive work",
-            "Dog ignores handler redirection",
-            "Handler misses dog’s change of behavior",
-            "Dog abandons task to look to handler",
-            "Overdependence on handler guidance",
-        ]
-    },
-    {
-        category: "Emotional Disconnection",
-        items: [
-            "Dog shows stress signals toward handler",
-            "Handler shows visible frustration",
-            "Dog avoids eye contact or engagement",
-            "Loss of enthusiasm in dog",
-            "Handler fails to praise/reinforce",
-        ]
-    },
-    {
-        category: "Overt Handler Errors",
-        items: [
-            "Incorrect reward timing",
-            "Inconsistent cues",
-            "Handler positioning blocks dog",
-            "Failure to read environmental stressors",
-            "Stepping into dog’s path",
-            "Not allowing sufficient lead length",
-        ]
-    },
-    {
-        category: "Breaks in Handler Trust / Leadership",
-        items: [
-            "Handler ignores dog’s problem-solving",
-            "Dog second-guesses handler commands",
-            "Inappropriate or harsh corrections",
-            "Handler safety violations",
-            "Dog hesitates to commit",
-        ]
-    },
-    {
-        category: "Ring / Field Awareness Lapses",
-        items: [
-            "Dog distracted, not refocused",
-            "Handler steps outside boundaries",
-            "Dog breaks formation without recall",
-            "Handler fails to maintain situational awareness",
-            "Mismatched start or stop timing",
-        ]
-    },
-    {
-        category: "Presentation & Professionalism Issues",
-        items: [
-            "Sloppy transitions between exercises",
-            "Handler posture conveys uncertainty",
-            "Unpreparedness (fumbling equipment)",
-            "Dog out of position at start/finish",
-            "Lack of confident entry/exit",
-        ]
-    }
+    { category: "Handler–Dog Communication Breakdowns", items: ["Delayed responses to commands", "Misinterpreted commands", "Handler over-commanding", "Conflicting signals (body/voice)", "Handler talking over the dog’s work", "Tone mismatches"] },
+    { category: "Lack of Cohesion in Movement", items: ["Dog forges/lags/drifts", "Frequent tight leash corrections", "Dog crosses handler path unexpectedly", "Handler out of sync with dog’s pace", "Overhandling/micromanaging", "Dog physically collides with handler"] },
+    { category: "Search / Task Flow Disruptions", items: ["Handler pulls dog off productive work", "Dog ignores handler redirection", "Handler misses dog’s change of behavior", "Dog abandons task to look to handler", "Overdependence on handler guidance"] },
+    { category: "Emotional Disconnection", items: ["Dog shows stress signals toward handler", "Handler shows visible frustration", "Dog avoids eye contact or engagement", "Loss of enthusiasm in dog", "Handler fails to praise/reinforce"] },
+    { category: "Overt Handler Errors", items: ["Incorrect reward timing", "Inconsistent cues", "Handler positioning blocks dog", "Failure to read environmental stressors", "Stepping into dog’s path", "Not allowing sufficient lead length"] },
+    { category: "Breaks in Handler Trust / Leadership", items: ["Handler ignores dog’s problem-solving", "Dog second-guesses handler commands", "Inappropriate or harsh corrections", "Handler safety violations", "Dog hesitates to commit"] },
+    { category: "Ring / Field Awareness Lapses", items: ["Dog distracted, not refocused", "Handler steps outside boundaries", "Dog breaks formation without recall", "Handler fails to maintain situational awareness", "Mismatched start or stop timing"] },
+    { category: "Presentation & Professionalism Issues", items: ["Sloppy transitions between exercises", "Handler posture conveys uncertainty", "Unpreparedness (fumbling equipment)", "Dog out of position at start/finish", "Lack of confident entry/exit"] }
 ];
-
 
 const two = (n: number) => Number.isFinite(n) ? Number(n.toFixed(2)) : 0;
 const clamp = (val: number, min: number, max: number) => Math.max(min, Math.min(val, max));
-
-type RunData = {
-  id: string;
-  detectionMax?: number;
-  teamworkMax?: number;
-  aidsPlanted?: number;
-  falseAlertPenalty?: number;
-  falseAlerts?: number;
-  startAt?: Timestamp; // Firestore Timestamp
-  endAt?: Timestamp;   // Firestore Timestamp
-  status: "scheduled" | "in_progress" | "paused" | "scored" | "locked";
-  competitorId?: string;
-  arenaId?: string;
-  judgeName?: string;
-  totalTime?: number;
-};
 
 type Find = { id: string; createdAt?: Timestamp };
 type Deduction = { id: string; points: number; note: string; createdAt?: Timestamp };
@@ -168,23 +61,23 @@ export function DetectionScoring({ eventId, runId, isReadOnly }: DetectionScorin
   const router = useRouter();
   const { toast } = useToast();
   const { user, isAdmin } = useAuth();
-  
-  const [run, setRun] = useState<RunData | null>(null);
+
+  const [run, setRun] = useState<ScheduledEvent | null>(null);
   const [finds, setFinds] = useState<Find[]>([]);
   const [deductions, setDeductions] = useState<Deduction[]>([]);
   const [now, setNow] = useState(Date.now());
   const [loading, setLoading] = useState(true);
-  
+
   const [competitorData, setCompetitorData] = useState<any>(null);
   const [arenaData, setArenaData] = useState<any>(null);
 
   const tickRef = useRef<number | null>(null);
-  
+
   const perAid = useMemo(() => {
     if (!run?.aidsPlanted || !run.detectionMax) return 0;
     return run.aidsPlanted > 0 ? run.detectionMax / run.aidsPlanted : 0;
   }, [run]);
-  
+
   const deductionsTotal = useMemo(() => deductions.reduce((sum, d) => sum + d.points, 0), [deductions]);
 
   const detectionScore = useMemo(() => two(Math.min(finds.length, run?.aidsPlanted || 0) * perAid), [finds, run, perAid]);
@@ -200,7 +93,7 @@ export function DetectionScoring({ eventId, runId, isReadOnly }: DetectionScorin
     const endMs = run?.endAt ? run.endAt.toMillis() : now;
     return Math.max(Math.floor((endMs - startMs) / 1000), 0);
   }, [run?.startAt, run?.endAt, now]);
-  
+
   const allAidsFound = useMemo(() => {
       if (!run || !run.aidsPlanted) return false;
       return finds.length >= run.aidsPlanted;
@@ -214,20 +107,20 @@ export function DetectionScoring({ eventId, runId, isReadOnly }: DetectionScorin
     const eventMs = timestamp.toMillis();
     return Math.max(Math.floor((eventMs - startMs) / 1000), 0);
   }, [run?.startAt]);
-  
+
 
   useEffect(() => {
     if (!eventId || !runId) return;
-    
+
     const runRef = doc(db, `events/${eventId}/schedule`, runId);
-    
+
     const unsubRun = onSnapshot(runRef, async (s) => {
         if (!s.exists()) {
             toast({ variant: "destructive", title: "Error", description: "Run not found." });
             router.push(`/dashboard/events/${eventId}/schedule`);
             return;
         }
-        const runData = { id: s.id, ...s.data() } as RunData;
+        const runData = { id: s.id, ...s.data() } as ScheduledEvent;
         setRun(runData);
 
         if (runData.competitorId && (!competitorData || competitorData.id !== runData.competitorId)) {
@@ -244,7 +137,7 @@ export function DetectionScoring({ eventId, runId, isReadOnly }: DetectionScorin
     const unsubFinds = onSnapshot(query(collection(runRef, "finds"), orderBy("createdAt", "asc")), s => {
         setFinds(s.docs.map(d => ({ id: d.id, ...(d.data() as any) })));
     });
-    
+
     const unsubDeductions = onSnapshot(query(collection(runRef, "deductions"), orderBy("createdAt", "asc")), s => {
         setDeductions(s.docs.map(d => ({ id: d.id, ...(d.data() as any) })));
     });
@@ -268,7 +161,7 @@ export function DetectionScoring({ eventId, runId, isReadOnly }: DetectionScorin
       if(run?.status !== 'scheduled' || isReadOnly) return;
       await updateDoc(runRef, { status: "in_progress", startAt: serverTimestamp(), actualStartTime: serverTimestamp(), endAt: null });
   };
-  
+
   const stopRun = async () => {
       if(run?.status !== 'in_progress' || isReadOnly) return;
       await updateDoc(runRef, { status: "paused", endAt: serverTimestamp() });
@@ -276,12 +169,12 @@ export function DetectionScoring({ eventId, runId, isReadOnly }: DetectionScorin
 
    const submitScores = async () => {
       if(run?.status !== 'paused' || isReadOnly) return;
-      
+
       let finalTime = run?.totalTime || 0;
       if (run?.startAt && run.endAt) {
           finalTime = (run.endAt.toMillis() - run.startAt.toMillis()) / 1000;
       }
-      
+
       await updateDoc(runRef, { status: "scored", totalTime: finalTime });
       toast({ title: "Scores Submitted", description: "The final scores have been saved." });
   };
@@ -299,7 +192,7 @@ export function DetectionScoring({ eventId, runId, isReadOnly }: DetectionScorin
       const next = Math.max((run?.falseAlerts || 0) + delta, 0);
       await updateDoc(runRef, { falseAlerts: next });
   };
-  
+
    const changeAidsPlanted = async (delta: number) => {
       if (run?.status !== 'scheduled' || isReadOnly) return;
       const next = Math.max((run?.aidsPlanted || 0) + delta, 0);
@@ -308,7 +201,7 @@ export function DetectionScoring({ eventId, runId, isReadOnly }: DetectionScorin
 
   const handleDeductionChange = async (checked: boolean, note: string) => {
     if (!['in_progress', 'paused'].includes(run?.status || '') || isReadOnly) return;
-    
+
     if (checked) {
       await addDoc(collection(runRef, "deductions"), { points: 1, note: note, createdAt: serverTimestamp() });
     } else {
@@ -328,20 +221,20 @@ export function DetectionScoring({ eventId, runId, isReadOnly }: DetectionScorin
         </div>
       )
   }
-  
+
   return (
     <div className="max-w-3xl mx-auto space-y-6 pb-48">
         <p className="text-muted-foreground">
             Scoring for {competitorData?.name || '...'} with {competitorData?.dogName || '...'} in {arenaData?.name || '...'}
         </p>
-      
+
       <Card>
         <CardContent className="pt-6">
            <div className="text-center md:text-left">
                  <CardDescription className="text-sm flex items-center justify-center md:justify-start gap-4 mt-1">
                     <span>Per Aid: {two(perAid)} pts</span>
                     <span className="flex items-center gap-2">
-                        Aids Planted: 
+                        Aids Planted:
                         {run.status === 'scheduled' && !isReadOnly ? (
                              <span className="flex items-center gap-1">
                                 <Button onClick={() => changeAidsPlanted(-1)} variant="outline" size="icon" className="h-5 w-5 rounded-full"><Minus className="h-3 w-3" /></Button>
@@ -357,7 +250,7 @@ export function DetectionScoring({ eventId, runId, isReadOnly }: DetectionScorin
            </div>
         </CardContent>
       </Card>
-      
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Card className={cn("transition-all", allAidsFound && "bg-green-50 border border-green-200 dark:bg-green-900/20 dark:border-green-800")}>
             <CardHeader className="py-2">
@@ -405,7 +298,7 @@ export function DetectionScoring({ eventId, runId, isReadOnly }: DetectionScorin
             </CardContent>
           </Card>
       </div>
-      
+
       <Card>
           <CardHeader>
               <CardTitle>Teamwork Deductions</CardTitle>
@@ -419,11 +312,11 @@ export function DetectionScoring({ eventId, runId, isReadOnly }: DetectionScorin
                           <div className="space-y-1">
                                {cat.items.map((item) => (
                                   <div key={item} className="flex items-center space-x-2 p-1 rounded-sm hover:bg-muted">
-                                      <Checkbox 
+                                      <Checkbox
                                           id={`deduction-${item.replace(/\s+/g, '-')}`}
                                           checked={existingDeductionNotes.has(item)}
                                           onCheckedChange={(checked) => handleDeductionChange(!!checked, item)}
-                                          disabled={isReadOnly || !['in_progress', 'paused'].includes(run.status)}
+                                          disabled={isReadOnly || !['in_progress', 'paused'].includes(run.status || "")}
                                       />
                                       <label
                                           htmlFor={`deduction-${item.replace(/\s+/g, '-')}`}
@@ -439,7 +332,7 @@ export function DetectionScoring({ eventId, runId, isReadOnly }: DetectionScorin
               </div>
           </CardContent>
       </Card>
-      
+
       <div className="fixed bottom-0 left-0 right-0 z-40">
           <div className="bg-background/95 backdrop-blur-sm border-t">
               <div className="max-w-4xl mx-auto p-2 px-4 sm:px-6 lg:px-8">

@@ -53,12 +53,12 @@ export default function CompetitorsPage() {
     if (!eventId) return;
 
     const competitorsQuery = query(collection(db, `events/${eventId}/competitors`));
-    
+
     // Using onSnapshot to listen for real-time updates
     const unsubscribe = onSnapshot(competitorsQuery, async (competitorsSnap) => {
         setLoading(true);
         const competitorsData = competitorsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Competitor));
-        
+
         // Fetch all user profiles to map additional details like photoURL and email
         const usersQuery = query(collection(db, `users`));
         const usersSnap = await getDocs(usersQuery);
@@ -83,7 +83,7 @@ export default function CompetitorsPage() {
 
     return () => unsubscribe();
   }, [eventId]);
-  
+
   const getSpecialtyDisplay = (specialties?: Specialty[]) => {
     if (!specialties || specialties.length === 0) {
         return <Badge variant="outline">No Specialty</Badge>;
@@ -93,7 +93,6 @@ export default function CompetitorsPage() {
         if (s.type === 'Detection' && s.detectionType) {
             label = s.detectionType;
         }
-        // Using index for key as specialty objects might not be unique
         return <Badge key={`${label}-${index}`} variant="secondary">{label}</Badge>;
     })
   };

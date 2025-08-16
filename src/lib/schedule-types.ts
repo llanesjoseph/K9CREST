@@ -1,3 +1,4 @@
+
 import { z } from "zod";
 import type { Timestamp } from "firebase/firestore";
 
@@ -22,9 +23,10 @@ export const CompetitorSchema = z.object({
   agency: z.string(),
   specialties: z.array(SpecialtySchema).optional().default([]),
   bibNumber: z.string().optional().nullable(),
-  eventId: z.string(),
+  eventId: z.string().optional(),
   dogBio: z.string().optional().nullable(),
   dogImage: z.string().optional().nullable(),
+  photoURL: z.string().optional().nullable(),
 });
 export type Competitor = z.infer<typeof CompetitorSchema>;
 
@@ -76,6 +78,7 @@ export const ScheduledRunSchema = z.object({
     judgingInterface: z.enum(["phases", "detection"]).optional().nullable(),
     detectionMax: z.number().optional().nullable(),
     teamworkMax: z.number().optional().nullable(),
+    aidsPlanted: z.number().optional().nullable(),
     falseAlertPenalty: z.number().optional().nullable(),
     falseAlerts: z.number().optional().nullable(),
     startAt: z.custom<Timestamp>().optional().nullable(),

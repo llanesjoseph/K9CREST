@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import type { useState, useEffect } from "react";
 import {
   Card,
   CardContent,
@@ -24,13 +24,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { collection, onSnapshot, getDocs, query, where, DocumentData, Timestamp } from "firebase/firestore";
+import type { collection, onSnapshot, getDocs, query, where, DocumentData, Timestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertTriangle, Clock, Server, UserCheck, BarChart2, Hourglass, LineChart, Percent } from "lucide-react";
-import { ResponsiveContainer, AreaChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Area, ReferenceLine } from 'recharts';
+import { AlertTriangle, Clock, BarChart2, Hourglass, UserCheck } from "lucide-react";
+import { ResponsiveContainer, AreaChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Area } from 'recharts';
 import { differenceInMinutes, parse, format, eachMinuteOfInterval, addMinutes, startOfDay, endOfDay } from "date-fns";
-import { ScheduledEvent } from "@/lib/schedule-types";
+import type { ScheduledEvent } from "@/lib/schedule-types";
 
 
 interface Event {
@@ -78,7 +78,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
     const scheduled = payload.find((p: any) => p.dataKey === 'scheduledPercent')?.value;
     const actual = payload.find((p: any) => p.dataKey === 'actualPercent')?.value;
-    
+
     return (
       <div className="bg-background border p-2 rounded-lg shadow-lg text-sm">
         <p className="font-bold">{label}</p>
@@ -118,7 +118,7 @@ export default function AnalysisPage() {
 
         const generateAnalysis = async () => {
             setLoading(prev => ({...prev, report: true}));
-            
+
             try {
                 const scheduleQuery = query(collection(db, `events/${selectedEventId}/schedule`), where("status", "==", "scored"));
                 const [competitorsSnap, runsSnap, arenasSnap] = await Promise.all([
@@ -130,7 +130,7 @@ export default function AnalysisPage() {
                 const competitorsMap = new Map(competitorsSnap.docs.map(doc => [doc.id, doc.data()]));
                 const arenasMap = new Map(arenasSnap.docs.map(doc => [doc.id, doc.data()]));
                 const runs = runsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as ScheduledEvent));
-                
+
                 if (runs.length === 0) {
                     setAnalysisData(null);
                     return;
@@ -143,7 +143,7 @@ export default function AnalysisPage() {
                     if (actualStartTimeDate) {
                         startVariance = differenceInMinutes(actualStartTimeDate, scheduledDateTime);
                     }
-                    
+
                     const actualEndTimeDate = actualStartTimeDate && run.totalTime ? addMinutes(actualStartTimeDate, run.totalTime / 60) : undefined;
 
                     const competitor = competitorsMap.get(run.competitorId);
@@ -163,7 +163,10 @@ export default function AnalysisPage() {
                         startVariance,
                         totalTime: run.totalTime,
                     };
-                }).filter(run => run.startVariance !== undefined && run.actualStartTimeDate);
+                }).filter((run): run is RunData & { startVariance: number; actualStartTimeDate: Date } =>
+                    run.startVariance !== undefined && run.actualStartTimeDate !== undefined
+                );
+
 
                 const initialData: AnalysisData = {
                     totalRuns: processedRuns.length,
@@ -179,10 +182,10 @@ export default function AnalysisPage() {
                 };
 
                 const result = processedRuns.reduce((acc, run) => {
-                    const delay = run.startVariance!;
+                    const delay = run.startVariance;
                     if (delay <= 2) acc.onTimeRuns++;
                     if (delay > 0) acc.totalOverrun += delay;
-                    
+
                     if (run.arenaName) {
                         if (!acc.byArena[run.arenaName]) acc.byArena[run.arenaName] = { totalDelay: 0, count: 0, totalTurnaround: 0, turnaroundCount: 0 };
                         acc.byArena[run.arenaName].totalDelay += delay;
@@ -196,9 +199,9 @@ export default function AnalysisPage() {
                     return acc;
                 }, initialData);
 
-                const totalDelaySum = processedRuns.reduce((sum, run) => sum + run.startVariance!, 0);
+                const totalDelaySum = processedRuns.reduce((sum, run) => sum + run.startVariance, 0);
                 result.avgDelay = result.totalRuns > 0 ? totalDelaySum / result.totalRuns : 0;
-                
+
                 // Calculate Turnaround Times
                 const runsByArena = processedRuns.reduce((acc, run) => {
                     if(!acc[run.arenaId]) acc[run.arenaId] = [];
@@ -207,7 +210,7 @@ export default function AnalysisPage() {
                 }, {} as Record<string, RunData[]>);
 
                 for(const arenaId in runsByArena) {
-                    const arenaRuns = runsByArena[arenaId].sort((a,b) => a.actualStartTimeDate!.getTime() - b.actualStartTimeDate!.getTime());
+                    const arenaRuns = [...runsByArena[arenaId]].sort((a,b) => a.actualStartTimeDate!.getTime() - b.actualStartTimeDate!.getTime());
                     for(let i = 1; i < arenaRuns.length; i++) {
                         const prevRun = arenaRuns[i-1];
                         const currentRun = arenaRuns[i];
@@ -223,7 +226,7 @@ export default function AnalysisPage() {
                         }
                     }
                 }
-                
+
                 // Generate Pacing Data
                 const event = events.find(e => e.id === selectedEventId);
                 if (event?.startDate) {
@@ -239,7 +242,7 @@ export default function AnalysisPage() {
 
                         const scheduledPercent = (scheduledCount / totalRuns) * 100;
                         const actualPercent = (actualCount / totalRuns) * 100;
-                         
+
                         return { time: format(interval, 'HH:mm'), scheduledPercent, actualPercent };
                      });
                 }
@@ -268,7 +271,7 @@ export default function AnalysisPage() {
             </CardContent>
         </Card>
     );
-    
+
     const onTimePercentage = analysisData && analysisData.totalRuns > 0 ? (analysisData.onTimeRuns / analysisData.totalRuns) * 100 : 0;
     const avgTurnaround = analysisData && analysisData.turnaroundCount > 0 ? analysisData.totalTurnaroundTime / analysisData.turnaroundCount : 0;
 
@@ -442,5 +445,3 @@ export default function AnalysisPage() {
         </div>
     );
 }
-
-    
