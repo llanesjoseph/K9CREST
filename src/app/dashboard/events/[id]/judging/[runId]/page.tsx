@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useForm, Controller } from "react-hook-form";
@@ -28,10 +29,11 @@ import { cn } from "@/lib/utils";
 import { DetectionScoring } from "./detection-scoring";
 import type { ScheduledEvent } from "@/lib/schedule-types";
 
-interface Rubric extends DocumentData {
+interface Rubric {
     id: string;
     judgingInterface?: 'phases' | 'detection';
     phases?: any[];
+    [key: string]: any; // Allow other properties
 }
 
 interface JudgingFormValues {
@@ -461,3 +463,5 @@ export default function JudgingPage() {
     </div>
   );
 }
+
+    

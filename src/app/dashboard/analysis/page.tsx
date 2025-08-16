@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -143,13 +144,12 @@ export default function AnalysisPage() {
                     if (!actualStartTimeDate) {
                         return acc; // Skip runs without a valid start time
                     }
-
-                    const startVariance = differenceInMinutes(actualStartTimeDate, scheduledDateTime);
-                    const totalTime = run.totalTime ?? null;
-                    const actualEndTimeDate = totalTime !== null ? addMinutes(actualStartTimeDate, totalTime / 60) : null;
                     
-                    if (actualEndTimeDate === null) {
-                         return acc; // Skip runs without a valid end time for turnaround calc
+                    const totalTime = run.totalTime ?? null;
+                    const actualEndTimeDate = totalTime !== null ? addMinutes(actualStartTimeDate, totalTime / 60) : undefined;
+                    
+                    if(!actualEndTimeDate) {
+                        return acc;
                     }
 
                     const competitor = competitorsMap.get(run.competitorId);
@@ -166,7 +166,7 @@ export default function AnalysisPage() {
                         arenaName: arena?.name || null,
                         arenaId: run.arenaId,
                         competitorName: competitor?.name,
-                        startVariance,
+                        startVariance: differenceInMinutes(actualStartTimeDate, scheduledDateTime),
                         totalTime,
                     });
 
@@ -456,3 +456,5 @@ export default function AnalysisPage() {
         </div>
     );
 }
+
+    
