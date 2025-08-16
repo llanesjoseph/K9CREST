@@ -44,7 +44,7 @@ interface RunData {
     id:string;
     scheduledTime: string;
     scheduledDateTime: Date;
-    actualStartTime?: Timestamp;
+    actualStartTime?: Timestamp | null;
     actualStartTimeDate?: Date;
     actualEndTimeDate?: Date;
     judgeName?: string;
@@ -133,6 +133,7 @@ export default function AnalysisPage() {
 
                 if (runs.length === 0) {
                     setAnalysisData(null);
+                    setLoading(prev => ({...prev, report: false}));
                     return;
                 }
 
