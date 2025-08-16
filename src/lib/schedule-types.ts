@@ -23,7 +23,6 @@ export const CompetitorSchema = z.object({
   agency: z.string(),
   specialties: z.array(SpecialtySchema).optional().default([]),
   bibNumber: z.string().optional().nullable(),
-  eventId: z.string().optional(),
   dogBio: z.string().optional().nullable(),
   dogImage: z.string().optional().nullable(),
   photoURL: z.string().optional().nullable(),
@@ -76,3 +75,5 @@ export const ScheduledRunSchema = z.object({
     endAt: z.custom<Timestamp>().optional().nullable(),
 });
 export type ScheduledEvent = z.infer<typeof ScheduledRunSchema>;
+
+    
