@@ -39,14 +39,6 @@ export const ArenaSchema = z.object({
 });
 export type Arena = z.infer<typeof ArenaSchema>;
 
-
-export const InputSchema = z.object({
-  competitors: z.array(CompetitorSchema),
-  arenas: z.array(ArenaSchema),
-  eventDays: z.array(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)),
-  timeSlots: z.array(z.string().regex(/^\d{2}:\d{2}$/)),
-});
-
 const ScoreExerciseSchema = z.object({
   exerciseName: z.string(),
   score: z.union([z.number(), z.boolean()]),
@@ -83,20 +75,3 @@ export const ScheduledRunSchema = z.object({
     endAt: z.custom<Timestamp>().optional().nullable(),
 });
 export type ScheduledEvent = z.infer<typeof ScheduledRunSchema>;
-
-
-export const OutputSchema = z.object({
-  schedule: z.array(ScheduledRunSchema.omit({ id: true })),
-  diagnostics: z.object({
-    requiredRuns: z.number(),
-    placedRuns: z.number(),
-    unplacedRuns: z.array(z.object({
-      competitorId: z.string(),
-      specialtyType: SpecialtyLabelSchema,
-      reason: z.string(),
-    })),
-  }).optional(),
-});
-
-export type GenerateScheduleInput = z.infer<typeof InputSchema>;
-export type GenerateScheduleOutput = z.infer<typeof OutputSchema>;
