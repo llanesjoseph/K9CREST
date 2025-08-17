@@ -18,7 +18,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
-import type { Arena, Competitor, ScheduledEvent } from '@/lib/schedule-types';
+import type { Arena, Competitor, ScheduledEvent, GenerateScheduleOutput } from '@/lib/schedule-types';
 import { generateTimeSlots } from '@/lib/schedule-helpers';
 import { postJSONWithRetry } from '@/lib/schedule-service';
 
@@ -39,20 +39,11 @@ enum ScheduleStep {
   Error,
 }
 
-interface GeneratedRun {
-    competitorId: string;
-    arenaId: string;
-    startTime: string;
-    endTime: string;
-    date: string;
-}
-
-
 export function AiScheduleDialog({ eventId, arenas, competitors, eventDays, currentSchedule }: AiScheduleDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [step, setStep] = useState<ScheduleStep>(ScheduleStep.Idle);
-  const [generatedSchedule, setGeneratedSchedule] = useState<GeneratedRun[]>([]);
-  const [diagnostics, setDiagnostics] = useState<any>(null);
+  const [generatedSchedule, setGeneratedSchedule] = useState<GenerateScheduleOutput['schedule']>([]);
+  const [diagnostics, setDiagnostics] = useState<GenerateScheduleOutput['diagnostics'] | null>(null);
   const [isApplying, setIsApplying] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
@@ -89,10 +80,10 @@ export function AiScheduleDialog({ eventId, arenas, competitors, eventDays, curr
             competitors,
         };
         
-        const response = await postJSONWithRetry('/api/schedule', input);
+        const response = await postJSONWithRetry<GenerateScheduleOutput>('/api/schedule', input);
 
-        if (response.error) {
-            throw new Error(response.error);
+        if ('error' in response && typeof (response as any).error === 'string') {
+            throw new Error((response as any).error);
         }
 
         setGeneratedSchedule(response.schedule);
