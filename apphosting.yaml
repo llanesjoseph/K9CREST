@@ -7,3 +7,5 @@ runConfig:
   maxInstances: 1
   # Increase the timeout to allow for longer-running AI tasks.
   timeoutSeconds: 300
+  env:
+    GOOGLE_API_KEY: ${GOOGLE_API_KEY}
