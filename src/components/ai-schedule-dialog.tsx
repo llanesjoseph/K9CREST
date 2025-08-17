@@ -181,24 +181,29 @@ export function AiScheduleDialog({ eventId, arenas, competitors, eventDays, curr
                         <p className="text-2xl font-bold">{diagnostics?.requiredRuns || 0}</p>
                         <p className="text-sm text-muted-foreground">Total Runs Required</p>
                     </div>
-                     <div>
+                    <div>
                         <p className="text-2xl font-bold text-green-600">{diagnostics?.placedRuns || 0}</p>
                         <p className="text-sm text-muted-foreground">Runs Successfully Placed</p>
                     </div>
                 </div>
-                 {diagnostics?.unplacedRuns?.length > 0 && (
-                    <div className="mt-4">
-                        <h4 className="font-semibold text-destructive">Unplaced Runs ({diagnostics.unplacedRuns.length})</h4>
-                        <ul className="text-sm text-destructive/90 list-disc pl-5 max-h-32 overflow-y-auto">
-                            {diagnostics.unplacedRuns.map((run: any, i: number) => {
-                                const competitor = competitors.find(c => c.id === run.competitorId);
-                                return (
-                                <li key={i}>{competitor?.name || 'Unknown'} ({run.specialtyType}): {run.reason}</li>
-                                )
-                            })}
-                        </ul>
-                    </div>
-                )}
+                {(() => {
+                    const unplacedRuns = diagnostics?.unplacedRuns ?? [];
+                    return (
+                        unplacedRuns.length > 0 && (
+                            <div className="mt-4">
+                                <h4 className="font-semibold text-destructive">Unplaced Runs ({unplacedRuns.length})</h4>
+                                <ul className="text-sm text-destructive/90 list-disc pl-5 max-h-32 overflow-y-auto">
+                                    {unplacedRuns.map((run, i) => {
+                                        const competitor = competitors.find(c => c.id === run.competitorId);
+                                        return (
+                                            <li key={i}>{competitor?.name || 'Unknown'} ({run.specialtyType}): {run.reason}</li>
+                                        );
+                                    })}
+                                </ul>
+                            </div>
+                        )
+                    );
+                })()}
             </div>
         );
          case ScheduleStep.Complete:
