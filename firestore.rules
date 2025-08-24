@@ -3,23 +3,14 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // This function checks if the logged-in user is the administrator
-    // by their specific email address.
-    function isAdmin() {
-      return request.auth != null && request.auth.token.email == 'llanes.joseph.m@gmail.com';
-    }
-
-    // This function checks if a user is logged in.
+    // Only allow access for authenticated users.
     function isAuthenticated() {
       return request.auth != null;
     }
 
     // Rules for all documents in the database.
     match /{path=**} {
-      // If the user is the admin, allow them to read and write everything.
-      // Otherwise, any authenticated (logged-in) user can only read data.
-      allow read: if isAuthenticated();
-      allow write: if isAdmin();
+      allow read, write: if isAuthenticated();
     }
   }
 }
