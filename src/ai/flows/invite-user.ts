@@ -11,6 +11,7 @@ import { z } from 'zod';
 import { getAuth } from 'firebase-admin/auth';
 import { adminDb } from '@/lib/firebase-admin';
 import nodemailer from 'nodemailer';
+import { env } from '@/env';
 
 const InviteUserInputSchema = z.object({
   email: z.string().email().describe('The email address of the user to invite.'),
@@ -33,13 +34,13 @@ export async function inviteUser(
 
     try {
       const auth = getAuth();
-      
+
       // 1. Create the user in Firebase Authentication
       const userRecord = await auth.createUser({
         email,
         emailVerified: false, // They will verify by setting password
       });
-      
+
       // 2. Set custom claims to assign the role
       await auth.setCustomUserClaims(userRecord.uid, { role });
 
@@ -52,23 +53,30 @@ export async function inviteUser(
         status: 'pending', // User has been invited but hasn't logged in yet
         createdAt: new Date().toISOString(),
       });
-      
+
       // 4. Send an invitation email with a password reset link
       // This allows the user to set their own password for the first time.
       const passwordResetLink = await auth.generatePasswordResetLink(email);
 
+      const requiredFields = ['EMAIL_HOST','EMAIL_PORT','EMAIL_USER','EMAIL_PASS','EMAIL_FROM'] as const;
+      for (const key of requiredFields) {
+        if (!env[key]) {
+          throw new Error(`Missing SMTP configuration for ${key}`);
+        }
+      }
+
       const transporter = nodemailer.createTransport({
-          host: process.env.EMAIL_HOST,
-          port: Number(process.env.EMAIL_PORT),
-          secure: Number(process.env.EMAIL_PORT) === 465, // true for 465, false for other ports
+          host: env.EMAIL_HOST,
+          port: Number(env.EMAIL_PORT),
+          secure: Number(env.EMAIL_PORT) === 465, // true for 465, false for other ports
           auth: {
-            user: process.env.EMAIL_USER,
-            pass: process.env.EMAIL_PASS,
+            user: env.EMAIL_USER,
+            pass: env.EMAIL_PASS,
           },
       });
 
       const mailOptions = {
-          from: process.env.EMAIL_FROM,
+          from: env.EMAIL_FROM,
           to: email,
           subject: 'You have been invited to the K9 Trial Platform!',
           html: `
@@ -81,7 +89,7 @@ export async function inviteUser(
       };
 
       await transporter.sendMail(mailOptions);
-      
+
       return {
         uid: userRecord.uid,
         email: userRecord.email!,
