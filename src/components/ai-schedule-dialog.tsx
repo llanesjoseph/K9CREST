@@ -80,7 +80,7 @@ export function AiScheduleDialog({ eventId, arenas, competitors, eventDays, curr
             competitors,
         };
         
-        const response = await postJSONWithRetry<GenerateScheduleOutput>('/api/schedule', input);
+        const response = await postJSONWithRetry<GenerateScheduleOutput>('/api/schedule', input, 3, { baseDelay: 500, jitter: 200 });
 
         if ('error' in response && typeof (response as any).error === 'string') {
             throw new Error((response as any).error);

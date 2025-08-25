@@ -1,5 +1,4 @@
 'use server';
-
 /**
  * Lightweight AI utility used by server flows.
  *
@@ -15,6 +14,7 @@
  */
 
 import { z } from 'zod';
+import { env } from '@/env';
 
 export type FlowConfig<I, O> = {
   name: string;
@@ -41,31 +41,32 @@ export function defineFlow<I, O>(config: FlowConfig<I, O>, fn: FlowFn<I, O>): Fl
  * in the Node 18 runtime used by Firebase and Next.js.
  */
 export async function generateText(prompt: string): Promise<string> {
-  const apiKey = process.env.GOOGLE_API_KEY;
-  if (!apiKey) {
-    throw new Error('GOOGLE_API_KEY environment variable is not set.');
-  }
+  try {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${env.GOOGLE_API_KEY}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+        }),
+      }
+    );
 
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-      }),
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`Generative API error: ${response.status} ${text}`);
     }
-  );
 
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`Generative API error: ${response.status} ${text}`);
+    const data = (await response.json()) as any;
+    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+    if (!text) {
+      throw new Error('No text candidates returned from Generative API');
+    }
+    return text;
+  } catch (err: any) {
+    throw new Error(`Failed to generate text: ${err.message ?? err}`);
   }
-
-  const data = (await response.json()) as any;
-  return (
-    data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? ''
-  );
 }
 
 /**
