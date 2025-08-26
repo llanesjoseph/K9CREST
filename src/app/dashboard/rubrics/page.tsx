@@ -302,7 +302,7 @@ export default function ManageRubricsPage() {
                                             <AlertDialogHeader>
                                                 <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                                                 <AlertDialogDescription>
-                                                    This will permanently delete the rubric "{rubric.name}". This action cannot be undone.
+                                                    This will permanently delete the rubric &quot;{rubric.name}&quot;. This action cannot be undone.
                                                 </AlertDialogDescription>
                                             </AlertDialogHeader>
                                             <AlertDialogFooter>
@@ -537,7 +537,7 @@ function RubricEditor({ rubric }: { rubric: Rubric }) {
                             {fields.length === 0 && (
                                 <div className="text-center text-muted-foreground py-12 border-2 border-dashed rounded-lg">
                                     <p className="font-semibold">No phases defined yet.</p>
-                                    <p>Click "Add Phase" to get started building your scoring rubric.</p>
+                                    <p>Click &quot;Add Phase&quot; to get started building your scoring rubric.</p>
                                 </div>
                             )}
                             <div className="mt-6">

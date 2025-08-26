@@ -1,4 +1,5 @@
 
+/* eslint-disable react/no-unescaped-entities */
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -190,7 +191,7 @@ export default function SettingsPage() {
             <CardHeader>
                 <CardTitle>Competitor Profile</CardTitle>
                 <CardDescription>
-                    Manage your and your K9's information. This will be updated across all events.
+                    Manage your and your K9&apos;s information. This will be updated across all events.
                 </CardDescription>
             </CardHeader>
             <CardContent>

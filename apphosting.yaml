@@ -9,3 +9,13 @@ runConfig:
   timeoutSeconds: 300
   env:
     GOOGLE_API_KEY: ${GOOGLE_API_KEY}
+
+build:
+  command: 'npm run build'
+
+start:
+  command: 'npm run start'
+
+headers:
+  - header: 'Vary'
+    value: 'X-Forwarded-Host'

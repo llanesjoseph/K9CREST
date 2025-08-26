@@ -91,7 +91,7 @@ export function InviteUserDialog({ triggerAsLink = false }: InviteUserDialogProp
         <DialogHeader>
           <DialogTitle>Invite New User</DialogTitle>
           <DialogDescription>
-            Enter the user's email and assign a role. They will receive an email to set up their account.
+            Enter the user&apos;s email and assign a role. They will receive an email to set up their account.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
