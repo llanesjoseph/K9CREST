@@ -23,7 +23,7 @@ const parseTimeToMinutes = (time: string): number => {
 export const generateTimeSlots = ({ duration = 30, lunchBreak = null, eventStartTime = '09:00', eventEndTime = '17:00' }: GenerateTimeSlotsParams = {}) => {
     const timeRegex = /^\d{2}:\d{2}$/;
     if (duration <= 0) throw new Error('duration must be greater than 0');
-    if (!timeRegex.test(eventStartTime) || !timeRegex.test(eventEndTime)) {
+    if (!eventStartTime || !eventEndTime || !timeRegex.test(eventStartTime) || !timeRegex.test(eventEndTime)) {
         throw new Error('eventStartTime and eventEndTime must be in HH:mm format');
     }
     if (lunchBreak) {

@@ -220,7 +220,7 @@ export function AiScheduleDialog({ eventId, arenas, competitors, eventDays, curr
           <p>
             This tool will automatically generate a schedule based on your event settings, arenas, and competitors.
             It tries to ensure no competitor has overlapping runs.
-            Click 'Generate' to begin.
+            Click &apos;Generate&apos; to begin.
           </p>
         );
     }
