@@ -411,27 +411,95 @@ function RubricEditor({ rubric }: { rubric: Rubric }) {
 
     async function onSubmit(data: Rubric) {
         if (!data.id || isDefaultRubric) return;
+        
+        // Validate form data before submission
+        if (!data.name || data.name.trim() === '') {
+            toast({
+                variant: "destructive",
+                title: "Validation Error",
+                description: "Rubric name is required."
+            });
+            return;
+        }
+        
+        if (data.judgingInterface === 'phases') {
+            if (!data.phases || data.phases.length === 0) {
+                toast({
+                    variant: "destructive",
+                    title: "Validation Error",
+                    description: "At least one phase is required for phase-based rubrics."
+                });
+                return;
+            }
+            
+            // Validate each phase and exercise
+            for (const phase of data.phases) {
+                if (!phase.name || phase.name.trim() === '') {
+                    toast({
+                        variant: "destructive",
+                        title: "Validation Error",
+                        description: "All phases must have names."
+                    });
+                    return;
+                }
+                
+                if (!phase.exercises || phase.exercises.length === 0) {
+                    toast({
+                        variant: "destructive",
+                        title: "Validation Error",
+                        description: `Phase "${phase.name}" must have at least one exercise.`
+                    });
+                    return;
+                }
+                
+                for (const exercise of phase.exercises) {
+                    if (!exercise.name || exercise.name.trim() === '') {
+                        toast({
+                            variant: "destructive",
+                            title: "Validation Error",
+                            description: `All exercises in phase "${phase.name}" must have names.`
+                        });
+                        return;
+                    }
+                    
+                    if (exercise.type === 'points' && (!exercise.maxPoints || exercise.maxPoints <= 0)) {
+                        toast({
+                            variant: "destructive",
+                            title: "Validation Error",
+                            description: `Exercise "${exercise.name}" must have a positive maximum points value.`
+                        });
+                        return;
+                    }
+                }
+            }
+        }
+        
         setIsSubmitting(true);
         try {
             const rubricRef = doc(db, "rubrics", data.id);
             const dataToSave = { 
-                name: data.name, 
+                name: data.name.trim(), 
                 judgingInterface: data.judgingInterface,
                 phases: data.judgingInterface === 'phases' ? data.phases : [], 
                 totalPoints: data.judgingInterface === 'phases' ? data.totalPoints : null,
+                updatedAt: new Date(),
             };
+            
             await updateDoc(rubricRef, dataToSave);
+            
             toast({
                 title: "Rubric Saved!",
                 description: "The scoring rubric has been successfully updated.",
             });
-            form.reset(data, { keepValues: true });
+            
+            // Reset form with new data
+            form.reset(dataToSave, { keepValues: true });
         } catch (error) {
-            console.error(error);
+            console.error('Failed to save rubric:', error);
             toast({
                 variant: "destructive",
                 title: "Error",
-                description: "Failed to save the rubric.",
+                description: "Failed to save the rubric. Please try again.",
             });
         } finally {
             setIsSubmitting(false);

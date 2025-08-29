@@ -49,7 +49,6 @@ import {
 } from "@/components/ui/select";
 import { Label } from "./ui/label";
 
-
 export function AppSidebar() {
   const pathname = usePathname();
   const params = useParams();
@@ -91,7 +90,6 @@ export function AppSidebar() {
     return item.roles.includes(currentRole);
   });
 
-
   const isActive = (href: string) => {
     if (!href) return false;
     
@@ -109,18 +107,20 @@ export function AppSidebar() {
     return false;
   };
 
-
   return (
-    <Sidebar collapsible="offcanvas">
-      <SidebarHeader>
-        <div className="flex items-center gap-2">
-            <div className="bg-sidebar-primary p-1.5 rounded-lg group-data-[collapsible=icon]:-ml-0.5">
-                <Dog className="w-5 h-5 text-sidebar-primary-foreground" />
+    <Sidebar collapsible="offcanvas" className="border-r border-sidebar-border/50">
+      <SidebarHeader className="p-4 border-b border-sidebar-border/30">
+        <div className="flex items-center gap-3">
+            <div className="bg-sidebar-primary p-2 rounded-xl shadow-glow transition-all duration-300 group-hover:shadow-glow group-hover:scale-105">
+                <Dog className="w-6 h-6 text-sidebar-primary-foreground" />
             </div>
-            <h1 className="text-lg font-semibold group-data-[collapsible=icon]:hidden">K9 Trial Pro</h1>
+            <h1 className="text-xl font-bold text-sidebar-foreground group-data-[collapsible=icon]:hidden bg-gradient-to-r from-sidebar-foreground to-sidebar-foreground/70 bg-clip-text text-transparent">
+              K9 Trial Pro
+            </h1>
         </div>
       </SidebarHeader>
-      <SidebarContent className="p-2">
+      
+      <SidebarContent className="p-3 space-y-2">
         <SidebarMenu>
           {menuItems.map((item) => (
             <SidebarMenuItem key={item.label}>
@@ -131,20 +131,27 @@ export function AppSidebar() {
                     children: item.label,
                     side: "right",
                     }}
-                    className="justify-start"
+                    className="justify-start h-11 px-3 rounded-lg transition-all duration-200 hover:bg-sidebar-accent/60 hover:shadow-soft group-data-[collapsible=icon]:hover:bg-sidebar-accent/80"
                     onClick={() => setOpenMobile(false)}
                 >
-                    <Link href={item.href}>
-                    <item.icon className="h-5 w-5" />
-                    <span className="group-data-[collapsible=icon]:hidden">{item.label}</span>
+                    <Link href={item.href} className="flex items-center gap-3">
+                    <div className="p-1.5 rounded-lg bg-sidebar-accent/30 group-hover:bg-sidebar-primary/20 transition-colors duration-200">
+                      <item.icon className="h-5 w-5 text-sidebar-foreground/80 group-hover:text-sidebar-foreground transition-colors duration-200" />
+                    </div>
+                    <span className="group-data-[collapsible=icon]:hidden font-medium text-sidebar-foreground/90 group-hover:text-sidebar-foreground transition-colors duration-200">
+                      {item.label}
+                    </span>
                     </Link>
                 </SidebarMenuButton>
             </SidebarMenuItem>
           ))}
         </SidebarMenu>
+        
         {eventId && (
-             <SidebarGroup className="pt-4 group-data-[collapsible=icon]:hidden">
-                <SidebarGroupLabel>Event Menu</SidebarGroupLabel>
+             <SidebarGroup className="pt-6 group-data-[collapsible=icon]:hidden">
+                <SidebarGroupLabel className="px-3 text-xs font-semibold text-sidebar-foreground/60 uppercase tracking-wider mb-3">
+                  Event Menu
+                </SidebarGroupLabel>
                  <SidebarMenu>
                     {eventMenuItems.map((item) => (
                         <SidebarMenuItem key={item.label}>
@@ -155,12 +162,16 @@ export function AppSidebar() {
                                 children: item.label,
                                 side: "right",
                                 }}
-                                className="justify-start"
+                                className="justify-start h-11 px-3 rounded-lg transition-all duration-200 hover:bg-sidebar-accent/60 hover:shadow-soft group-data-[collapsible=icon]:hover:bg-sidebar-accent/80"
                                 onClick={() => setOpenMobile(false)}
                             >
-                                <Link href={item.href}>
-                                <item.icon className="h-5 w-5" />
-                                <span className="group-data-[collapsible=icon]:hidden">{item.label}</span>
+                                <Link href={item.href} className="flex items-center gap-3">
+                                <div className="p-1.5 rounded-lg bg-sidebar-accent/30 group-hover:bg-sidebar-primary/20 transition-colors duration-200">
+                                  <item.icon className="h-5 w-5 text-sidebar-foreground/80 group-hover:text-sidebar-foreground transition-colors duration-200" />
+                                </div>
+                                <span className="group-data-[collapsible=icon]:hidden font-medium text-sidebar-foreground/90 group-hover:text-sidebar-foreground transition-colors duration-200">
+                                  {item.label}
+                                </span>
                                 </Link>
                             </SidebarMenuButton>
                         </SidebarMenuItem>
@@ -168,15 +179,16 @@ export function AppSidebar() {
                 </SidebarMenu>
              </SidebarGroup>
         )}
+        
         {isTrueAdmin && (
-            <SidebarGroup className="pt-4 group-data-[collapsible=icon]:hidden">
-                <div className="px-2 pt-4">
-                    <Label className="flex items-center gap-2 text-xs text-sidebar-foreground/70 mb-2">
+            <SidebarGroup className="pt-6 group-data-[collapsible=icon]:hidden">
+                <div className="px-3 space-y-3">
+                    <Label className="flex items-center gap-2 text-xs font-semibold text-sidebar-foreground/60 uppercase tracking-wider">
                         <Eye className="h-4 w-4" />
                         View As
                     </Label>
                     <Select onValueChange={(value) => setViewAsRole(value as UserRole)} value={viewAsRole || 'admin'}>
-                        <SelectTrigger className="h-9 bg-sidebar-accent/20 border-sidebar-border hover:bg-sidebar-accent/30 text-sidebar-foreground">
+                        <SelectTrigger className="h-10 bg-sidebar-accent/30 border-sidebar-border/50 hover:bg-sidebar-accent/50 text-sidebar-foreground transition-all duration-200 hover:shadow-soft">
                             <SelectValue placeholder="Select a role" />
                         </SelectTrigger>
                         <SelectContent>
@@ -190,20 +202,33 @@ export function AppSidebar() {
             </SidebarGroup>
         )}
       </SidebarContent>
-      <SidebarFooter className="flex flex-col gap-4 p-2 mt-auto">
-        <Separator />
-        <Link href="/dashboard/settings" className="flex items-center gap-3 hover:bg-sidebar-accent rounded-md p-2 transition-colors">
-          <Avatar className="group-data-[collapsible=icon]:h-8 group-data-[collapsible=icon]:w-8">
+      
+      <SidebarFooter className="flex flex-col gap-4 p-3 mt-auto border-t border-sidebar-border/30">
+        <Link 
+          href="/dashboard/settings" 
+          className="flex items-center gap-3 hover:bg-sidebar-accent/50 rounded-lg p-3 transition-all duration-200 hover:shadow-soft group"
+        >
+          <Avatar className="group-data-[collapsible=icon]:h-10 group-data-[collapsible=icon]:w-10 ring-2 ring-transparent group-hover:ring-sidebar-primary/20 transition-all duration-200">
             <AvatarImage src={user?.photoURL || `https://placehold.co/40x40`} data-ai-hint="person portrait" />
-            <AvatarFallback>{user?.email?.[0].toUpperCase() || 'U'}</AvatarFallback>
+            <AvatarFallback className="bg-sidebar-primary/20 text-sidebar-primary font-semibold">
+              {user?.email?.[0].toUpperCase() || 'U'}
+            </AvatarFallback>
           </Avatar>
           <div className="flex flex-col flex-grow overflow-hidden group-data-[collapsible=icon]:hidden">
-            <span className="text-sm font-medium truncate">{user?.displayName || user?.email || "User"}</span>
-            <span className="text-xs text-muted-foreground truncate">
-              {role.charAt(0).toUpperCase() + role.slice(1)} {viewAsRole && isTrueAdmin ? `(Viewing as ${viewAsRole.charAt(0).toUpperCase() + viewAsRole.slice(1)})` : ''}
+            <span className="text-sm font-semibold truncate text-sidebar-foreground">
+              {user?.displayName || user?.email || "User"}
+            </span>
+            <span className="text-xs text-sidebar-foreground/60 truncate">
+              {role.charAt(0).toUpperCase() + role.slice(1)} 
+              {viewAsRole && isTrueAdmin ? ` (Viewing as ${viewAsRole.charAt(0).toUpperCase() + viewAsRole.slice(1)})` : ''}
             </span>
           </div>
-           <Button variant="ghost" size="icon" onClick={handleSignOut} className="shrink-0 group-data-[collapsible=icon]:hidden">
+           <Button 
+             variant="ghost" 
+             size="icon" 
+             onClick={handleSignOut} 
+             className="shrink-0 group-data-[collapsible=icon]:hidden hover:bg-sidebar-accent/80 hover:text-sidebar-foreground transition-all duration-200"
+           >
              <LogOut className="h-4 w-4" />
            </Button>
         </Link>

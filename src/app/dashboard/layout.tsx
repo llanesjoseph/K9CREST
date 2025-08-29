@@ -18,15 +18,18 @@ function DashboardWrapper({ children }: { children: React.ReactNode }) {
       <SidebarProvider>
         <AppSidebar />
         <SidebarInset>
-          <div className="flex flex-1 flex-col">
+          <div className="flex flex-1 flex-col min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
             <AppHeader />
-            <main className="p-4 sm:p-6 lg:p-8 flex-grow">{children}</main>
+            <main className="flex-grow p-6 sm:p-8 lg:p-10 animate-fade-in">
+              <div className="max-w-7xl mx-auto">
+                {children}
+              </div>
+            </main>
           </div>
         </SidebarInset>
     </SidebarProvider>
   );
 }
-
 
 export default function DashboardLayout({
   children,

@@ -68,8 +68,10 @@ export default function JudgingPage() {
   const [rubricData, setRubricData] = useState<Rubric | null>(null);
   const [judgingInterface, setJudgingInterface] = useState<"phases" | "detection" | null>(null);
   
+  // Stopwatch state
   const [isTimerRunning, setIsTimerRunning] = useState(false);
   const [elapsedTime, setElapsedTime] = useState(0);
+  const [startTime, setStartTime] = useState<number | null>(null);
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const isReadOnly = useMemo(() => {
@@ -83,6 +85,7 @@ export default function JudgingPage() {
       defaultValues: { scores: [], notes: "", totalTime: 0 }
   });
   
+  // Cleanup timer on unmount
   useEffect(() => {
       return () => {
           if (timerIntervalRef.current) {
@@ -91,18 +94,27 @@ export default function JudgingPage() {
       };
   }, []);
   
+  // Timer logic - fixed circular dependency
   useEffect(() => {
-    if (isTimerRunning) {
-        const startTime = Date.now() - elapsedTime * 1000;
+    if (isTimerRunning && startTime) {
         timerIntervalRef.current = setInterval(() => {
-            setElapsedTime((Date.now() - startTime) / 1000);
+            const currentTime = Date.now();
+            const newElapsedTime = (currentTime - startTime) / 1000;
+            setElapsedTime(newElapsedTime);
         }, 100);
     } else {
         if (timerIntervalRef.current) {
             clearInterval(timerIntervalRef.current);
+            timerIntervalRef.current = null;
         }
     }
-  }, [isTimerRunning, elapsedTime]);
+    
+    return () => {
+        if (timerIntervalRef.current) {
+            clearInterval(timerIntervalRef.current);
+        }
+    };
+  }, [isTimerRunning, startTime]);
 
   useEffect(() => {
     if (!eventId || !runId) return;
@@ -198,16 +210,40 @@ export default function JudgingPage() {
   }, [eventId, runId, toast, form, router, isAdmin, loading]);
   
   const handleStartTimer = () => {
-    if(!isReadOnly) {
-        updateDoc(doc(db, `events/${eventId}/schedule`, runId), { actualStartTime: serverTimestamp() });
+    if (!isReadOnly) {
+        const now = Date.now();
+        setStartTime(now);
+        setElapsedTime(0);
         setIsTimerRunning(true);
+        
+        // Update Firestore with start time
+        updateDoc(doc(db, `events/${eventId}/schedule`, runId), { 
+            actualStartTime: serverTimestamp() 
+        }).catch(error => {
+            console.error('Failed to update start time:', error);
+            toast({
+                variant: "destructive",
+                title: "Timer Error",
+                description: "Failed to start timer. Please try again."
+            });
+        });
     }
   }
 
   const handleStopTimer = () => {
-    if(!isReadOnly) {
+    if (!isReadOnly) {
         setIsTimerRunning(false);
+        setStartTime(null);
+        
+        // Update form with final time
         form.setValue('totalTime', elapsedTime, { shouldDirty: true });
+        
+        // Update Firestore with end time
+        updateDoc(doc(db, `events/${eventId}/schedule`, runId), { 
+            actualEndTime: serverTimestamp() 
+        }).catch(error => {
+            console.error('Failed to update end time:', error);
+        });
     }
   }
 

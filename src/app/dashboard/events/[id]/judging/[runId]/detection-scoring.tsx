@@ -67,11 +67,33 @@ export function DetectionScoring({ eventId, runId, isReadOnly }: DetectionScorin
   const [deductions, setDeductions] = useState<Deduction[]>([]);
   const [now, setNow] = useState(Date.now());
   const [loading, setLoading] = useState(true);
+  const [isTimerRunning, setIsTimerRunning] = useState(false);
+  const [timerStartTime, setTimerStartTime] = useState<number | null>(null);
 
   const [competitorData, setCompetitorData] = useState<any>(null);
   const [arenaData, setArenaData] = useState<any>(null);
 
   const tickRef = useRef<number | null>(null);
+
+  // Timer effect
+  useEffect(() => {
+    if (isTimerRunning && timerStartTime) {
+      tickRef.current = window.setInterval(() => {
+        setNow(Date.now());
+      }, 1000);
+    } else {
+      if (tickRef.current) {
+        clearInterval(tickRef.current);
+        tickRef.current = null;
+      }
+    }
+
+    return () => {
+      if (tickRef.current) {
+        clearInterval(tickRef.current);
+      }
+    };
+  }, [isTimerRunning, timerStartTime]);
 
   const perAid = useMemo(() => {
     if (!run?.aidsPlanted || !run.detectionMax) return 0;
@@ -145,26 +167,57 @@ export function DetectionScoring({ eventId, runId, isReadOnly }: DetectionScorin
     return () => { unsubRun(); unsubFinds(); unsubDeductions(); };
   }, [eventId, runId, router, toast, competitorData, arenaData]);
 
-  useEffect(() => {
-    if (run?.status === "in_progress") {
-      tickRef.current = window.setInterval(() => setNow(Date.now()), 200);
-    } else if (tickRef.current) {
-      window.clearInterval(tickRef.current);
-      tickRef.current = null;
-    }
-    return () => { if (tickRef.current) window.clearInterval(tickRef.current); };
-  }, [run?.status]);
-
-  const runRef = doc(db, `events/${eventId}/schedule`, runId);
-
   const startRun = async () => {
-      if(run?.status !== 'scheduled' || isReadOnly) return;
-      await updateDoc(runRef, { status: "in_progress", startAt: serverTimestamp(), actualStartTime: serverTimestamp(), endAt: null });
+    if (!run || isTimerRunning) return;
+    
+    try {
+      const now = Date.now();
+      setTimerStartTime(now);
+      setIsTimerRunning(true);
+      
+      await updateDoc(doc(db, `events/${eventId}/schedule`, runId), {
+        status: 'in_progress',
+        startAt: serverTimestamp(),
+      });
+      
+      toast({
+        title: "Run Started",
+        description: "Timer is now running. Good luck!",
+      });
+    } catch (error) {
+      console.error('Failed to start run:', error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to start run. Please try again.",
+      });
+    }
   };
 
-  const stopRun = async () => {
-      if(run?.status !== 'in_progress' || isReadOnly) return;
-      await updateDoc(runRef, { status: "paused", endAt: serverTimestamp() });
+  const endRun = async () => {
+    if (!run || !isTimerRunning) return;
+    
+    try {
+      setIsTimerRunning(false);
+      setTimerStartTime(null);
+      
+      await updateDoc(doc(db, `events/${eventId}/schedule`, runId), {
+        status: 'completed',
+        endAt: serverTimestamp(),
+      });
+      
+      toast({
+        title: "Run Completed",
+        description: "Run has been marked as complete.",
+      });
+    } catch (error) {
+      console.error('Failed to end run:', error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to end run. Please try again.",
+      });
+    }
   };
 
    const submitScores = async () => {
@@ -175,7 +228,7 @@ export function DetectionScoring({ eventId, runId, isReadOnly }: DetectionScorin
           finalTime = (run.endAt.toMillis() - run.startAt.toMillis()) / 1000;
       }
 
-      await updateDoc(runRef, { status: "scored", totalTime: finalTime });
+      await updateDoc(doc(db, `events/${eventId}/schedule`, runId), { status: "scored", totalTime: finalTime });
       toast({ title: "Scores Submitted", description: "The final scores have been saved." });
   };
 
@@ -185,29 +238,29 @@ export function DetectionScoring({ eventId, runId, isReadOnly }: DetectionScorin
           toast({ variant: 'default', title: 'All aids found' });
           return;
       }
-      await addDoc(collection(runRef, "finds"), { createdAt: serverTimestamp() });
+      await addDoc(collection(doc(db, `events/${eventId}/schedule`, runId), "finds"), { createdAt: serverTimestamp() });
   };
   const addFalseAlert = async (delta: number) => {
       if(isReadOnly) return;
       const next = Math.max((run?.falseAlerts || 0) + delta, 0);
-      await updateDoc(runRef, { falseAlerts: next });
+      await updateDoc(doc(db, `events/${eventId}/schedule`, runId), { falseAlerts: next });
   };
 
    const changeAidsPlanted = async (delta: number) => {
       if (run?.status !== 'scheduled' || isReadOnly) return;
       const next = Math.max((run?.aidsPlanted || 0) + delta, 0);
-      await updateDoc(runRef, { aidsPlanted: next });
+      await updateDoc(doc(db, `events/${eventId}/schedule`, runId), { aidsPlanted: next });
     };
 
   const handleDeductionChange = async (checked: boolean, note: string) => {
     if (!['in_progress', 'paused'].includes(run?.status || '') || isReadOnly) return;
 
     if (checked) {
-      await addDoc(collection(runRef, "deductions"), { points: 1, note: note, createdAt: serverTimestamp() });
+      await addDoc(collection(doc(db, `events/${eventId}/schedule`, runId), "deductions"), { points: 1, note: note, createdAt: serverTimestamp() });
     } else {
       const existing = deductions.find(d => d.note === note);
       if (existing) {
-        await deleteDoc(doc(runRef, "deductions", existing.id));
+        await deleteDoc(doc(db, `events/${eventId}/schedule`, runId), "deductions", existing.id);
       }
     }
   };
@@ -357,7 +410,7 @@ export function DetectionScoring({ eventId, runId, isReadOnly }: DetectionScorin
                                   </AlertDialogTrigger>
                                   <AlertDialogContent>
                                       <AlertDialogHeader><AlertDialogTitle>Stop Timer?</AlertDialogTitle><AlertDialogDescription>This will stop the timer and lock the final time for this run.</AlertDialogDescription></AlertDialogHeader>
-                                      <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={stopRun}>Yes, Stop Timer</AlertDialogAction></AlertDialogFooter>
+                                      <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={endRun}>Yes, Stop Timer</AlertDialogAction></AlertDialogFooter>
                                   </AlertDialogContent>
                               </AlertDialog>
                           )}

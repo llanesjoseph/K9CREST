@@ -45,6 +45,14 @@ export default {
           DEFAULT: 'hsl(var(--destructive))',
           foreground: 'hsl(var(--destructive-foreground))',
         },
+        success: {
+          DEFAULT: 'hsl(var(--success))',
+          foreground: 'hsl(var(--success-foreground))',
+        },
+        warning: {
+          DEFAULT: 'hsl(var(--warning))',
+          foreground: 'hsl(var(--warning-foreground))',
+        },
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
         ring: 'hsl(var(--ring))',
@@ -71,6 +79,17 @@ export default {
         md: 'calc(var(--radius) - 2px)',
         sm: 'calc(var(--radius) - 4px)',
       },
+      spacing: {
+        '18': '4.5rem',
+        '88': '22rem',
+        '128': '32rem',
+      },
+      boxShadow: {
+        'soft': '0 2px 15px -3px rgba(0, 0, 0, 0.07), 0 10px 20px -2px rgba(0, 0, 0, 0.04)',
+        'medium': '0 4px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+        'large': '0 10px 40px -10px rgba(0, 0, 0, 0.15), 0 20px 25px -5px rgba(0, 0, 0, 0.1)',
+        'glow': '0 0 20px rgba(59, 130, 246, 0.15)',
+      },
       keyframes: {
         'accordion-down': {
           from: {
@@ -88,10 +107,44 @@ export default {
             height: '0',
           },
         },
+        'fade-in': {
+          '0%': {
+            opacity: '0',
+            transform: 'translateY(10px)',
+          },
+          '100%': {
+            opacity: '1',
+            transform: 'translateY(0)',
+          },
+        },
+        'slide-in': {
+          '0%': {
+            transform: 'translateX(-100%)',
+          },
+          '100%': {
+            transform: 'translateX(0)',
+          },
+        },
+        'scale-in': {
+          '0%': {
+            transform: 'scale(0.95)',
+            opacity: '0',
+          },
+          '100%': {
+            transform: 'scale(1)',
+            opacity: '1',
+          },
+        },
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
+        'fade-in': 'fade-in 0.3s ease-out',
+        'slide-in': 'slide-in 0.3s ease-out',
+        'scale-in': 'scale-in 0.2s ease-out',
+      },
+      backdropBlur: {
+        xs: '2px',
       },
     },
   },
