@@ -481,7 +481,7 @@ function RubricEditor({ rubric }: { rubric: Rubric }) {
                 name: data.name.trim(), 
                 judgingInterface: data.judgingInterface,
                 phases: data.judgingInterface === 'phases' ? data.phases : [], 
-                totalPoints: data.judgingInterface === 'phases' ? data.totalPoints : null,
+                totalPoints: data.judgingInterface === 'phases' ? data.totalPoints : undefined,
                 updatedAt: new Date(),
             };
             
@@ -492,8 +492,8 @@ function RubricEditor({ rubric }: { rubric: Rubric }) {
                 description: "The scoring rubric has been successfully updated.",
             });
             
-            // Reset form with new data
-            form.reset(dataToSave, { keepValues: true });
+            // Reset form with new data, ensuring undefined for optional fields
+            form.reset(dataToSave as any, { keepValues: true });
         } catch (error) {
             console.error('Failed to save rubric:', error);
             toast({
