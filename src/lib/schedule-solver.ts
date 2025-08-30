@@ -104,15 +104,8 @@ export function allRequestedRuns(input: GenerateScheduleInput): RunReq[] {
       }
     }
   }
-  
-  const arenaTypes = new Set(input.arenas.map(a => a.specialtyType));
-  return runs.filter(r => {
-    if (r.specialtyType === "Detection (Narcotics)")
-      return arenaTypes.has("Detection (Narcotics)") || arenaTypes.has("Any");
-    if (r.specialtyType === "Detection (Explosives)")
-      return arenaTypes.has("Detection (Explosives)") || arenaTypes.has("Any");
-    return true; // Bite Work, Any
-  });
+  // Do not filter out runs here; let diagnostics report incompatible specialties
+  return runs;
 }
 
 type Domain = {
@@ -158,15 +151,11 @@ function placeDomains(
   blockedComp: Map<string, Set<number>>,
   assignment: Map<string, string>
 ): { placed: string[] } {
-  // Sort MRV
+  // Greedy MRV: place as many as possible without backtracking
   const sorted = [...domains].sort((a, b) => a.allowed.length - b.allowed.length);
 
-  function tryPlace(i: number): boolean {
-    if (i === sorted.length) return true;
-
-    const d = sorted[i];
-
-    // Earliest-first choice ordering
+  const placedKeys: string[] = [];
+  for (const d of sorted) {
     const choices = d.allowed
       .filter(id => {
         const s = slotById.get(id)!;
@@ -182,32 +171,17 @@ function placeDomains(
           || a.arenaId.localeCompare(b.arenaId);
       });
 
-    for (const id of choices) {
-      const s = slotById.get(id)!;
-      const aKey = `${s.date}|${s.arenaId}`;
-      const cKey = `${s.date}|${d.competitorId}`;
-
-      blockRange(blockedArena, aKey, s.timeIndex, span);
-      blockRange(blockedComp,  cKey, s.timeIndex, span);
-      assignment.set(d.runKey, id);
-
-      if (tryPlace(i + 1)) return true;
-
-      // backtrack: rebuild occupancy from assignment for simplicity
-      assignment.delete(d.runKey);
-      blockedArena.clear(); blockedComp.clear();
-      for (const [rk, sid] of assignment) {
-        const s2 = slotById.get(sid)!;
-        blockRange(blockedArena, `${s2.date}|${s2.arenaId}`, s2.timeIndex, span);
-        const [compId] = rk.split("|");
-        blockRange(blockedComp, `${s2.date}|${compId}`, s2.timeIndex, span);
-      }
-    }
-    return false;
+    const id = choices[0];
+    if (!id) continue;
+    const s = slotById.get(id)!;
+    const aKey = `${s.date}|${s.arenaId}`;
+    const cKey = `${s.date}|${d.competitorId}`;
+    blockRange(blockedArena, aKey, s.timeIndex, span);
+    blockRange(blockedComp,  cKey, s.timeIndex, span);
+    assignment.set(d.runKey, id);
+    placedKeys.push(d.runKey);
   }
-
-  const ok = tryPlace(0);
-  return { placed: ok ? sorted.map(d => d.runKey) : [] };
+  return { placed: placedKeys };
 }
 
 export function solveSchedule(inputRaw: unknown, optsIn: SolveOptions = {}): GenerateScheduleOutput {
