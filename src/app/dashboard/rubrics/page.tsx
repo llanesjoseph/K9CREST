@@ -357,6 +357,7 @@ export default function ManageRubricsPage() {
 
 function RubricEditor({ rubric }: { rubric: Rubric }) {
     const { toast } = useToast();
+    const { isAdmin } = useAuth();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [openAccordionItems, setOpenAccordionItems] = useState<string[]>([]);
     const isDefaultRubric = rubric.id === defaultDetectionRubric.id;
