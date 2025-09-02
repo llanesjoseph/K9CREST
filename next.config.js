@@ -16,6 +16,8 @@ const CONTENT_SECURITY_POLICY = (
 );
 
 /** @type {import('next').NextConfig} */
+const { withSentryConfig } = require('@sentry/nextjs');
+
 const nextConfig = {
   images: {
     remotePatterns: [
@@ -71,4 +73,4 @@ const nextConfig = {
   },
 };
 
-module.exports = nextConfig;
+module.exports = withSentryConfig(nextConfig, { silent: true }, { hideSourcemaps: true });
