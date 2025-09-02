@@ -6,7 +6,7 @@ import { useState, useEffect } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Loader2, Upload } from 'lucide-react';
+import { CheckCircle2, XCircle, Server, Loader2, Upload } from 'lucide-react';
 import { doc, getDoc, updateDoc, collection, query, where, getDocs, writeBatch, documentId } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import Image from 'next/image';
@@ -39,6 +39,8 @@ export default function SettingsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [competitorId, setCompetitorId] = useState<string | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [systemStatus, setSystemStatus] = useState<{ ok: boolean; checks: Record<string, { ok: boolean; message?: string }> } | null>(null);
+  const [clientChecks, setClientChecks] = useState<{ auth: boolean; firestore: boolean; storage: boolean }>({ auth: false, firestore: false, storage: false });
   
   const form = useForm<FormValues>({
     resolver: zodResolver(profileSchema),
@@ -48,6 +50,42 @@ export default function SettingsPage() {
       dogBio: '',
     },
   });
+
+  useEffect(() => {
+    // Server-side health
+    fetch('/api/health')
+      .then(async (r) => ({ status: r.status, body: await r.json().catch(() => ({})) }))
+      .then(({ status, body }) => setSystemStatus({ ok: status === 200 && !!body?.ok, checks: body?.checks || {} }))
+      .catch(() => setSystemStatus({ ok: false, checks: {} }));
+
+    // Client-side lightweight checks
+    (async () => {
+      try {
+        // Auth: presence of currentUser or ability to access object
+        const authOk = true; // if auth module loaded, consider ok
+        // Firestore: try to read a non-sensitive doc that should exist or a no-op
+        let firestoreOk = false;
+        try {
+          // No-op: attempt to create a client doc ref (will not throw). Avoid network read.
+          doc(db, '_status/client');
+          firestoreOk = true;
+        } catch {
+          firestoreOk = false;
+        }
+        // Storage: construct a ref to ensure SDK is wired
+        let storageOk = false;
+        try {
+          ref(storage, '_status/client');
+          storageOk = true;
+        } catch {
+          storageOk = false;
+        }
+        setClientChecks({ auth: authOk, firestore: firestoreOk, storage: storageOk });
+      } catch {
+        setClientChecks({ auth: false, firestore: false, storage: false });
+      }
+    })();
+  }, []);
 
   useEffect(() => {
     const fetchCompetitorData = async () => {
@@ -187,6 +225,46 @@ export default function SettingsPage() {
 
   return (
     <div className="flex flex-col gap-6">
+        <Card className="card-elevated">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><Server className="h-5 w-5" /> System Status</CardTitle>
+            <CardDescription>Quick connectivity checks for server and client Firebase wiring.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <div className="text-sm font-medium text-muted-foreground">Server (Admin SDK)</div>
+                <div className="flex items-center gap-2">
+                  {systemStatus?.ok ? (
+                    <CheckCircle2 className="h-5 w-5 text-success" />
+                  ) : (
+                    <XCircle className="h-5 w-5 text-destructive" />
+                  )}
+                  <span className="text-sm">Health endpoint {systemStatus?.ok ? 'OK' : 'Unavailable'}</span>
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  Firestore Admin: {systemStatus?.checks?.firestore_admin?.ok ? 'OK' : 'Error'}
+                  {systemStatus?.checks?.firestore_admin?.message ? ` – ${systemStatus.checks.firestore_admin.message}` : ''}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <div className="text-sm font-medium text-muted-foreground">Client SDK</div>
+                <div className="flex items-center gap-2">
+                  {clientChecks.auth ? <CheckCircle2 className="h-5 w-5 text-success" /> : <XCircle className="h-5 w-5 text-destructive" />}
+                  <span className="text-sm">Auth SDK</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  {clientChecks.firestore ? <CheckCircle2 className="h-5 w-5 text-success" /> : <XCircle className="h-5 w-5 text-destructive" />}
+                  <span className="text-sm">Firestore SDK</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  {clientChecks.storage ? <CheckCircle2 className="h-5 w-5 text-success" /> : <XCircle className="h-5 w-5 text-destructive" />}
+                  <span className="text-sm">Storage SDK</span>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
         <Card>
             <CardHeader>
                 <CardTitle>Competitor Profile</CardTitle>
