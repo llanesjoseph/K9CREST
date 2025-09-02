@@ -39,23 +39,23 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const pathname = usePathname();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        // This is a temporary solution to grant admin rights based on email.
-        // The secure, long-term solution is to use Firebase Custom Claims.
-        if (user.email && user.email.toLowerCase() === 'llanes.joseph.m@gmail.com') {
-           setTrueRole('admin');
-        } else {
-            // In a real app, you'd get the role from custom claims.
-            // For now, default other users to spectator.
-            setTrueRole('spectator');
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        try {
+          // Refresh ID token to ensure latest custom claims
+          const token = await firebaseUser.getIdToken(true);
+          const decoded = JSON.parse(atob(token.split('.')[1] || 'e30='));
+          const claimRole = (decoded?.role as UserRole) || 'spectator';
+          setTrueRole(claimRole);
+          setUser(firebaseUser);
+        } catch {
+          setTrueRole('spectator');
+          setUser(firebaseUser);
         }
-        setUser(user);
       } else {
         setUser(null);
         setTrueRole('spectator');
       }
-      // Reset viewAsRole on user change
       setViewAsRole(null);
       setLoading(false);
     });

@@ -37,6 +37,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useSidebar } from "./ui/sidebar";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 function NavLink({ href, children, isActive, disabled }: { href: string, children: React.ReactNode, isActive?: boolean, disabled?: boolean }) {
     return (
@@ -98,7 +99,8 @@ export function AppHeader() {
         </span>
       </Link>
       
-      <div className="ml-auto">
+      <div className="ml-auto flex items-center gap-2">
+        <ThemeToggle />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="relative h-10 w-10 rounded-full hover:bg-accent/80 transition-all duration-200 hover:shadow-soft">

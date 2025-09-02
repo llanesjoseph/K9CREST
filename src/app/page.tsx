@@ -7,12 +7,7 @@ import { useForm, SubmitHandler } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
-import {
-  signInWithEmailAndPassword,
-  signInWithPopup,
-  createUserWithEmailAndPassword,
-  onAuthStateChanged,
-} from "firebase/auth";
+import { signInWithEmailAndPassword, signInWithPopup, createUserWithEmailAndPassword, onAuthStateChanged, sendPasswordResetEmail } from "firebase/auth";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -132,12 +127,25 @@ export default function LoginPage() {
               <div className="flex items-center">
                 <Label htmlFor="password">Password</Label>
                 {!isSignUp && (
-                   <Link
-                    href="#"
+                  <button
+                    type="button"
                     className="ml-auto inline-block text-sm underline"
+                    onClick={async () => {
+                      const emailInput = (document.getElementById('email') as HTMLInputElement | null)?.value || '';
+                      if (!emailInput) {
+                        toast({ variant: 'destructive', title: 'Enter email', description: 'Please enter your email to reset password.' });
+                        return;
+                      }
+                      try {
+                        await sendPasswordResetEmail(auth, emailInput);
+                        toast({ title: 'Password reset email sent', description: 'Check your inbox for reset instructions.' });
+                      } catch (e: any) {
+                        toast({ variant: 'destructive', title: 'Error', description: e?.message || 'Failed to send reset email.' });
+                      }
+                    }}
                   >
                     Forgot your password?
-                  </Link>
+                  </button>
                 )}
               </div>
               <Input id="password" type="password" {...register("password")} />

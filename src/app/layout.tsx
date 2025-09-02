@@ -1,8 +1,9 @@
 import type {Metadata} from 'next';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster"
+import { AnalyticsLoader } from "@/components/analytics-loader";
 
-export const dynamic = 'force-dynamic';
+// Prefer default dynamic behavior; remove force-dynamic for better caching where applicable
 
 export const metadata: Metadata = {
   title: 'K9 Trial Scoring System',
@@ -17,6 +18,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className="antialiased">
+        <AnalyticsLoader />
         {children}
         <Toaster />
       </body>

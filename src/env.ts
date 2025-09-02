@@ -9,6 +9,9 @@ const envSchema = z.object({
   NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: z.string().min(1, "NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID is required"),
   NEXT_PUBLIC_FIREBASE_APP_ID: z.string().min(1, "NEXT_PUBLIC_FIREBASE_APP_ID is required"),
   NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID: z.string().min(1, "NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID is required"),
+  // Sentry (optional but recommended in prod)
+  SENTRY_DSN: z.string().optional(),
+  SENTRY_ENVIRONMENT: z.string().optional(),
   
   // Email Configuration - Optional for MVP
   EMAIL_HOST: z.string().optional(),
