@@ -4,7 +4,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { PlusCircle, Trash2, MoreVertical, Eye } from "lucide-react";
-import { collection, onSnapshot, QuerySnapshot, DocumentData, deleteDoc, doc } from "firebase/firestore";
+import { collection, onSnapshot, QuerySnapshot, DocumentData, query, orderBy, limit } from "firebase/firestore";
 import { format } from "date-fns";
 
 import {
@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { db } from "@/lib/firebase";
+import { auth, db } from "@/lib/firebase";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/components/auth-provider";
 import {
@@ -64,7 +64,8 @@ export default function EventsPage() {
   const { toast } = useToast();
 
   useEffect(() => {
-    const unsubscribe = onSnapshot(collection(db, "events"), (snapshot: QuerySnapshot<DocumentData>) => {
+    const q = query(collection(db, "events"), orderBy("startDate", "desc"), limit(100));
+    const unsubscribe = onSnapshot(q, (snapshot: QuerySnapshot<DocumentData>) => {
       const eventsData = snapshot.docs.map(doc => {
         const data = doc.data();
         return {
@@ -96,18 +97,16 @@ export default function EventsPage() {
 
   const handleDelete = async (eventId: string, eventName: string) => {
     try {
-      await deleteDoc(doc(db, "events", eventId));
-      toast({
-        title: "Event Deleted",
-        description: `The event "${eventName}" has been successfully deleted.`,
+      const token = await (await auth.currentUser?.getIdToken())!;
+      const res = await fetch(`/api/events/${eventId}`, {
+        method: 'DELETE',
+        headers: { 'authorization': `Bearer ${token}` },
       });
+      if (!res.ok) throw new Error(await res.text());
+      toast({ title: "Event Deleted", description: `The event "${eventName}" has been successfully deleted.` });
     } catch (error) {
       console.error("Error deleting event: ", error);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "There was a problem deleting the event. Please try again.",
-      });
+      toast({ variant: "destructive", title: "Error", description: "There was a problem deleting the event. Please try again." });
     }
   };
 

@@ -38,7 +38,8 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useMemo, useCallback } from "react";
-import { collection, onSnapshot, doc, getDoc, setDoc, updateDoc, addDoc, deleteDoc, query, where, getDocs, writeBatch } from "firebase/firestore";
+import { collection, onSnapshot, doc, addDoc, query, writeBatch } from "firebase/firestore";
+import { auth } from "@/lib/firebase";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/components/auth-provider";
 import {
@@ -253,11 +254,11 @@ export default function ManageRubricsPage() {
     const handleDeleteRubric = async (rubricId: string, rubricName: string) => {
         if(!rubricId || rubricId === defaultDetectionRubric.id) return;
         try {
-            await deleteDoc(doc(db, "rubrics", rubricId));
+            const token = await (await auth.currentUser?.getIdToken())!;
+            const res = await fetch(`/api/rubrics/${rubricId}`, { method: 'DELETE', headers: { authorization: `Bearer ${token}` } });
+            if (!res.ok) throw new Error(await res.text());
             toast({ title: "Rubric Deleted", description: `Rubric "${rubricName}" has been deleted.` });
-            if(selectedRubricId === rubricId) {
-                setSelectedRubricId(null);
-            }
+            if(selectedRubricId === rubricId) setSelectedRubricId(null);
         } catch (error) {
              toast({ variant: "destructive", title: "Error", description: "Could not delete rubric." });
         }
@@ -476,31 +477,20 @@ function RubricEditor({ rubric }: { rubric: Rubric }) {
         
         setIsSubmitting(true);
         try {
-            const rubricRef = doc(db, "rubrics", data.id);
-            const dataToSave = { 
+            const token = await (await auth.currentUser?.getIdToken())!;
+            const payload = { 
                 name: data.name.trim(), 
                 judgingInterface: data.judgingInterface,
                 phases: data.judgingInterface === 'phases' ? data.phases : [], 
                 totalPoints: data.judgingInterface === 'phases' ? data.totalPoints : undefined,
-                updatedAt: new Date(),
             };
-            
-            await updateDoc(rubricRef, dataToSave);
-            
-            toast({
-                title: "Rubric Saved!",
-                description: "The scoring rubric has been successfully updated.",
-            });
-            
-            // Reset form with new data, ensuring undefined for optional fields
-            form.reset(dataToSave as any, { keepValues: true });
+            const res = await fetch(`/api/rubrics/${data.id}`, { method: 'PATCH', headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` }, body: JSON.stringify(payload) });
+            if (!res.ok) throw new Error(await res.text());
+            toast({ title: "Rubric Saved!", description: "The scoring rubric has been successfully updated." });
+            form.reset(payload as any, { keepValues: true });
         } catch (error) {
             console.error('Failed to save rubric:', error);
-            toast({
-                variant: "destructive",
-                title: "Error",
-                description: "Failed to save the rubric. Please try again.",
-            });
+            toast({ variant: "destructive", title: "Error", description: "Failed to save the rubric. Please try again." });
         } finally {
             setIsSubmitting(false);
         }

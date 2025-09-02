@@ -3,7 +3,7 @@ import './globals.css';
 import { Toaster } from "@/components/ui/toaster"
 import { AnalyticsLoader } from "@/components/analytics-loader";
 
-export const dynamic = 'force-dynamic';
+// Prefer default dynamic behavior; remove force-dynamic for better caching where applicable
 
 export const metadata: Metadata = {
   title: 'K9 Trial Scoring System',

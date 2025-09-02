@@ -7,7 +7,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { CheckCircle2, XCircle, Server, Loader2, Upload } from 'lucide-react';
-import { doc, getDoc, updateDoc, collection, query, where, getDocs, writeBatch, documentId } from 'firebase/firestore';
+import { doc, updateDoc, collection, query, where, getDocs, writeBatch } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import Image from 'next/image';
 
@@ -89,7 +89,7 @@ export default function SettingsPage() {
 
   useEffect(() => {
     const fetchCompetitorData = async () => {
-      if (!user?.uid || !user.displayName) {
+      if (!user?.uid) {
         setIsLoading(false);
         return;
       };
@@ -99,16 +99,15 @@ export default function SettingsPage() {
         const eventsRef = collection(db, 'events');
         const eventsSnapshot = await getDocs(eventsRef);
         let foundCompetitor: Competitor | null = null;
-        
         for (const eventDoc of eventsSnapshot.docs) {
-           const competitorsRef = collection(db, `events/${eventDoc.id}/competitors`);
-           const q = query(competitorsRef, where("name", "==", user.displayName));
-           const competitorSnapshot = await getDocs(q);
-           if (!competitorSnapshot.empty) {
-               const competitorDoc = competitorSnapshot.docs[0];
-               foundCompetitor = { id: competitorDoc.id, ...competitorDoc.data() } as Competitor;
-               break; 
-           }
+          const competitorsRef = collection(db, `events/${eventDoc.id}/competitors`);
+          const qByUser = query(competitorsRef, where("userId", "==", user.uid));
+          const competitorSnapshot = await getDocs(qByUser);
+          if (!competitorSnapshot.empty) {
+            const competitorDoc = competitorSnapshot.docs[0];
+            foundCompetitor = { id: competitorDoc.id, ...competitorDoc.data() } as Competitor;
+            break;
+          }
         }
 
         if (foundCompetitor) {
@@ -179,6 +178,7 @@ export default function SettingsPage() {
                   dogName: data.dogName,
                   dogBio: data.dogBio || null,
                   dogImage: newImageUrl || null,
+                  userId: user.uid,
                });
           });
       }

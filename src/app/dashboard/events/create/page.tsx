@@ -8,7 +8,8 @@ import { CalendarIcon, Upload, Loader2, Clock } from "lucide-react";
 import { format } from "date-fns";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { addDoc, collection } from "firebase/firestore";
+import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 
 import { Button } from "@/components/ui/button";
@@ -47,7 +48,7 @@ import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { useToast } from "@/hooks/use-toast";
 import { AddressAutocomplete } from "@/components/address-autocomplete";
-import { db } from "@/lib/firebase";
+import { auth, db, storage } from "@/lib/firebase";
 
 const formSchema = z.object({
   eventName: z.string().min(2, "Event name must be at least 2 characters."),
@@ -118,8 +119,8 @@ export default function CreateEventPage() {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true);
     try {
-      // TODO: Handle banner image upload to Firebase Storage
-      const eventData = {
+      const currentUser = auth.currentUser;
+      const eventData: any = {
         name: values.eventName,
         startDate: values.date.from,
         endDate: values.date.to,
@@ -132,11 +133,22 @@ export default function CreateEventPage() {
             ? { start: values.lunchBreakStart, end: values.lunchBreakEnd }
             : null,
         status: "Upcoming", // Default status
-        createdAt: new Date(),
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        createdBy: currentUser?.uid || null,
       };
       
       const docRef = await addDoc(collection(db, "events"), eventData);
-      console.log("Document written with ID: ", docRef.id);
+
+      // Optional banner upload
+      const fileInput = (values as any).bannerImage?.[0] as File | undefined;
+      if (fileInput) {
+        const bannerRef = ref(storage, `events/${docRef.id}/banner/${fileInput.name}`);
+        const uploaded = await uploadBytes(bannerRef, fileInput);
+        const url = await getDownloadURL(uploaded.ref);
+        await addDoc(collection(db, `events/${docRef.id}/assets`), { type: 'banner', url, createdAt: serverTimestamp() });
+        await (await import('firebase/firestore')).updateDoc(docRef, { bannerUrl: url, updatedAt: serverTimestamp() } as any);
+      }
 
       toast({
         title: "Event Created!",
