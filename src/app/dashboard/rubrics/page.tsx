@@ -219,14 +219,14 @@ export default function ManageRubricsPage() {
             const rubricsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Rubric));
             setRubrics(rubricsData);
             
-            if (isLoading) {
+            if (isLoading && isAdmin) {
                 seedDefaultRubrics(rubricsData);
             }
 
             setIsLoading(false);
         });
         return () => unsub();
-    }, [isLoading, seedDefaultRubrics]);
+    }, [isLoading, seedDefaultRubrics, isAdmin]);
 
     const handleCreateRubric = async () => {
         if (newRubricName.trim() === "") {
@@ -411,7 +411,7 @@ function RubricEditor({ rubric }: { rubric: Rubric }) {
     }, [rubric, form]);
 
     async function onSubmit(data: Rubric) {
-        if (!data.id || isDefaultRubric) return;
+        if (!data.id || isDefaultRubric || !isAdmin) return;
         
         // Validate form data before submission
         if (!data.name || data.name.trim() === '') {

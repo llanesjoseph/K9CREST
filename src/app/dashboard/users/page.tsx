@@ -22,8 +22,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useState, useEffect } from "react";
-import { collection, onSnapshot } from "firebase/firestore";
+import { collection, onSnapshot, query, orderBy, limit } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { useAuth } from "@/components/auth-provider";
 import { Skeleton } from "@/components/ui/skeleton";
 import { InviteUserDialog } from "@/components/invite-user-dialog";
 import {
@@ -61,10 +62,13 @@ export default function UsersPage() {
     const [users, setUsers] = useState<UserProfile[]>([]);
     const [loading, setLoading] = useState(true);
     const { toast } = useToast();
+    const { isAdmin } = useAuth();
 
     useEffect(() => {
+        if (!isAdmin) { setLoading(false); return; }
         const usersRef = collection(db, "users");
-        const unsubscribe = onSnapshot(usersRef, (snapshot) => {
+        const q = query(usersRef, orderBy("createdAt", "desc"), limit(100));
+        const unsubscribe = onSnapshot(q, (snapshot) => {
             const usersData = snapshot.docs.map(doc => ({
                 id: doc.id,
                 ...doc.data()
@@ -77,7 +81,7 @@ export default function UsersPage() {
             setLoading(false);
         });
         return () => unsubscribe();
-    }, [toast]);
+    }, [toast, isAdmin]);
 
     const handleDeleteUser = (userId: string) => {
         // Placeholder for delete functionality

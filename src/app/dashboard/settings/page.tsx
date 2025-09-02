@@ -157,7 +157,7 @@ export default function SettingsPage() {
       let newImageUrl = imageUrl;
       if (data.dogImage && data.dogImage[0]) {
         const file = data.dogImage[0];
-        const storageRef = ref(storage, `k9_images/${user.uid}/${file.name}`);
+        const storageRef = ref(storage, `users/${user.uid}/k9_images/${file.name}`);
         const uploadResult = await uploadBytes(storageRef, file);
         newImageUrl = await getDownloadURL(uploadResult.ref);
         setImageUrl(newImageUrl);
