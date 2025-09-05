@@ -8,14 +8,46 @@ runConfig:
   # Increase the timeout to allow for longer-running AI tasks.
   timeoutSeconds: 300
   env:
-    GOOGLE_API_KEY: YOUR_GOOGLE_API_KEY_HERE
-    NEXT_PUBLIC_FIREBASE_API_KEY: AIzaSyDQfOtv4r6MF-BhT-YAYnJvDcn-oyIXt_M
-    NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: k9-trials-tracker.firebaseapp.com
-    NEXT_PUBLIC_FIREBASE_PROJECT_ID: k9-trials-tracker
-    NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: k9-trials-tracker.firebasestorage.app
-    NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: "174322418803"
-    NEXT_PUBLIC_FIREBASE_APP_ID: 1:174322418803:web:8b556b1f6f3d3dc45dd606
-    NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID: G-SS5GVZNWBQ
+    - variable: GOOGLE_API_KEY
+      value: "YOUR_GOOGLE_API_KEY_HERE"
+      availability:
+        - BUILD
+        - RUNTIME
+    - variable: NEXT_PUBLIC_FIREBASE_API_KEY
+      value: "AIzaSyDQfOtv4r6MF-BhT-YAYnJvDcn-oyIXt_M"
+      availability:
+        - BUILD
+        - RUNTIME
+    - variable: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+      value: "k9-trials-tracker.firebaseapp.com"
+      availability:
+        - BUILD
+        - RUNTIME
+    - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
+      value: "k9-trials-tracker"
+      availability:
+        - BUILD
+        - RUNTIME
+    - variable: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+      value: "k9-trials-tracker.firebasestorage.app"
+      availability:
+        - BUILD
+        - RUNTIME
+    - variable: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+      value: "174322418803"
+      availability:
+        - BUILD
+        - RUNTIME
+    - variable: NEXT_PUBLIC_FIREBASE_APP_ID
+      value: "1:174322418803:web:8b556b1f6f3d3dc45dd606"
+      availability:
+        - BUILD
+        - RUNTIME
+    - variable: NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
+      value: "G-SS5GVZNWBQ"
+      availability:
+        - BUILD
+        - RUNTIME
 
 build:
   command: 'npm run build'
