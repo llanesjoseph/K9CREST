@@ -14,7 +14,7 @@ runConfig:
         - BUILD
         - RUNTIME
     - variable: NEXT_PUBLIC_FIREBASE_API_KEY
-      value: "${NEXT_PUBLIC_FIREBASE_API_KEY}"
+      value: "YOUR_FIREBASE_API_KEY_HERE"
       availability:
         - BUILD
         - RUNTIME
