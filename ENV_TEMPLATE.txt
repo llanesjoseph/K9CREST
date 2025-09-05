@@ -1,7 +1,7 @@
 # Copy this content into a new file called .env.local in your project root
 
 # Firebase Configuration (Required for MVP)
-NEXT_PUBLIC_FIREBASE_API_KEY=AIzaSyDQfOtv4r6MF-BhT-YAYnJvDcn-oyIXt_M
+NEXT_PUBLIC_FIREBASE_API_KEY=YOUR_FIREBASE_API_KEY_HERE
 NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=k9-trials-tracker.firebaseapp.com
 NEXT_PUBLIC_FIREBASE_PROJECT_ID=k9-trials-tracker
 NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=k9-trials-tracker.firebasestorage.app
