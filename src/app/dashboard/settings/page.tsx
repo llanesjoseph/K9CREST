@@ -22,6 +22,7 @@ import { useAuth } from '@/components/auth-provider';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
 import type { Competitor } from '@/lib/schedule-types';
+import { RoleDebugger } from '@/components/role-debugger';
 
 const profileSchema = z.object({
   handlerName: z.string().min(1, 'Handler name is required.'),
@@ -371,6 +372,19 @@ export default function SettingsPage() {
                         </div>
                     </form>
                 </Form>
+            </CardContent>
+        </Card>
+
+        {/* Role Debugger - Temporary for testing */}
+        <Card>
+            <CardHeader>
+                <CardTitle>Role Debugger</CardTitle>
+                <CardDescription>
+                    Debug tool to test role-based access control
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                <RoleDebugger />
             </CardContent>
         </Card>
     </div>
