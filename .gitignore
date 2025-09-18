@@ -45,3 +45,9 @@ env.local
 # firebase
 firebase-debug.log
 firestore-debug.log
+
+# security - sensitive files
+SECRETS_SETUP_GUIDE.txt
+*.key
+*.pem
+service-account*.json
