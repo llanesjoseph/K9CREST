@@ -3,14 +3,42 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Only allow access for authenticated users.
     function isAuthenticated() {
       return request.auth != null;
     }
 
-    // Rules for all documents in the database.
-    match /{path=**} {
-      allow read, write: if isAuthenticated();
+    function isAdmin() {
+      return isAuthenticated() && request.auth.token.role == 'admin';
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Users collection: list and write by admins; a user may read their own profile doc
+    match /users/{userId} {
+      allow read: if isAdmin() || (isAuthenticated() && request.auth.uid == userId);
+      allow write: if isAdmin();
+    }
+
+    // Events: readable by authenticated users; writable only by admins
+    match /events/{eventId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAdmin();
+
+      // Competitors subcollection
+      match /competitors/{competitorId} {
+        allow read: if isAuthenticated();
+        // Only admins can create; owner (by userId) or admin can update/delete own competitor record
+        allow create: if isAdmin();
+        allow update, delete: if isAdmin() || (isAuthenticated() && request.resource.data.userId == request.auth.uid);
+      }
+    }
+
+    // Rubrics: readable by authenticated; writable only by admins
+    match /rubrics/{rubricId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAdmin();
     }
   }
 }
