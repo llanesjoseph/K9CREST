@@ -5,6 +5,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 
+// Removed generateStaticParams - not compatible with client components
 
 export default function RubricPageRedirect() {
     const router = useRouter();

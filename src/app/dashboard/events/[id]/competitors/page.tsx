@@ -2,6 +2,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
+
+// Removed generateStaticParams - not compatible with client components
 import type { DocumentData } from "firebase/firestore";
 import { collection, onSnapshot, query, getDocs } from "firebase/firestore";
 import { useParams } from "next/navigation";

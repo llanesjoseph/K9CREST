@@ -2,6 +2,8 @@
 "use client";
 
 import { useForm, Controller } from "react-hook-form";
+
+// Removed generateStaticParams - not compatible with client components
 import Link from "next/link";
 import { ChevronLeft, Save, Loader2, Play, Square, TimerIcon, AlertTriangle } from "lucide-react";
 import {

@@ -2,6 +2,8 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+
+// Removed generateStaticParams - not compatible with client components
 import Link from "next/link";
 import { ChevronLeft, Trophy, Timer, Medal } from "lucide-react";
 import {

@@ -3,6 +3,8 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useReducer, useCallback } from 'react';
+
+// Removed generateStaticParams - not compatible with client components
 import { collection, onSnapshot, doc, setDoc, deleteDoc, writeBatch, query, getDocs, updateDoc, Timestamp } from 'firebase/firestore';
 import { generateTimeSlots } from '@/lib/schedule-helpers';
 import { Trash2, AlertTriangle, PlusCircle, Users, X, Eraser, Wand2, Clock, Loader2, FileDown, GripVertical, Upload, ListChecks, Hash, Gavel, ClipboardCheck, Dog, HelpCircle } from 'lucide-react';

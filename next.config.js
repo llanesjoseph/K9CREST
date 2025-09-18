@@ -16,10 +16,17 @@ const CONTENT_SECURITY_POLICY = (
 );
 
 /** @type {import('next').NextConfig} */
-const { withSentryConfig } = require('@sentry/nextjs');
+// Sentry configuration - only load if available
+let withSentryConfig = (config) => config;
+try {
+  withSentryConfig = require('@sentry/nextjs').withSentryConfig;
+} catch (e) {
+  // Sentry not available, use passthrough
+}
 
 const nextConfig = {
-  output: 'export',
+  // Removed static export for immediate deployment
+  // output: 'export',
   trailingSlash: true,
   images: {
     unoptimized: true,
@@ -74,15 +81,16 @@ const nextConfig = {
       },
     ];
   },
-  async rewrites() {
-    return [
-      {
-        source: '/google.ai.generativelanguage.v1beta.GenerativeService/:path*',
-        destination:
-          'https://generativelanguage.googleapis.com/v1beta/models/:path*',
-      },
-    ];
-  },
+  // Note: rewrites don't work with static export, but we keep this for reference
+  // async rewrites() {
+  //   return [
+  //     {
+  //       source: '/google.ai.generativelanguage.v1beta.GenerativeService/:path*',
+  //       destination:
+  //         'https://generativelanguage.googleapis.com/v1beta/models/:path*',
+  //     },
+  //   ];
+  // },
 };
 
 module.exports = withSentryConfig(nextConfig, { silent: true }, { hideSourcemaps: true });

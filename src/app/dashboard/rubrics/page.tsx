@@ -38,7 +38,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useMemo, useCallback } from "react";
-import { collection, onSnapshot, doc, addDoc, query, writeBatch } from "firebase/firestore";
+import { collection, onSnapshot, doc, addDoc, updateDoc, deleteDoc, query, writeBatch } from "firebase/firestore";
 import { auth } from "@/lib/firebase";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/components/auth-provider";
@@ -478,15 +478,14 @@ function RubricEditor({ rubric }: { rubric: Rubric }) {
         
         setIsSubmitting(true);
         try {
-<<<<<<< HEAD
             const rubricRef = doc(db, "rubrics", data.id);
-               const dataToSave = {
-                   name: data.name.trim(),
-                   judgingInterface: data.judgingInterface,
-                   phases: data.judgingInterface === 'phases' ? data.phases : [],
-                   totalPoints: data.judgingInterface === 'phases' ? data.totalPoints : undefined,
-                   updatedAt: new Date(),
-               };
+            const dataToSave = {
+                name: data.name.trim(),
+                judgingInterface: data.judgingInterface,
+                phases: data.judgingInterface === 'phases' ? data.phases : [],
+                totalPoints: data.judgingInterface === 'phases' ? data.totalPoints : undefined,
+                updatedAt: new Date(),
+            };
             
             await updateDoc(rubricRef, dataToSave);
             
