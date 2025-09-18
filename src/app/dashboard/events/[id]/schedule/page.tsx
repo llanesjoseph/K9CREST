@@ -19,6 +19,8 @@ import { useAuth } from '@/components/auth-provider';
 import { db } from '@/lib/firebase';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { eachDayOfInterval, format, parse } from 'date-fns';
 import { CompetitorImportDialog } from '@/components/competitor-import-dialog';
 import { AddCompetitorDialog } from '@/components/add-competitor-dialog';
@@ -55,7 +57,6 @@ import { Separator } from '@/components/ui/separator';
 import { AiScheduleDialog } from '@/components/ai-schedule-dialog';
 import { EditCompetitorDialog } from '@/components/edit-competitor-dialog';
 import type { Arena, Competitor, ScheduledEvent, Specialty } from '@/lib/schedule-types';
-import Link from 'next/link';
 import { cn } from '@/lib/utils';
 
 
@@ -259,7 +260,8 @@ const TimeSlot = ({
     removeScheduledEvent,
     isDraggable,
     isAdmin,
-    eventId
+    eventId,
+    role
 }: {
     arenaId: string;
     startTime: string;
@@ -271,12 +273,21 @@ const TimeSlot = ({
     isDraggable: boolean;
     isAdmin: boolean;
     eventId: string;
+    role: string;
 }) => {
     const [isOver, setIsOver] = useState(false);
+    const router = useRouter();
 
     const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
         e.preventDefault();
         if (isDraggable) setIsOver(true);
+    };
+
+    const handleSlotClick = () => {
+        // Judges can click on scheduled runs to go to scoring interface
+        if (role === 'judge' && scheduledEvent) {
+            router.push(`/dashboard/events/${eventId}/judging/${scheduledEvent.id}`);
+        }
     };
 
     const handleDragLeave = () => {
@@ -336,7 +347,9 @@ const TimeSlot = ({
                 </Button>
             )}
             <div className="absolute bottom-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                {isScored ? <ClipboardCheck className="h-4 w-4 text-primary/70" /> : <Gavel className="h-4 w-4 text-muted-foreground/70" /> }
+                {isScored ? <ClipboardCheck className="h-4 w-4 text-primary/70" /> : 
+                 role === 'judge' ? <Gavel className="h-4 w-4 text-primary/70" /> : 
+                 <Gavel className="h-4 w-4 text-muted-foreground/70" /> }
             </div>
         </div>
     ) : null;
@@ -347,7 +360,8 @@ const TimeSlot = ({
             'bg-card': !scheduledEvent && !isDraggable,
             'border-primary ring-2 ring-primary ring-offset-2 ring-offset-background': isOver,
             'cursor-grab': canDragEvent,
-            'cursor-pointer': !!scheduledEvent,
+            'cursor-pointer hover:ring-2 hover:ring-primary/50': role === 'judge' && scheduledEvent,
+            'cursor-default': role !== 'judge' && scheduledEvent,
         }
     );
 
@@ -362,9 +376,15 @@ const TimeSlot = ({
             className={wrapperClasses}
         >
             {scheduledEvent ? (
-                <Link href={`/dashboard/events/${eventId}/judging/${scheduledEvent.id}`} className="w-full h-full flex items-center justify-center">
-                    {scheduledContent}
-                </Link>
+                role === 'judge' ? (
+                    <Link href={`/dashboard/events/${eventId}/judging/${scheduledEvent.id}`} className="w-full h-full flex items-center justify-center">
+                        {scheduledContent}
+                    </Link>
+                ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                        {scheduledContent}
+                    </div>
+                )
             ) : isDraggable ? (
                 <span className="text-muted-foreground text-xs pointer-events-none">Drop Here</span>
             ) : null}
@@ -375,6 +395,11 @@ const TimeSlot = ({
 
 export default function SchedulePage() {
     const { isAdmin, role, loading: authLoading } = useAuth();
+    const isJudge = role === 'judge';
+    const isCompetitor = role === 'competitor';
+    const isSpectator = role === 'spectator';
+    const canModify = isAdmin;
+    const canView = true; // All roles can view
     const { toast } = useToast();
     const params = useParams();
     const eventId = params.id as string;
@@ -674,7 +699,7 @@ export default function SchedulePage() {
         eventStartTime: eventDetails?.eventStartTime,
         eventEndTime: eventDetails?.eventEndTime,
     }), [eventDetails]);
-    const isDraggable = isAdmin;
+    const isDraggable = canModify; // Only admins can drag and modify
 
 
     // --- Render ---
@@ -694,7 +719,7 @@ export default function SchedulePage() {
                                    {/* Legend Content */}
                                 </PopoverContent>
                             </Popover>
-                            {isAdmin && (
+                            {canModify && (
                             <div className="flex items-center gap-2">
                                 <Button onClick={handleAssignBibs} variant="outline" disabled={competitors.length === 0} size="sm"><Hash className="mr-2 h-4 w-4"/> Assign BIBs </Button>
                                 <AiScheduleDialog eventId={eventId} arenas={arenas} competitors={sortedCompetitors} eventDays={eventDays} currentSchedule={schedule} />
@@ -704,7 +729,7 @@ export default function SchedulePage() {
                             <Button onClick={handleGeneratePdf} variant="outline" size="sm" disabled={isGeneratingPdf || schedule.length === 0}>
                                 {isGeneratingPdf ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <FileDown className="mr-2 h-4 w-4"/>} PDF
                             </Button>
-                            {isAdmin && (
+                            {canModify && (
                                 <AlertDialog>
                                     <AlertDialogTrigger asChild><Button variant="destructive" size="sm" disabled={schedule.length === 0}><Eraser className="mr-2 h-4 w-4"/> Clear </Button></AlertDialogTrigger>
                                     <AlertDialogContent>
@@ -726,7 +751,7 @@ export default function SchedulePage() {
                                         <div className="text-center text-muted-foreground p-8 border border-dashed rounded-md h-full flex flex-col justify-center items-center gap-4">
                                             <Dog className="h-10 w-10" />
                                             <p>No competitors added yet.</p>
-                                            {isAdmin && ( <div className="flex gap-2"> <AddCompetitorDialog eventId={eventId}/> <CompetitorImportDialog eventId={eventId}/> </div> )}
+                                            {canModify && ( <div className="flex gap-2"> <AddCompetitorDialog eventId={eventId}/> <CompetitorImportDialog eventId={eventId}/> </div> )}
                                         </div>
                                     ) : (
                                     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
@@ -744,7 +769,7 @@ export default function SchedulePage() {
                             )}
                         </ScrollArea>
                      </div>
-                     {isAdmin && (
+                     {canModify && (
                          <div className="p-4 border-t space-y-4">
                              <h3 className="text-lg font-semibold">Manage Arenas</h3>
                              <div className="space-y-3">
@@ -779,7 +804,11 @@ export default function SchedulePage() {
                     <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center gap-4 border-b">
                         <div>
                             <CardTitle className="text-2xl">{eventDetails?.name || <Skeleton className="h-8 w-64 inline-block" />}</CardTitle>
-                            <CardDescription>Drag and drop competitors into time slots to build the schedule.</CardDescription>
+                            <CardDescription>
+                                {role === 'judge' ? 'Click on scheduled runs to start judging and scoring.' :
+                                 role === 'admin' ? 'Drag and drop competitors into time slots to build the schedule.' :
+                                 'View the event schedule and upcoming runs.'}
+                            </CardDescription>
                         </div>
                     </CardHeader>
                     <div className="flex-1 overflow-auto">
@@ -830,6 +859,7 @@ export default function SchedulePage() {
                                                                             isDraggable={isDraggable}
                                                                             isAdmin={isAdmin}
                                                                             eventId={eventId}
+                                                                            role={role}
                                                                         />
                                                                     </div>
                                                                 ))}

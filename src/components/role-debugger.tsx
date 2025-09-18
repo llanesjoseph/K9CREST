@@ -22,7 +22,7 @@ export function RoleDebugger() {
   ];
 
   const eventMenuItems = [
-    { href: "/dashboard/events/test-event/schedule", label: "Schedule", icon: Calendar, roles: ['admin', 'judge', 'competitor', 'spectator'] },
+    { href: "/dashboard/events/test-event/schedule", label: "Schedule (Click to Judge)", icon: Calendar, roles: ['admin', 'judge', 'competitor', 'spectator'] },
     { href: "/dashboard/events/test-event/competitors", label: "Competitors", icon: Users, roles: ['admin', 'judge', 'competitor', 'spectator'] },
     { href: "/dashboard/events/test-event/leaderboard", label: "Leaderboard", icon: Trophy, roles: ['admin', 'judge', 'competitor', 'spectator'] },
   ];
