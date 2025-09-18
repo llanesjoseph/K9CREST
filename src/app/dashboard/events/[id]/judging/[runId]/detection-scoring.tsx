@@ -260,7 +260,7 @@ export function DetectionScoring({ eventId, runId, isReadOnly }: DetectionScorin
     } else {
       const existing = deductions.find(d => d.note === note);
       if (existing) {
-        await deleteDoc(doc(db, `events/${eventId}/schedule`, runId), "deductions", existing.id);
+        await deleteDoc(doc(db, `events/${eventId}/schedule/${runId}/deductions`, existing.id));
       }
     }
   };

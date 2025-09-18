@@ -477,13 +477,13 @@ function RubricEditor({ rubric }: { rubric: Rubric }) {
         setIsSubmitting(true);
         try {
             const rubricRef = doc(db, "rubrics", data.id);
-            const dataToSave = { 
-                name: data.name.trim(), 
-                judgingInterface: data.judgingInterface,
-                phases: data.judgingInterface === 'phases' ? data.phases : [], 
-                totalPoints: data.judgingInterface === 'phases' ? data.totalPoints : null,
-                updatedAt: new Date(),
-            };
+               const dataToSave = {
+                   name: data.name.trim(),
+                   judgingInterface: data.judgingInterface,
+                   phases: data.judgingInterface === 'phases' ? data.phases : [],
+                   totalPoints: data.judgingInterface === 'phases' ? data.totalPoints : undefined,
+                   updatedAt: new Date(),
+               };
             
             await updateDoc(rubricRef, dataToSave);
             
