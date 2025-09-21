@@ -41,7 +41,7 @@ export function defineFlow<I, O>(config: FlowConfig<I, O>, fn: FlowFn<I, O>): Fl
  * in the Node 18 runtime used by Firebase and Next.js.
  */
 export async function generateText(prompt: string): Promise<string> {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${env.GOOGLE_API_KEY}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${process.env.GOOGLE_API_KEY}`;
 
   const timeoutMs = 10000;
   const maxAttempts = 2;
