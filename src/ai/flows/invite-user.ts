@@ -58,25 +58,35 @@ export async function inviteUser(
       // This allows the user to set their own password for the first time.
       const passwordResetLink = await auth.generatePasswordResetLink(email);
 
-      const requiredFields = ['EMAIL_HOST','EMAIL_PORT','EMAIL_USER','EMAIL_PASS','EMAIL_FROM'] as const;
-      for (const key of requiredFields) {
-        if (!env[key]) {
-          throw new Error(`Missing SMTP configuration for ${key}`);
-        }
+      // Check required email configuration
+      const emailConfig = {
+        host: process.env.EMAIL_HOST,
+        port: process.env.EMAIL_PORT,
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+        from: process.env.EMAIL_FROM
+      };
+
+      const missingFields = Object.entries(emailConfig)
+        .filter(([key, value]) => !value)
+        .map(([key]) => key.toUpperCase());
+
+      if (missingFields.length > 0) {
+        throw new Error(`Missing SMTP configuration for: ${missingFields.join(', ')}`);
       }
 
       const transporter = nodemailer.createTransport({
-          host: env.EMAIL_HOST,
-          port: Number(env.EMAIL_PORT),
-          secure: Number(env.EMAIL_PORT) === 465, // true for 465, false for other ports
+          host: emailConfig.host,
+          port: Number(emailConfig.port),
+          secure: Number(emailConfig.port) === 465, // true for 465, false for other ports
           auth: {
-            user: env.EMAIL_USER,
-            pass: env.EMAIL_PASS,
+            user: emailConfig.user,
+            pass: emailConfig.pass,
           },
       });
 
       const mailOptions = {
-          from: env.EMAIL_FROM,
+          from: emailConfig.from,
           to: email,
           subject: 'You have been invited to the K9 Trial Platform!',
           html: `
