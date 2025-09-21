@@ -3,11 +3,11 @@
 const CONTENT_SECURITY_POLICY = (
   [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://www.google-analytics.com",
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://www.google-analytics.com https://apis.google.com",
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "img-src 'self' data: blob: https://placehold.co https://res.cloudinary.com",
     "font-src 'self' https://fonts.gstatic.com",
-    "connect-src 'self' https://firestore.googleapis.com https://firebasestorage.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://www.google-analytics.com",
+    "connect-src 'self' https://firestore.googleapis.com https://firebasestorage.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://www.google-analytics.com https://firebase.googleapis.com https://firebaseinstallations.googleapis.com",
     "frame-src 'self'",
     "object-src 'none'",
     "base-uri 'self'",
@@ -29,8 +29,19 @@ const nextConfig = {
   // output: 'export',
   trailingSlash: true,
   images: {
-    unoptimized: true,
     remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'firebasestorage.googleapis.com',
+        port: '',
+        pathname: '/v0/b/k9-trials-tracker.firebasestorage.app/o/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'lh3.googleusercontent.com',
+        port: '',
+        pathname: '/**',
+      },
       {
         protocol: 'https',
         hostname: 'placehold.co',
