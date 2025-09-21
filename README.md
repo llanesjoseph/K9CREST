@@ -1,6 +1,6 @@
-# Firebase Studio
+# K9CREST - K9 Trials Tracker
 
-This is a Next.js starter in Firebase Studio.
+Professional K9 trials tracking and scoring application.
 
 ## Environment Variables
 
