@@ -3,8 +3,7 @@
 import { useFieldArray, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import Link from "next/link";
-import { PlusCircle, Trash2, ChevronLeft, GripVertical, CheckCircle, XCircle, Loader2, Save, Lock } from "lucide-react";
+import { PlusCircle, Trash2, GripVertical, CheckCircle, XCircle, Loader2, Save, Lock, FileText, Target, Timer } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -55,6 +54,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 
 const exerciseSchema = z.object({
   id: z.string().optional(),
@@ -182,6 +182,23 @@ const defaultTacticalRubrics: Omit<Rubric, 'id'>[] = [
     },
 ];
 
+const getTypeIcon = (type: string) => {
+  switch (type) {
+    case 'points': return Target;
+    case 'time': return Timer;
+    case 'pass/fail': return CheckCircle;
+    default: return FileText;
+  }
+};
+
+const getTypeColor = (type: string) => {
+  switch (type) {
+    case 'points': return 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300';
+    case 'time': return 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300';
+    case 'pass/fail': return 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-300';
+    default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-300';
+  }
+};
 
 export default function ManageRubricsPage() {
     const { isAdmin } = useAuth();
@@ -213,12 +230,11 @@ export default function ManageRubricsPage() {
         }
     }, [toast]);
 
-
     useEffect(() => {
         const unsub = onSnapshot(collection(db, "rubrics"), (snapshot) => {
             const rubricsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Rubric));
             setRubrics(rubricsData);
-            
+
             if (isLoading && isAdmin) {
                 seedDefaultRubrics(rubricsData);
             }
@@ -235,9 +251,9 @@ export default function ManageRubricsPage() {
         }
         setIsCreating(true);
         try {
-            const docRef = await addDoc(collection(db, "rubrics"), { 
-                name: newRubricName.trim(), 
-                phases: [], 
+            const docRef = await addDoc(collection(db, "rubrics"), {
+                name: newRubricName.trim(),
+                phases: [],
                 totalPoints: 100,
                 judgingInterface: "phases"
             });
@@ -250,7 +266,7 @@ export default function ManageRubricsPage() {
             setIsCreating(false);
         }
     };
-    
+
     const handleDeleteRubric = async (rubricId: string, rubricName: string) => {
         if(!rubricId || rubricId === defaultDetectionRubric.id) return;
         try {
@@ -269,88 +285,161 @@ export default function ManageRubricsPage() {
         if (b.id === 'default-detection') return 1;
         return a.name.localeCompare(b.name);
     });
-    
+
     const selectedRubric = allDisplayRubrics.find(r => r.id === selectedRubricId);
 
     if (isLoading) {
-        return <div className="flex justify-center items-center h-64"><Loader2 className="h-8 w-8 animate-spin" /></div>
+        return (
+          <div className="flex flex-col items-center justify-center h-96 space-y-4">
+            <Loader2 className="h-12 w-12 animate-spin text-primary" />
+            <p className="text-lg font-medium text-muted-foreground">Loading scoring rubrics...</p>
+          </div>
+        );
     }
 
     return (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="md:col-span-1">
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Rubric Library</CardTitle>
-                        <CardDescription>Select a rubric to edit or create a new one.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-1">
-                         {allDisplayRubrics.map(rubric => (
-                            <div key={rubric.id} className="flex items-center justify-between gap-1">
-                                <Button 
-                                    variant={selectedRubricId === rubric.id ? "secondary" : "ghost"} 
-                                    className="flex-1 justify-start h-auto text-left"
-                                    onClick={() => setSelectedRubricId(rubric.id!)}
-                                >
-                                    <span className="py-1">{rubric.name}</span>
-                                </Button>
-                                {isAdmin && rubric.id !== defaultDetectionRubric.id ? (
-                                     <AlertDialog>
-                                        <AlertDialogTrigger asChild>
-                                            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0"><Trash2 className="h-4 w-4 text-destructive/70" /></Button>
-                                        </AlertDialogTrigger>
-                                        <AlertDialogContent>
-                                            <AlertDialogHeader>
-                                                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                                                <AlertDialogDescription>
-                                                    This will permanently delete the rubric &quot;{rubric.name}&quot;. This action cannot be undone.
-                                                </AlertDialogDescription>
-                                            </AlertDialogHeader>
-                                            <AlertDialogFooter>
-                                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                                <AlertDialogAction onClick={() => handleDeleteRubric(rubric.id!, rubric.name)} className="bg-destructive hover:bg-destructive/90">
-                                                    Yes, delete rubric
-                                                </AlertDialogAction>
-                                            </AlertDialogFooter>
-                                        </AlertDialogContent>
-                                    </AlertDialog>
-                                ) : (
-                                    <div className="h-8 w-8 shrink-0 flex items-center justify-center">
-                                        {rubric.id === defaultDetectionRubric.id && <Lock className="h-4 w-4 text-muted-foreground" />}
-                                    </div>
+        <div className="space-y-8">
+          {/* Header Section */}
+          <div className="flex flex-col space-y-2">
+            <h1 className="text-3xl font-bold text-foreground">Scoring Rubrics</h1>
+            <p className="text-lg text-muted-foreground">Create and manage scoring criteria for your events</p>
+          </div>
+
+          {/* Main Content */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            {/* Rubric Library - Left Sidebar */}
+            <div className="lg:col-span-4 xl:col-span-3">
+              <Card className="h-fit">
+                <CardHeader className="pb-4">
+                  <CardTitle className="flex items-center gap-2">
+                    <FileText className="h-5 w-5" />
+                    Rubric Library
+                  </CardTitle>
+                  <CardDescription>Select a rubric to view or edit</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {/* Rubric List */}
+                  <div className="space-y-2">
+                    {allDisplayRubrics.map(rubric => (
+                      <div key={rubric.id} className="group">
+                        <Button
+                          variant={selectedRubricId === rubric.id ? "default" : "ghost"}
+                          className={cn(
+                            "w-full justify-between h-auto p-4 text-left transition-all duration-200",
+                            selectedRubricId === rubric.id
+                              ? "bg-primary text-primary-foreground shadow-sm"
+                              : "hover:bg-muted/50"
+                          )}
+                          onClick={() => setSelectedRubricId(rubric.id!)}
+                        >
+                          <div className="flex flex-col items-start space-y-1">
+                            <span className="font-medium truncate">{rubric.name}</span>
+                            <div className="flex items-center gap-2">
+                              <Badge
+                                variant="secondary"
+                                className={cn(
+                                  "text-xs",
+                                  rubric.judgingInterface === 'detection'
+                                    ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-300'
+                                    : 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300'
                                 )}
+                              >
+                                {rubric.judgingInterface === 'detection' ? 'Detection' : 'Phases'}
+                              </Badge>
+                              {rubric.totalPoints && (
+                                <span className="text-xs text-muted-foreground">
+                                  {rubric.totalPoints} pts
+                                </span>
+                              )}
                             </div>
-                        ))}
-                        {isAdmin && (
-                            <div className="space-y-2 border-t pt-4 mt-4">
-                                <Input 
-                                    placeholder="New rubric name..." 
-                                    value={newRubricName}
-                                    onChange={(e) => setNewRubricName(e.target.value)}
-                                />
-                                <Button onClick={handleCreateRubric} disabled={isCreating} className="w-full">
-                                    {isCreating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
-                                    Create New Rubric
+                          </div>
+                          {isAdmin && rubric.id !== defaultDetectionRubric.id ? (
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <Trash2 className="h-4 w-4 text-destructive" />
                                 </Button>
-                            </div>
-                        )}
-                    </CardContent>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Delete Rubric</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Are you sure you want to delete &quot;{rubric.name}&quot;? This action cannot be undone.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() => handleDeleteRubric(rubric.id!, rubric.name)}
+                                    className="bg-destructive hover:bg-destructive/90"
+                                  >
+                                    Delete
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          ) : rubric.id === defaultDetectionRubric.id ? (
+                            <Lock className="h-4 w-4 text-muted-foreground" />
+                          ) : null}
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Create New Rubric */}
+                  {isAdmin && (
+                    <div className="pt-4 border-t space-y-3">
+                      <div className="space-y-2">
+                        <Input
+                          placeholder="Enter rubric name..."
+                          value={newRubricName}
+                          onChange={(e) => setNewRubricName(e.target.value)}
+                          onKeyPress={(e) => e.key === 'Enter' && handleCreateRubric()}
+                        />
+                        <Button
+                          onClick={handleCreateRubric}
+                          disabled={isCreating || !newRubricName.trim()}
+                          className="w-full"
+                          size="sm"
+                        >
+                          {isCreating ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          ) : (
+                            <PlusCircle className="mr-2 h-4 w-4" />
+                          )}
+                          Create New Rubric
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Rubric Editor - Main Content */}
+            <div className="lg:col-span-8 xl:col-span-9">
+              {selectedRubricId && selectedRubric ? (
+                <RubricEditor key={selectedRubricId} rubric={selectedRubric} />
+              ) : (
+                <Card className="h-96 flex items-center justify-center">
+                  <CardContent className="text-center space-y-4">
+                    <FileText className="h-16 w-16 text-muted-foreground mx-auto" />
+                    <div className="space-y-2">
+                      <h3 className="text-xl font-semibold">Select a Rubric</h3>
+                      <p className="text-muted-foreground max-w-md">
+                        Choose a rubric from the library to view details and configure scoring criteria.
+                      </p>
+                    </div>
+                  </CardContent>
                 </Card>
+              )}
             </div>
-            <div className="md:col-span-2">
-                {selectedRubricId && selectedRubric ? (
-                     <RubricEditor key={selectedRubricId} rubric={selectedRubric} />
-                ) : (
-                    <Card className="h-full flex items-center justify-center">
-                        <CardContent className="pt-6">
-                            <div className="text-center text-muted-foreground">
-                                <p className="text-lg font-semibold">Select a rubric</p>
-                                <p>Choose a rubric from the list on the left to start editing, or create a new one.</p>
-                            </div>
-                        </CardContent>
-                    </Card>
-                )}
-            </div>
+          </div>
         </div>
     );
 }
@@ -379,14 +468,14 @@ function RubricEditor({ rubric }: { rubric: Rubric }) {
     const isDistributionEnabled = useMemo(() => {
         return judgingInterface === 'phases' && typeof totalPoints === 'number' && totalPoints > 0;
     }, [judgingInterface, totalPoints]);
-    
+
     const pointBasedExerciseCount = useMemo(() => {
         if (judgingInterface !== 'phases') return 0;
         return phases.reduce((count, phase) => {
             return count + (phase.exercises?.filter(ex => ex.type === 'points' || (ex.type === 'pass/fail' && ex.maxPoints! > 0)).length || 0);
         }, 0);
     }, [phases, judgingInterface]);
-    
+
     const pointsPerExercise = useMemo(() => {
         if (!isDistributionEnabled || pointBasedExerciseCount === 0) return null;
         return totalPoints! / pointBasedExerciseCount;
@@ -413,8 +502,7 @@ function RubricEditor({ rubric }: { rubric: Rubric }) {
 
     async function onSubmit(data: Rubric) {
         if (!data.id || isDefaultRubric || !isAdmin) return;
-        
-        // Validate form data before submission
+
         if (!data.name || data.name.trim() === '') {
             toast({
                 variant: "destructive",
@@ -423,7 +511,7 @@ function RubricEditor({ rubric }: { rubric: Rubric }) {
             });
             return;
         }
-        
+
         if (data.judgingInterface === 'phases') {
             if (!data.phases || data.phases.length === 0) {
                 toast({
@@ -433,8 +521,7 @@ function RubricEditor({ rubric }: { rubric: Rubric }) {
                 });
                 return;
             }
-            
-            // Validate each phase and exercise
+
             for (const phase of data.phases) {
                 if (!phase.name || phase.name.trim() === '') {
                     toast({
@@ -444,7 +531,7 @@ function RubricEditor({ rubric }: { rubric: Rubric }) {
                     });
                     return;
                 }
-                
+
                 if (!phase.exercises || phase.exercises.length === 0) {
                     toast({
                         variant: "destructive",
@@ -453,7 +540,7 @@ function RubricEditor({ rubric }: { rubric: Rubric }) {
                     });
                     return;
                 }
-                
+
                 for (const exercise of phase.exercises) {
                     if (!exercise.name || exercise.name.trim() === '') {
                         toast({
@@ -463,7 +550,7 @@ function RubricEditor({ rubric }: { rubric: Rubric }) {
                         });
                         return;
                     }
-                    
+
                     if (exercise.type === 'points' && (!exercise.maxPoints || exercise.maxPoints <= 0)) {
                         toast({
                             variant: "destructive",
@@ -475,7 +562,7 @@ function RubricEditor({ rubric }: { rubric: Rubric }) {
                 }
             }
         }
-        
+
         setIsSubmitting(true);
         try {
             const rubricRef = doc(db, "rubrics", data.id);
@@ -486,15 +573,14 @@ function RubricEditor({ rubric }: { rubric: Rubric }) {
                 totalPoints: data.judgingInterface === 'phases' ? data.totalPoints : undefined,
                 updatedAt: new Date(),
             };
-            
+
             await updateDoc(rubricRef, dataToSave);
-            
+
             toast({
                 title: "Rubric Saved!",
                 description: "The scoring rubric has been successfully updated.",
             });
-            
-            // Reset form with new data
+
             form.reset(dataToSave, { keepValues: true });
         } catch (error) {
             console.error('Failed to save rubric:', error);
@@ -506,24 +592,44 @@ function RubricEditor({ rubric }: { rubric: Rubric }) {
 
     return (
         <Card>
-            <CardHeader>
-                <CardTitle>Configure Rubric</CardTitle>
-                <CardDescription>
-                    Define the name, interface, and scoring rules for this rubric.
-                </CardDescription>
+            <CardHeader className="pb-6">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1">
+                    <CardTitle className="text-2xl">{rubric.name}</CardTitle>
+                    <CardDescription>
+                      Configure scoring criteria and exercise parameters
+                    </CardDescription>
+                  </div>
+                  {!isDefaultRubric && (
+                    <Button
+                      type="submit"
+                      disabled={isSubmitting}
+                      onClick={form.handleSubmit(onSubmit)}
+                      className="shrink-0"
+                    >
+                      {isSubmitting ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <Save className="mr-2 h-4 w-4" />
+                      )}
+                      Save Changes
+                    </Button>
+                  )}
+                </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-8">
                 <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+                        {/* Basic Settings */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <FormField
                                 control={form.control}
                                 name="name"
                                 render={({ field }) => (
                                     <FormItem>
-                                    <FormLabel>Rubric Name</FormLabel>
+                                    <FormLabel className="text-base font-medium">Rubric Name</FormLabel>
                                     <FormControl>
-                                        <Input {...field} readOnly={isDefaultRubric} />
+                                        <Input {...field} readOnly={isDefaultRubric} className="h-12" />
                                     </FormControl>
                                     </FormItem>
                                 )}
@@ -533,10 +639,12 @@ function RubricEditor({ rubric }: { rubric: Rubric }) {
                                 name="judgingInterface"
                                 render={({ field }) => (
                                     <FormItem>
-                                    <FormLabel>Judging Interface</FormLabel>
+                                    <FormLabel className="text-base font-medium">Judging Interface</FormLabel>
                                     <Select onValueChange={field.onChange} value={field.value} disabled={isDefaultRubric}>
                                          <FormControl>
-                                            <SelectTrigger><SelectValue placeholder="Select interface" /></SelectTrigger>
+                                            <SelectTrigger className="h-12">
+                                              <SelectValue placeholder="Select interface" />
+                                            </SelectTrigger>
                                         </FormControl>
                                         <SelectContent>
                                             <SelectItem value="phases">Phases & Exercises</SelectItem>
@@ -547,66 +655,50 @@ function RubricEditor({ rubric }: { rubric: Rubric }) {
                                 )}
                             />
                         </div>
-                        
+
                         {judgingInterface === 'phases' && (
-                          <>
+                          <div className="space-y-6">
                             <Separator />
+
+                            {/* Total Points */}
                             <FormField
                                 control={form.control}
                                 name="totalPoints"
                                 render={({ field }) => (
                                     <FormItem>
-                                    <FormLabel>Total Available Points</FormLabel>
+                                    <FormLabel className="text-base font-medium">Total Available Points</FormLabel>
                                     <FormControl>
-                                        <Input type="number" {...field} placeholder="e.g., 100" onChange={e => field.onChange(e.target.value === '' ? undefined : Number(e.target.value))} value={field.value ?? ''} />
+                                        <Input
+                                          type="number"
+                                          {...field}
+                                          placeholder="e.g., 100"
+                                          className="h-12 max-w-xs"
+                                          onChange={e => field.onChange(e.target.value === '' ? undefined : Number(e.target.value))}
+                                          value={field.value ?? ''}
+                                        />
                                     </FormControl>
-                                     <FormDescription>Points will be distributed among exercises.</FormDescription>
+                                     <FormDescription>Points will be distributed equally among all point-based exercises.</FormDescription>
                                     </FormItem>
                                 )}
                             />
+
+                            {/* Point Distribution Info */}
                             {isDistributionEnabled && (
-                                <div className="text-sm text-muted-foreground bg-accent/50 p-3 rounded-md">
-                                Point distribution is active. Each of the <strong>{pointBasedExerciseCount}</strong> point-based & pass/fail exercises will be worth <strong>{pointsPerExercise?.toFixed(2) ?? 0}</strong> points.
+                                <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                                  <div className="flex items-center gap-2 text-blue-900 dark:text-blue-100">
+                                    <Target className="h-5 w-5" />
+                                    <span className="font-medium">Point Distribution Active</span>
+                                  </div>
+                                  <p className="text-sm text-blue-800 dark:text-blue-200 mt-1">
+                                    Each of the <strong>{pointBasedExerciseCount}</strong> point-based exercises will be worth <strong>{pointsPerExercise?.toFixed(2) ?? 0}</strong> points.
+                                  </p>
                                 </div>
                             )}
-                            <Accordion type="multiple" className="w-full space-y-4" value={openAccordionItems} onValueChange={setOpenAccordionItems}>
-                                {fields.map((phase, phaseIndex) => (
-                                    <AccordionItem key={phase.id || phaseIndex} value={`item-${phaseIndex}`} className="border rounded-lg bg-background">
-                                        <AccordionTrigger className="p-4 hover:no-underline">
-                                            <div className="flex items-center gap-4 flex-grow">
-                                                <GripVertical className="h-5 w-5 text-muted-foreground" />
-                                                <FormField
-                                                    control={form.control}
-                                                    name={`phases.${phaseIndex}.name`}
-                                                    render={({ field }) => <Input {...field} className="text-lg font-semibold border-none shadow-none focus-visible:ring-0 p-0 h-auto" onClick={(e) => e.stopPropagation()} />}
-                                                />
-                                            </div>
-                                        </AccordionTrigger>
-                                        <AccordionContent className="p-4 pt-0">
-                                        <PhaseExercises control={form.control} phaseIndex={phaseIndex} isDistributionEnabled={isDistributionEnabled} />
-                                        <div className="flex justify-end mt-4">
-                                            <Button
-                                                type="button"
-                                                variant="ghost"
-                                                size="sm"
-                                                className="text-destructive hover:text-destructive"
-                                                onClick={() => remove(phaseIndex)}
-                                            >
-                                                <Trash2 className="mr-2 h-4 w-4" />
-                                                Remove Phase
-                                            </Button>
-                                        </div>
-                                        </AccordionContent>
-                                    </AccordionItem>
-                                ))}
-                            </Accordion>
-                            {fields.length === 0 && (
-                                <div className="text-center text-muted-foreground py-12 border-2 border-dashed rounded-lg">
-                                    <p className="font-semibold">No phases defined yet.</p>
-                                    <p>Click &quot;Add Phase&quot; to get started building your scoring rubric.</p>
-                                </div>
-                            )}
-                            <div className="mt-6">
+
+                            {/* Phases */}
+                            <div className="space-y-4">
+                              <div className="flex items-center justify-between">
+                                <h3 className="text-lg font-medium">Phases & Exercises</h3>
                                 <Button
                                     type="button"
                                     variant="outline"
@@ -614,35 +706,96 @@ function RubricEditor({ rubric }: { rubric: Rubric }) {
                                 >
                                     <PlusCircle className="mr-2 h-4 w-4" /> Add Phase
                                 </Button>
+                              </div>
+
+                              {fields.length === 0 ? (
+                                <Card className="border-dashed border-2 py-12">
+                                  <CardContent className="text-center space-y-3">
+                                    <Target className="h-12 w-12 text-muted-foreground mx-auto" />
+                                    <div className="space-y-1">
+                                      <p className="font-medium text-lg">No phases defined</p>
+                                      <p className="text-muted-foreground">Add a phase to start building your scoring rubric</p>
+                                    </div>
+                                  </CardContent>
+                                </Card>
+                              ) : (
+                                <Accordion type="multiple" className="space-y-4" value={openAccordionItems} onValueChange={setOpenAccordionItems}>
+                                    {fields.map((phase, phaseIndex) => (
+                                        <AccordionItem key={phase.id || phaseIndex} value={`item-${phaseIndex}`} className="border rounded-lg bg-muted/20">
+                                            <AccordionTrigger className="px-6 py-4 hover:no-underline">
+                                                <div className="flex items-center gap-4 flex-grow text-left">
+                                                    <GripVertical className="h-5 w-5 text-muted-foreground" />
+                                                    <FormField
+                                                        control={form.control}
+                                                        name={`phases.${phaseIndex}.name`}
+                                                        render={({ field }) => (
+                                                          <Input
+                                                            {...field}
+                                                            className="text-lg font-semibold border-none shadow-none focus-visible:ring-0 p-0 h-auto bg-transparent"
+                                                            onClick={(e) => e.stopPropagation()}
+                                                          />
+                                                        )}
+                                                    />
+                                                    <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="text-destructive hover:text-destructive ml-auto"
+                                                        onClick={(e) => {
+                                                          e.stopPropagation();
+                                                          remove(phaseIndex);
+                                                        }}
+                                                    >
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </Button>
+                                                </div>
+                                            </AccordionTrigger>
+                                            <AccordionContent className="px-6 pb-6">
+                                            <PhaseExercises control={form.control} phaseIndex={phaseIndex} isDistributionEnabled={isDistributionEnabled} />
+                                            </AccordionContent>
+                                        </AccordionItem>
+                                    ))}
+                                </Accordion>
+                              )}
                             </div>
-                          </>
+                          </div>
                         )}
+
                         {judgingInterface === 'detection' && (
-                            <div className="text-sm text-muted-foreground bg-accent/50 p-3 rounded-md space-y-2">
-                                <p>The <strong>Detection & Teamwork</strong> interface uses a fixed scoring model:</p>
-                                <ul className="list-disc pl-5">
-                                    <li>**Detection Score:** Based on number of aids found.</li>
-                                    <li>**Teamwork Score:** Based on deductions.</li>
-                                    <li>**False Alerts:** Configurable point penalty per alert.</li>
-                                </ul>
-                                <p>The point values for these are configured in the scoring interface, not in the rubric.</p>
+                            <div className="bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-800 rounded-lg p-6 space-y-4">
+                                <div className="flex items-center gap-2 text-orange-900 dark:text-orange-100">
+                                  <Target className="h-5 w-5" />
+                                  <span className="font-semibold">Detection & Teamwork Interface</span>
+                                </div>
+                                <div className="space-y-3 text-sm text-orange-800 dark:text-orange-200">
+                                    <p>This interface uses a specialized scoring model for detection work:</p>
+                                    <ul className="space-y-2 ml-4">
+                                        <li className="flex items-start gap-2">
+                                          <div className="w-1.5 h-1.5 bg-orange-600 rounded-full mt-2 shrink-0"></div>
+                                          <span><strong>Detection Score:</strong> Based on number of aids found</span>
+                                        </li>
+                                        <li className="flex items-start gap-2">
+                                          <div className="w-1.5 h-1.5 bg-orange-600 rounded-full mt-2 shrink-0"></div>
+                                          <span><strong>Teamwork Score:</strong> Based on performance deductions</span>
+                                        </li>
+                                        <li className="flex items-start gap-2">
+                                          <div className="w-1.5 h-1.5 bg-orange-600 rounded-full mt-2 shrink-0"></div>
+                                          <span><strong>False Alerts:</strong> Configurable point penalty per alert</span>
+                                        </li>
+                                    </ul>
+                                    <p className="pt-2 border-t border-orange-200 dark:border-orange-800">
+                                      Point values are configured in the scoring interface during judging.
+                                    </p>
+                                </div>
                             </div>
                         )}
-                        
-                        {!isDefaultRubric && (
-                            <div className="flex justify-end items-center mt-6">
-                                <Button type="submit" disabled={isSubmitting}>
-                                {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                                Save Rubric
-                                </Button>
-                            </div>
-                        )}
+
                          {isDefaultRubric && (
-                            <div className="flex justify-end items-center mt-6">
-                                <Button type="submit" disabled>
+                            <div className="flex justify-center">
+                                <Badge variant="secondary" className="px-4 py-2">
                                     <Lock className="mr-2 h-4 w-4" />
-                                    Default Rubric (Cannot be saved)
-                                </Button>
+                                    Default Rubric - Cannot be modified
+                                </Badge>
                             </div>
                         )}
                     </form>
@@ -659,29 +812,37 @@ function PhaseExercises({ control, phaseIndex, isDistributionEnabled }: { contro
   });
 
   return (
-    <div className="space-y-4 pl-8 border-l ml-2">
-      {fields.map((exercise, exerciseIndex) => (
-        <ExerciseItem 
-            key={exercise.id || exerciseIndex} 
-            control={control} 
-            phaseIndex={phaseIndex} 
-            exerciseIndex={exerciseIndex} 
-            remove={remove}
-            isDistributionEnabled={isDistributionEnabled}
-        />
-      ))}
-       {fields.length === 0 && (
-          <p className="text-sm text-muted-foreground pt-4">No exercises in this phase. Add one below.</p>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h4 className="font-medium text-muted-foreground">Exercises</h4>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => append({ name: "", type: "points", maxPoints: 10 })}
+        >
+          <PlusCircle className="mr-2 h-4 w-4" /> Add Exercise
+        </Button>
+      </div>
+
+      {fields.length === 0 ? (
+        <div className="text-center py-8 text-muted-foreground">
+          <p>No exercises added yet. Click &quot;Add Exercise&quot; to get started.</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {fields.map((exercise, exerciseIndex) => (
+            <ExerciseItem
+                key={exercise.id || exerciseIndex}
+                control={control}
+                phaseIndex={phaseIndex}
+                exerciseIndex={exerciseIndex}
+                remove={remove}
+                isDistributionEnabled={isDistributionEnabled}
+            />
+          ))}
+        </div>
       )}
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        className="mt-2"
-        onClick={() => append({ name: "", type: "points", maxPoints: 10 })}
-      >
-        <PlusCircle className="mr-2 h-4 w-4" /> Add Exercise
-      </Button>
     </div>
   );
 }
@@ -698,86 +859,129 @@ function ExerciseItem({ control, phaseIndex, exerciseIndex, remove, isDistributi
 
     const showMaxPoints = exerciseType === 'points' || (exerciseType === 'pass/fail' && (!exerciseValue?.maxPoints || exerciseValue.maxPoints > 0));
     const showPenalty = exerciseType === 'pass/fail' && exerciseValue?.maxPoints && exerciseValue.maxPoints < 0;
+    const TypeIcon = getTypeIcon(exerciseType);
 
-    
     return (
-        <div className="flex items-start gap-4 p-4 rounded-md border bg-secondary/50">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 flex-grow">
-            <FormField
-              control={control}
-              name={`phases.${phaseIndex}.exercises.${exerciseIndex}.name`}
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Exercise Name</FormLabel>
-                  <FormControl>
-                    <Input {...field} placeholder="e.g., Heeling" />
-                  </FormControl>
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={control}
-              name={`phases.${phaseIndex}.exercises.${exerciseIndex}.type`}
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Type</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select type" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="points">Points</SelectItem>
-                      <SelectItem value="time">Time</SelectItem>
-                      <SelectItem value="pass/fail">Pass/Fail</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </FormItem>
-              )}
-            />
-            <div className="h-full flex items-end">
-                {(showMaxPoints || showPenalty) && (
-                    <FormField
-                      control={control}
-                      name={`phases.${phaseIndex}.exercises.${exerciseIndex}.maxPoints`}
-                      render={({ field }) => (
-                        <FormItem className="w-full">
-                          <FormLabel>{showPenalty ? 'Time Penalty (seconds)' : 'Max Points'}</FormLabel>
-                          <FormControl>
-                            <Input 
-                                {...field} 
-                                type="number" 
-                                placeholder={showPenalty ? "-10" : "10"}
-                                readOnly={isDistributionEnabled && !showPenalty}
-                                className={cn(isDistributionEnabled && !showPenalty ? 'bg-muted/70' : '', showPenalty ? 'border-destructive' : '')}
-                                value={field.value ?? ''}
-                                onChange={e => field.onChange(e.target.value === '' ? undefined : Number(e.target.value))}
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-                )}
-                 {exerciseType === 'time' && (
-                     <FormItem className="w-full">
-                        <FormLabel>Score Input</FormLabel>
-                        <FormControl>
-                            <Input type="number" placeholder="Time in seconds" readOnly />
-                        </FormControl>
+        <Card className="p-4">
+          <div className="flex items-start gap-4">
+            <div className="flex-grow space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <FormField
+                  control={control}
+                  name={`phases.${phaseIndex}.exercises.${exerciseIndex}.name`}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-sm font-medium">Exercise Name</FormLabel>
+                      <FormControl>
+                        <Input {...field} placeholder="e.g., Heeling" />
+                      </FormControl>
                     </FormItem>
+                  )}
+                />
+                <FormField
+                  control={control}
+                  name={`phases.${phaseIndex}.exercises.${exerciseIndex}.type`}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-sm font-medium">Type</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select type" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="points">
+                            <div className="flex items-center gap-2">
+                              <Target className="h-4 w-4" />
+                              Points
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="time">
+                            <div className="flex items-center gap-2">
+                              <Timer className="h-4 w-4" />
+                              Time
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="pass/fail">
+                            <div className="flex items-center gap-2">
+                              <CheckCircle className="h-4 w-4" />
+                              Pass/Fail
+                            </div>
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </FormItem>
+                  )}
+                />
+                <div className="space-y-2">
+                    {(showMaxPoints || showPenalty) && (
+                        <FormField
+                          control={control}
+                          name={`phases.${phaseIndex}.exercises.${exerciseIndex}.maxPoints`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-sm font-medium">
+                                {showPenalty ? 'Penalty Points' : 'Max Points'}
+                              </FormLabel>
+                              <FormControl>
+                                <Input
+                                    {...field}
+                                    type="number"
+                                    placeholder={showPenalty ? "-10" : "10"}
+                                    readOnly={isDistributionEnabled && !showPenalty}
+                                    className={cn(
+                                      isDistributionEnabled && !showPenalty && 'bg-muted/70 cursor-not-allowed',
+                                      showPenalty && 'border-destructive text-destructive'
+                                    )}
+                                    value={field.value ?? ''}
+                                    onChange={e => field.onChange(e.target.value === '' ? undefined : Number(e.target.value))}
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                    )}
+                     {exerciseType === 'time' && (
+                         <FormItem>
+                            <FormLabel className="text-sm font-medium">Score Input</FormLabel>
+                            <FormControl>
+                                <Input
+                                  type="number"
+                                  placeholder="Time in seconds"
+                                  readOnly
+                                  className="bg-muted/70 cursor-not-allowed"
+                                />
+                            </FormControl>
+                        </FormItem>
+                    )}
+                </div>
+              </div>
+
+              {/* Exercise Type Badge */}
+              <div className="flex items-center gap-2">
+                <Badge className={cn("text-xs", getTypeColor(exerciseType))}>
+                  <TypeIcon className="mr-1 h-3 w-3" />
+                  {exerciseType}
+                </Badge>
+                {isDistributionEnabled && !showPenalty && exerciseType === 'points' && (
+                  <Badge variant="outline" className="text-xs">
+                    Auto-calculated
+                  </Badge>
                 )}
+              </div>
             </div>
+
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="text-muted-foreground hover:text-destructive shrink-0"
+              onClick={() => remove(exerciseIndex)}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
           </div>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="mt-8 text-muted-foreground hover:text-destructive"
-            onClick={() => remove(exerciseIndex)}
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
-        </div>
+        </Card>
     )
 }
