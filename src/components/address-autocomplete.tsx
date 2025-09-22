@@ -72,7 +72,9 @@ export function AddressAutocomplete({ value, onChange }: AddressAutocompleteProp
 
       window.initGoogleMaps = () => {
         setIsGoogleMapsLoaded(true);
-        autocompleteServiceRef.current = new window.google.maps.places.AutocompleteService();
+        if (window.google?.maps?.places) {
+          autocompleteServiceRef.current = new window.google.maps.places.AutocompleteService();
+        }
       };
 
       document.head.appendChild(script);
@@ -100,7 +102,7 @@ export function AddressAutocomplete({ value, onChange }: AddressAutocompleteProp
       (predictions: any[], status: any) => {
         setIsLoading(false);
 
-        if (status === window.google?.maps.places.PlacesServiceStatus.OK && predictions) {
+        if (status === window.google?.maps?.places?.PlacesServiceStatus?.OK && predictions) {
           setPredictions(predictions);
           setShowDropdown(true);
         } else {
