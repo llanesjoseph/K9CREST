@@ -8,7 +8,9 @@
       "Bash(npm cache clean:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(git push:*)",
+      "Bash(vercel:*)"
     ],
     "deny": [],
     "ask": []
