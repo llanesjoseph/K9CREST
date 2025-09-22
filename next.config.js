@@ -8,7 +8,7 @@ const CONTENT_SECURITY_POLICY = (
     "img-src 'self' data: blob: https://placehold.co https://res.cloudinary.com",
     "font-src 'self' https://fonts.gstatic.com",
     "connect-src 'self' https://firestore.googleapis.com https://firebasestorage.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://www.google-analytics.com https://firebase.googleapis.com https://firebaseinstallations.googleapis.com",
-    "frame-src 'self'",
+    "frame-src 'self' https://*.firebaseapp.com https://*.google.com https://accounts.google.com",
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",
