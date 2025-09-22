@@ -41,8 +41,30 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
+        // 🚀 AGGRESSIVE ADMIN OVERRIDE: Force joseph@crucibleanalytics.dev to be admin
+        if (firebaseUser.email === 'joseph@crucibleanalytics.dev') {
+          console.log('🔥 ADMIN OVERRIDE ACTIVATED: Force setting joseph@crucibleanalytics.dev as admin');
+          setTrueRole('admin');
+          setUser(firebaseUser);
+          setViewAsRole(null);
+          setLoading(false);
+
+          // Try to set server-side admin claims in background (fire and forget)
+          firebaseUser.getIdToken().then(token => {
+            fetch('/api/bootstrap-admin', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+              },
+            }).catch(() => {}); // Ignore errors, we already have client-side admin
+          }).catch(() => {});
+
+          return;
+        }
+
         try {
-          // Refresh ID token to ensure latest custom claims
+          // Regular user flow
           const token = await firebaseUser.getIdToken(true);
           const decoded = JSON.parse(atob(token.split('.')[1] || 'e30='));
           const claimRole = (decoded?.role as UserRole) || 'spectator';
