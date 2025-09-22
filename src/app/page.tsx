@@ -107,9 +107,9 @@ export default function LoginPage() {
       <div className="flex items-center justify-center py-12 border-r">
         <div className="mx-auto grid w-[350px] gap-6">
           <div className="grid gap-2 text-center">
-            <h1 className="text-3xl font-bold">{isSignUp ? 'Sign Up' : 'Login'}</h1>
-            <p className="text-balance text-muted-foreground">
-              Enter your email below to {isSignUp ? 'create an account' : 'login to your account'}
+            <h1 className="text-3xl font-bold text-slate-800 dark:text-slate-100">{isSignUp ? 'Create Account' : 'Sign In'}</h1>
+            <p className="text-slate-600 dark:text-slate-400">
+              {isSignUp ? 'Create your professional account' : 'Access your trial management dashboard'}
             </p>
           </div>
           <form onSubmit={handleSubmit(isSignUp ? handleSignUp : handleLogin)} className="grid gap-4">
@@ -151,11 +151,11 @@ export default function LoginPage() {
               <Input id="password" type="password" {...register("password")} />
                {errors.password && <p className="text-destructive text-sm">{errors.password.message}</p>}
             </div>
-            <Button type="submit" className="w-full">
-              {isSignUp ? 'Create Account' : 'Login'}
+            <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white">
+              {isSignUp ? 'Create Account' : 'Sign In'}
             </Button>
-            <Button variant="outline" className="w-full" type="button" onClick={handleGoogleLogin}>
-              Login with Google
+            <Button variant="outline" className="w-full border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800" type="button" onClick={handleGoogleLogin}>
+              Continue with Google
             </Button>
           </form>
           <div className="mt-4 text-center text-sm">
@@ -171,47 +171,46 @@ export default function LoginPage() {
            <Image src="https://res.cloudinary.com/dr0jtjwlh/image/upload/v1755735658/core_LOGO_iaxkl6.png" alt="Core Logo" width={250} height={200} data-ai-hint="logo company" />
         </div>
         <div className="space-y-6 max-w-md text-center">
-          <h2 className="text-3xl font-bold tracking-tight font-headline">
-            The Ultimate Platform for K9 Trial Excellence
+          <h2 className="text-3xl font-bold tracking-tight text-slate-800 dark:text-slate-100">
+            Professional Trial Management System
           </h2>
-          <p className="text-muted-foreground text-lg leading-relaxed">
-            Manage events, configure scoring, schedule competitors, and track
-            results in real-time.
+          <p className="text-slate-600 dark:text-slate-400 text-lg leading-relaxed">
+            Comprehensive event management, real-time scoring, competitor tracking, and advanced analytics for professional trials.
           </p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-left pt-4">
-            <Card className="bg-background/60">
+            <Card className="bg-white/80 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Calendar className="text-primary" /> Events
+                <CardTitle className="flex items-center gap-2 text-slate-800 dark:text-slate-200">
+                  <Calendar className="text-blue-600 dark:text-blue-400 h-5 w-5" /> Event Management
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-sm text-muted-foreground">
-                 Easily create and manage all your trial events in one place.
+                <p className="text-sm text-slate-600 dark:text-slate-400">
+                  Streamlined event creation, scheduling, and comprehensive management tools.
                 </p>
               </CardContent>
             </Card>
-            <Card className="bg-background/60">
+            <Card className="bg-white/80 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                   <Gavel className="text-primary" /> Scoring
+                <CardTitle className="flex items-center gap-2 text-slate-800 dark:text-slate-200">
+                  <Gavel className="text-blue-600 dark:text-blue-400 h-5 w-5" /> Scoring System
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-sm text-muted-foreground">
-                  Customizable rubrics and a dedicated judge interface.
+                <p className="text-sm text-slate-600 dark:text-slate-400">
+                  Advanced rubric configuration with real-time judge interface and scoring.
                 </p>
               </CardContent>
             </Card>
-             <Card className="bg-background/60">
+            <Card className="bg-white/80 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Trophy className="text-primary" /> Results
+                <CardTitle className="flex items-center gap-2 text-slate-800 dark:text-slate-200">
+                  <Trophy className="text-blue-600 dark:text-blue-400 h-5 w-5" /> Analytics
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-sm text-muted-foreground">
-                  Live leaderboards for competitors and agencies.
+                <p className="text-sm text-slate-600 dark:text-slate-400">
+                  Real-time leaderboards, comprehensive reporting, and performance analytics.
                 </p>
               </CardContent>
             </Card>

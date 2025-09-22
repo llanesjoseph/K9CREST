@@ -4,7 +4,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Dog,
+  BarChart3,
   LayoutGrid,
   Calendar,
   Gavel,
@@ -19,6 +19,7 @@ import {
   ClipboardList,
   ClipboardCheck,
   LineChart,
+  Building2,
 } from "lucide-react";
 
 import {
@@ -109,13 +110,13 @@ export function AppSidebar() {
 
   return (
     <Sidebar collapsible="offcanvas" className="border-r border-sidebar-border/50">
-      <SidebarHeader className="p-4 border-b border-sidebar-border/30">
+      <SidebarHeader className="p-4 border-b border-sidebar-border/20">
         <div className="flex items-center gap-3">
-            <div className="bg-sidebar-primary p-2 rounded-xl shadow-glow transition-all duration-300 group-hover:shadow-glow group-hover:scale-105">
-                <Dog className="w-6 h-6 text-sidebar-primary-foreground" />
+            <div className="bg-gradient-to-br from-blue-600 to-blue-700 p-2 rounded-lg shadow-sm">
+                <BarChart3 className="w-5 h-5 text-white" />
             </div>
-            <h1 className="text-xl font-bold text-sidebar-foreground group-data-[collapsible=icon]:hidden bg-gradient-to-r from-sidebar-foreground to-sidebar-foreground/70 bg-clip-text text-transparent">
-              K9 Trial Pro
+            <h1 className="text-lg font-bold text-slate-800 dark:text-slate-100 group-data-[collapsible=icon]:hidden">
+              K9 CREST
             </h1>
         </div>
       </SidebarHeader>
@@ -131,14 +132,14 @@ export function AppSidebar() {
                     children: item.label,
                     side: "right",
                     }}
-                    className="justify-start h-11 px-3 rounded-lg transition-all duration-200 hover:bg-sidebar-accent/60 hover:shadow-soft group-data-[collapsible=icon]:hover:bg-sidebar-accent/80"
+                    className="justify-start h-10 px-3 rounded-md transition-all duration-150 hover:bg-slate-100 dark:hover:bg-slate-800/50 data-[active=true]:bg-blue-50 data-[active=true]:text-blue-700 dark:data-[active=true]:bg-blue-900/20 dark:data-[active=true]:text-blue-300"
                     onClick={() => setOpenMobile(false)}
                 >
                     <Link href={item.href} className="flex items-center gap-3">
-                    <div className="p-1.5 rounded-lg bg-sidebar-accent/30 group-hover:bg-sidebar-primary/20 transition-colors duration-200">
-                      <item.icon className="h-5 w-5 text-sidebar-foreground/80 group-hover:text-sidebar-foreground transition-colors duration-200" />
+                    <div className="flex items-center justify-center w-5 h-5">
+                      <item.icon className="h-4 w-4 text-slate-600 dark:text-slate-400" />
                     </div>
-                    <span className="group-data-[collapsible=icon]:hidden font-medium text-sidebar-foreground/90 group-hover:text-sidebar-foreground transition-colors duration-200">
+                    <span className="group-data-[collapsible=icon]:hidden font-medium text-slate-700 dark:text-slate-300">
                       {item.label}
                     </span>
                     </Link>
@@ -162,14 +163,14 @@ export function AppSidebar() {
                                 children: item.label,
                                 side: "right",
                                 }}
-                                className="justify-start h-11 px-3 rounded-lg transition-all duration-200 hover:bg-sidebar-accent/60 hover:shadow-soft group-data-[collapsible=icon]:hover:bg-sidebar-accent/80"
+                                className="justify-start h-10 px-3 rounded-md transition-all duration-150 hover:bg-slate-100 dark:hover:bg-slate-800/50 data-[active=true]:bg-blue-50 data-[active=true]:text-blue-700 dark:data-[active=true]:bg-blue-900/20 dark:data-[active=true]:text-blue-300"
                                 onClick={() => setOpenMobile(false)}
                             >
                                 <Link href={item.href} className="flex items-center gap-3">
-                                <div className="p-1.5 rounded-lg bg-sidebar-accent/30 group-hover:bg-sidebar-primary/20 transition-colors duration-200">
-                                  <item.icon className="h-5 w-5 text-sidebar-foreground/80 group-hover:text-sidebar-foreground transition-colors duration-200" />
+                                <div className="flex items-center justify-center w-5 h-5">
+                                  <item.icon className="h-4 w-4 text-slate-600 dark:text-slate-400" />
                                 </div>
-                                <span className="group-data-[collapsible=icon]:hidden font-medium text-sidebar-foreground/90 group-hover:text-sidebar-foreground transition-colors duration-200">
+                                <span className="group-data-[collapsible=icon]:hidden font-medium text-slate-700 dark:text-slate-300">
                                   {item.label}
                                 </span>
                                 </Link>
@@ -188,7 +189,7 @@ export function AppSidebar() {
                         View As
                     </Label>
                     <Select onValueChange={(value) => setViewAsRole(value as UserRole)} value={viewAsRole || 'admin'}>
-                        <SelectTrigger className="h-10 bg-sidebar-accent/30 border-sidebar-border/50 hover:bg-sidebar-accent/50 text-sidebar-foreground transition-all duration-200 hover:shadow-soft">
+                        <SelectTrigger className="h-9 bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-all duration-150">
                             <SelectValue placeholder="Select a role" />
                         </SelectTrigger>
                         <SelectContent>
@@ -203,31 +204,31 @@ export function AppSidebar() {
         )}
       </SidebarContent>
       
-      <SidebarFooter className="flex flex-col gap-4 p-3 mt-auto border-t border-sidebar-border/30">
-        <Link 
-          href="/dashboard/settings" 
-          className="flex items-center gap-3 hover:bg-sidebar-accent/50 rounded-lg p-3 transition-all duration-200 hover:shadow-soft group"
+      <SidebarFooter className="flex flex-col gap-4 p-3 mt-auto border-t border-slate-200 dark:border-slate-700">
+        <Link
+          href="/dashboard/settings"
+          className="flex items-center gap-3 hover:bg-slate-100 dark:hover:bg-slate-800/50 rounded-md p-3 transition-all duration-150 group"
         >
-          <Avatar className="group-data-[collapsible=icon]:h-10 group-data-[collapsible=icon]:w-10 ring-2 ring-transparent group-hover:ring-sidebar-primary/20 transition-all duration-200">
-            <AvatarImage src={user?.photoURL || `https://placehold.co/40x40`} data-ai-hint="person portrait" />
-            <AvatarFallback className="bg-sidebar-primary/20 text-sidebar-primary font-semibold">
+          <Avatar className="h-8 w-8 ring-2 ring-transparent group-hover:ring-blue-200 dark:group-hover:ring-blue-800 transition-all duration-150">
+            <AvatarImage src={user?.photoURL || `https://placehold.co/32x32`} data-ai-hint="person portrait" />
+            <AvatarFallback className="bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 font-semibold text-sm">
               {user?.email?.[0].toUpperCase() || 'U'}
             </AvatarFallback>
           </Avatar>
           <div className="flex flex-col flex-grow overflow-hidden group-data-[collapsible=icon]:hidden">
-            <span className="text-sm font-semibold truncate text-sidebar-foreground">
+            <span className="text-sm font-medium truncate text-slate-800 dark:text-slate-200">
               {user?.displayName || user?.email || "User"}
             </span>
-            <span className="text-xs text-sidebar-foreground/60 truncate">
-              {role.charAt(0).toUpperCase() + role.slice(1)} 
-              {viewAsRole && isTrueAdmin ? ` (Viewing as ${viewAsRole.charAt(0).toUpperCase() + viewAsRole.slice(1)})` : ''}
+            <span className="text-xs text-slate-500 dark:text-slate-400 truncate">
+              {role.charAt(0).toUpperCase() + role.slice(1)}
+              {viewAsRole && isTrueAdmin ? ` (${viewAsRole})` : ''}
             </span>
           </div>
-           <Button 
-             variant="ghost" 
-             size="icon" 
-             onClick={handleSignOut} 
-             className="shrink-0 group-data-[collapsible=icon]:hidden hover:bg-sidebar-accent/80 hover:text-sidebar-foreground transition-all duration-200"
+           <Button
+             variant="ghost"
+             size="icon"
+             onClick={handleSignOut}
+             className="shrink-0 group-data-[collapsible=icon]:hidden hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400 transition-all duration-150 h-8 w-8"
            >
              <LogOut className="h-4 w-4" />
            </Button>

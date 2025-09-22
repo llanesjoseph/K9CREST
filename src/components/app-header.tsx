@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import {
-  Dog,
+  BarChart3,
   LogOut,
   Shield,
   Eye,
@@ -18,6 +18,7 @@ import {
   Users,
   Menu,
   PanelLeft,
+  Building2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { auth } from "@/lib/firebase";
@@ -91,11 +92,11 @@ export function AppHeader() {
       </Button>
       
       <Link href="/dashboard" className="flex items-center gap-3 font-semibold text-lg group">
-        <div className="bg-primary p-2 rounded-xl shadow-glow transition-all duration-300 group-hover:shadow-glow group-hover:scale-105">
-          <Dog className="h-6 w-6 text-primary-foreground" />
+        <div className="bg-gradient-to-br from-blue-600 to-blue-700 p-2.5 rounded-lg shadow-sm transition-all duration-200 group-hover:shadow-md group-hover:from-blue-700 group-hover:to-blue-800">
+          <BarChart3 className="h-5 w-5 text-white" />
         </div>
-        <span className="hidden sm:inline-block bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
-          K9 Trial Pro
+        <span className="hidden sm:inline-block font-bold text-slate-800 dark:text-slate-100">
+          K9 CREST
         </span>
       </Link>
       
