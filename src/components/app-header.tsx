@@ -105,15 +105,18 @@ export function AppHeader() {
   return (
     <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-md border-b">
       {/* Top Header */}
-      <div className="flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
+      <div className="flex h-24 items-center justify-between px-4 sm:px-6 lg:px-8">
         <Link href="/dashboard" className="flex items-center gap-3 font-semibold text-lg group">
-          <Image
-            src="https://res.cloudinary.com/dr0jtjwlh/image/upload/v1755946406/SCORE_gl8aws.png"
-            alt="SCORE Logo"
-            width={120}
-            height={40}
-            className="h-8 w-auto transition-all duration-200 group-hover:opacity-90"
-          />
+          <div className="relative">
+            <Image
+              src="https://res.cloudinary.com/dr0jtjwlh/image/upload/v1755946406/SCORE_gl8aws.png"
+              alt="SCORE Logo"
+              width={220}
+              height={80}
+              className="h-16 w-auto transition-all duration-200 group-hover:opacity-90 group-hover:scale-105 drop-shadow-md"
+              priority
+            />
+          </div>
         </Link>
 
         <div className="flex items-center gap-2">

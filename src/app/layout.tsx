@@ -6,8 +6,14 @@ import { AnalyticsLoader } from "@/components/analytics-loader";
 // Prefer default dynamic behavior; remove force-dynamic for better caching where applicable
 
 export const metadata: Metadata = {
-  title: 'K9 Trial Scoring System',
-  description: 'A comprehensive system for managing and scoring K9 trials.',
+  title: 'SCORE - Professional Trial Management System',
+  description: 'Professional trial management and scoring system powered by K9 CREST technology.',
+  icons: {
+    icon: '/icon.png',
+    apple: '/apple-icon.png',
+    shortcut: '/icon.png',
+  },
+  manifest: '/manifest.json',
 };
 
 export default function RootLayout({

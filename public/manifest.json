@@ -1,0 +1,22 @@
+{
+  "name": "SCORE - Professional Trial Management System",
+  "short_name": "SCORE",
+  "description": "Professional trial management and scoring system powered by K9 CREST technology.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#dc2626",
+  "icons": [
+    {
+      "src": "/icon.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/apple-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ]
+}
