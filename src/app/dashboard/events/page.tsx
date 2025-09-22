@@ -303,7 +303,7 @@ export default function EventsPage() {
                   <AlertDialogHeader>
                     <AlertDialogTitle>Delete Event</AlertDialogTitle>
                     <AlertDialogDescription>
-                      Are you sure you want to delete "{row.name}"? This action cannot be undone and will permanently remove all associated data.
+                      Are you sure you want to delete {row.name}? This action cannot be undone and will permanently remove all associated data.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
