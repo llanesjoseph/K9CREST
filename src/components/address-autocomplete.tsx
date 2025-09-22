@@ -72,7 +72,7 @@ export function AddressAutocomplete({ value, onChange }: AddressAutocompleteProp
 
       window.initGoogleMaps = () => {
         setIsGoogleMapsLoaded(true);
-        if (window.google?.maps?.places) {
+        if (window.google?.maps?.places?.AutocompleteService) {
           autocompleteServiceRef.current = new window.google.maps.places.AutocompleteService();
         }
       };
