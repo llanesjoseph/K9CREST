@@ -168,7 +168,7 @@ export default function LoginPage() {
       </div>
       <div className="hidden bg-muted lg:flex lg:flex-col lg:items-center lg:justify-start p-12 pt-24">
         <div className="flex items-center gap-4 text-primary mb-8">
-           <Image src="https://res.cloudinary.com/dr0jtjwlh/image/upload/v1755735658/core_LOGO_iaxkl6.png" alt="Core Logo" width={150} height={150} data-ai-hint="logo company" />
+           <Image src="https://res.cloudinary.com/dr0jtjwlh/image/upload/v1755735658/core_LOGO_iaxkl6.png" alt="Core Logo" width={250} height={200} data-ai-hint="logo company" />
         </div>
         <div className="space-y-6 max-w-md text-center">
           <h2 className="text-3xl font-bold tracking-tight font-headline">
