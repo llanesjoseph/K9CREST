@@ -11,6 +11,10 @@ import {
   ListChecks,
   Shield,
   Eye,
+  Activity,
+  Award,
+  Clock,
+  UserCheck,
 } from "lucide-react";
 import Link from "next/link";
 import { useAuth, UserRole } from "@/components/auth-provider";
@@ -22,6 +26,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { StatsCard, StatsGrid } from "@/components/ui/stats-card";
+import { LoadingCard } from "@/components/ui/loading";
 
 interface ActionCardProps {
   title: string;
@@ -40,27 +46,29 @@ const ActionCard = ({
 }: ActionCardProps) => {
   const content = (
     <Card
-      className={`h-full transition-all duration-300 group ${
+      className={`h-full transition-all duration-200 group ${
         disabled
-          ? "bg-muted/30 border-muted/50 cursor-not-allowed opacity-60"
-          : "card-interactive bg-gradient-to-br from-card to-card/50 border-border/50 hover:border-primary/30 hover:shadow-large"
+          ? "bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 cursor-not-allowed opacity-60"
+          : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-600 hover:shadow-lg hover:-translate-y-1"
       }`}
     >
-      <CardHeader className="flex flex-row items-start gap-4 p-6">
-        <div className={`p-3 rounded-xl transition-all duration-300 ${
-          disabled 
-            ? "bg-muted/50 text-muted-foreground" 
-            : "bg-primary/10 text-primary group-hover:bg-primary/20 group-hover:scale-110"
-        }`}>
-          <Icon className="h-6 w-6" />
-        </div>
-        <div className="space-y-2 flex-1">
-          <CardTitle className="text-lg font-semibold text-foreground">
-            {title}
-          </CardTitle>
-          <CardDescription className="text-sm text-muted-foreground leading-relaxed">
-            {description}
-          </CardDescription>
+      <CardHeader className="p-6">
+        <div className="flex items-start gap-4">
+          <div className={`p-3 rounded-lg transition-all duration-200 ${
+            disabled
+              ? "bg-slate-100 dark:bg-slate-700 text-slate-400"
+              : "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 group-hover:bg-blue-200 dark:group-hover:bg-blue-900/50 group-hover:scale-105"
+          }`}>
+            <Icon className="h-6 w-6" />
+          </div>
+          <div className="space-y-2 flex-1 min-w-0">
+            <CardTitle className="text-lg font-semibold text-slate-900 dark:text-slate-100 group-hover:text-blue-700 dark:group-hover:text-blue-300 transition-colors">
+              {title}
+            </CardTitle>
+            <CardDescription className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+              {description}
+            </CardDescription>
+          </div>
         </div>
       </CardHeader>
     </Card>
@@ -90,7 +98,7 @@ const RoleSection = ({
       </h2>
       <Separator className="flex-1 bg-gradient-to-l from-transparent via-border to-transparent" />
     </div>
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
       {children}
     </div>
   </div>
@@ -175,44 +183,40 @@ export default function Dashboard() {
           </p>
         </div>
         
-        {/* Quick Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4">
-          <div className="bg-gradient-to-r from-primary/5 to-primary/10 border border-primary/20 rounded-lg p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-primary/20 rounded-lg">
-                <LayoutGrid className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Active Role</p>
-                <p className="text-lg font-semibold text-foreground capitalize">{currentRole}</p>
-              </div>
-            </div>
-          </div>
-          
-          <div className="bg-gradient-to-r from-secondary/5 to-secondary/10 border border-secondary/20 rounded-lg p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-secondary/20 rounded-lg">
-                <Calendar className="h-5 w-5 text-secondary" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Events</p>
-                <p className="text-lg font-semibold text-foreground">View All</p>
-              </div>
-            </div>
-          </div>
-          
-          <div className="bg-gradient-to-r from-accent/5 to-accent/10 border border-accent/20 rounded-lg p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-accent/20 rounded-lg">
-                <Settings className="h-5 w-5 text-accent-foreground" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Settings</p>
-                <p className="text-lg font-semibold text-foreground">Configure</p>
-              </div>
-            </div>
-          </div>
-        </div>
+        {/* Dashboard Stats */}
+        <StatsGrid className="pt-4">
+          <StatsCard
+            title="Current Role"
+            value={currentRole.charAt(0).toUpperCase() + currentRole.slice(1)}
+            icon={UserCheck}
+            variant="info"
+            description={isTrueAdmin && viewAsRole ? "Admin viewing mode" : "Active session"}
+          />
+          <StatsCard
+            title="Active Events"
+            value="3"
+            icon={Calendar}
+            variant="success"
+            change={{ value: 15, type: "increase", period: "this week" }}
+            description="Events currently running"
+          />
+          <StatsCard
+            title="Total Competitors"
+            value="248"
+            icon={Users}
+            variant="default"
+            change={{ value: 8, type: "increase", period: "this month" }}
+            description="Registered participants"
+          />
+          <StatsCard
+            title="Scores Processed"
+            value="1,429"
+            icon={Activity}
+            variant="success"
+            change={{ value: 23, type: "increase", period: "today" }}
+            description="Real-time scoring updates"
+          />
+        </StatsGrid>
       </div>
 
       {/* Action Cards Section */}
