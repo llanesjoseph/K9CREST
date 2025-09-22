@@ -98,12 +98,12 @@ export function RoleDebugger() {
             <div>
               <label className="text-sm font-medium">Role Switching</label>
               <div className="flex gap-2 mt-2">
-                <Select value={viewAsRole || ''} onValueChange={(value) => setViewAsRole(value as any || null)}>
+                <Select value={viewAsRole || 'reset'} onValueChange={(value) => setViewAsRole(value === 'reset' ? null : value as any)}>
                   <SelectTrigger className="w-48">
                     <SelectValue placeholder="Switch to role..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Reset to true role</SelectItem>
+                    <SelectItem value="reset">Reset to true role</SelectItem>
                     <SelectItem value="admin">Admin</SelectItem>
                     <SelectItem value="judge">Judge</SelectItem>
                     <SelectItem value="competitor">Competitor</SelectItem>
