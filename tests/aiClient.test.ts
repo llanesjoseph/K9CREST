@@ -21,7 +21,6 @@ describe('ai client', () => {
         json: async () => ({ candidates: [{ content: { parts: [{ text: 'ok' }] } }] }),
       } as any);
 
-    // @ts-expect-error override global
     global.fetch = mockFetch;
 
     const text = await generateText('hi');
@@ -31,7 +30,6 @@ describe('ai client', () => {
 
   it('throws if no candidates are returned', async () => {
     const { generateText } = await import('../src/ai/genkit');
-    // @ts-expect-error override global
     global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
     await expect(generateText('hi')).rejects.toThrow(/No text candidates/);
   });

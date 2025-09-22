@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { CheckCircle, AlertCircle, Info, X, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -59,6 +59,11 @@ function NotificationItem({ notification, onDismiss }: NotificationItemProps) {
   const styles = notificationStyles[notification.type];
   const Icon = styles.IconComponent;
 
+  const handleDismiss = useCallback(() => {
+    setIsVisible(false);
+    setTimeout(() => onDismiss(notification.id), 300);
+  }, [onDismiss, notification.id]);
+
   useEffect(() => {
     // Trigger entrance animation
     const timer = setTimeout(() => setIsVisible(true), 100);
@@ -72,12 +77,7 @@ function NotificationItem({ notification, onDismiss }: NotificationItemProps) {
       }, notification.duration);
       return () => clearTimeout(timer);
     }
-  }, [notification.duration]);
-
-  const handleDismiss = () => {
-    setIsVisible(false);
-    setTimeout(() => onDismiss(notification.id), 300);
-  };
+  }, [notification.duration, handleDismiss]);
 
   return (
     <div
