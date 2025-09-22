@@ -16,7 +16,8 @@
     "deploy:all": "npm run build && firebase deploy",
     "preview": "firebase hosting:channel:open",
     "vercel-build": "npm run build",
-    "postinstall": "npm run typecheck || true"
+    "postinstall": "npm run typecheck || true",
+    "set-admin": "node scripts/set-initial-admin.js"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.1.0",
