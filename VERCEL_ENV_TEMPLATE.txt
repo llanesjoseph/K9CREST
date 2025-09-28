@@ -10,8 +10,18 @@ NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=174322418803
 NEXT_PUBLIC_FIREBASE_APP_ID=1:174322418803:web:8b556b1f6f3d3dc45dd606
 NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=G-SS5GVZNWBQ
 
-# Google AI API
-GOOGLE_API_KEY=AIzaSyC7_oCz3qt2uyU2pTuOMp3UCYd46pVsOVM
+# Google Maps API Key (Client-side)
+NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=AIzaSyCV48BsLRT-47veX6vgjWWGYHJG2xNQDtc
+
+# Google API Keys - Multiple keys for different services
+# Primary AI API Key (for Google Generative AI)
+GOOGLE_API_KEY=AIzaSyB8VrpiQDh4DICbDlbb6jeyTz7Rov3EVAw
+
+# Maps API Key (for Google Maps and Places API)
+GOOGLE_MAPS_API_KEY=AIzaSyCV48BsLRT-47veX6vgjWWGYHJG2xNQDtc
+
+# Additional API Key (backup/general use)
+GOOGLE_API_KEY_2=AIzaSyAEmN3RogWpgLye-pGwqiZzXUF8eEpkOXQ
 
 # Firebase Admin SDK (Get these from Firebase Console → Project Settings → Service Accounts)
 FIREBASE_PRIVATE_KEY=-----BEGIN PRIVATE KEY-----\nYOUR_PRIVATE_KEY_HERE\n-----END PRIVATE KEY-----\n

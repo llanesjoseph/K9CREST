@@ -9,11 +9,15 @@ const clientEnvSchema = z.object({
   NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: z.string().min(1, "NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID is required"),
   NEXT_PUBLIC_FIREBASE_APP_ID: z.string().min(1, "NEXT_PUBLIC_FIREBASE_APP_ID is required"),
   NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID: z.string().min(1, "NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID is required"),
+  NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: z.string().min(1, "NEXT_PUBLIC_GOOGLE_MAPS_API_KEY is required"),
 });
 
 // Server-side environment schema
 const serverEnvSchema = clientEnvSchema.extend({
-  GOOGLE_API_KEY: z.string().min(1, "GOOGLE_API_KEY is required"),
+  // Google API Keys - Multiple keys for different services
+  GOOGLE_API_KEY: z.string().min(1, "GOOGLE_API_KEY is required"), // Primary AI API key
+  GOOGLE_MAPS_API_KEY: z.string().min(1, "GOOGLE_MAPS_API_KEY is required"), // Maps and Places API
+  GOOGLE_API_KEY_2: z.string().optional(), // Backup/general use API key
   
   // Firebase Admin SDK (required for server-side operations)
   FIREBASE_PRIVATE_KEY: z.string().min(1, "FIREBASE_PRIVATE_KEY is required"),
