@@ -1,94 +1,73 @@
 #!/usr/bin/env node
 
-// AGGRESSIVE ADMIN SETTER SCRIPT
-// This will forcefully set joseph@crucibleanalytics.dev as admin
+/**
+ * Admin Setup Script for joseph@crucibleanalytics.dev
+ * This script helps set up admin access for the designated admin user.
+ */
 
-const { initializeApp, getApps, cert } = require('firebase-admin/app');
+const { initializeApp, cert } = require('firebase-admin/app');
 const { getAuth } = require('firebase-admin/auth');
 const { getFirestore } = require('firebase-admin/firestore');
 
-// Check for required environment variables
+// Initialize Firebase Admin SDK
 if (!process.env.FIREBASE_PRIVATE_KEY || !process.env.FIREBASE_CLIENT_EMAIL) {
-  console.log('❌ Missing Firebase credentials in environment variables');
-  console.log('Make sure FIREBASE_PRIVATE_KEY and FIREBASE_CLIENT_EMAIL are set');
+  console.error('❌ Error: Firebase Admin SDK credentials not found in environment variables.');
+  console.log('Please set FIREBASE_PRIVATE_KEY and FIREBASE_CLIENT_EMAIL in your .env.local file');
   process.exit(1);
 }
 
-// Initialize Firebase Admin
-if (!getApps().length) {
-  try {
-    initializeApp({
-      credential: cert({
-        projectId: "k9-trials-tracker",
-        privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-      }),
-    });
-    console.log('✅ Firebase Admin initialized');
-  } catch (error) {
-    console.error('❌ Failed to initialize Firebase Admin:', error.message);
-    process.exit(1);
-  }
+try {
+  initializeApp({
+    credential: cert({
+      projectId: "k9-trials-tracker",
+      privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+    }),
+  });
+  console.log('✅ Firebase Admin SDK initialized');
+} catch (error) {
+  console.error('❌ Failed to initialize Firebase Admin SDK:', error.message);
+  process.exit(1);
 }
 
-async function setAdmin() {
+async function setAdminRole() {
   const targetEmail = 'joseph@crucibleanalytics.dev';
-
+  
   try {
-    console.log('🚀 Starting aggressive admin setup...');
-
     // Get user by email
-    console.log(`📧 Looking up user: ${targetEmail}`);
     const userRecord = await getAuth().getUserByEmail(targetEmail);
-    console.log(`✅ Found user: ${userRecord.uid}`);
-
-    // Set admin claims
-    console.log('🔐 Setting admin custom claims...');
+    console.log(`✅ Found user: ${userRecord.email} (UID: ${userRecord.uid})`);
+    
+    // Set admin role in Firebase Auth
     await getAuth().setCustomUserClaims(userRecord.uid, { role: 'admin' });
-    console.log('✅ Admin claims set successfully');
-
-    // Set in Firestore
-    console.log('💾 Updating Firestore user document...');
+    console.log('✅ Admin role set in Firebase Auth');
+    
+    // Set admin role in Firestore
     const db = getFirestore();
     await db.collection('users').doc(userRecord.uid).set({
       email: targetEmail,
       role: 'admin',
       updatedAt: new Date().toISOString(),
-      forceSet: true,
-      setBy: 'admin-script'
+      displayName: userRecord.displayName || 'Admin User',
+      photoURL: userRecord.photoURL || null,
     }, { merge: true });
-    console.log('✅ Firestore document updated');
-
-    console.log('');
-    console.log('🎉 SUCCESS! joseph@crucibleanalytics.dev is now admin');
-    console.log('');
-    console.log('Next steps:');
-    console.log('1. Go to your app and sign in as joseph@crucibleanalytics.dev');
-    console.log('2. You should immediately have admin access');
-    console.log('3. You should see the role switcher bar');
-    console.log('4. You can now create events and manage the system');
-    console.log('');
-
+    console.log('✅ Admin role set in Firestore');
+    
+    console.log('\n🎉 SUCCESS: joseph@crucibleanalytics.dev is now an admin!');
+    console.log('📋 Next steps:');
+    console.log('1. Log out and log back in to refresh your authentication token');
+    console.log('2. You should now see all admin features in the dashboard');
+    console.log('3. You can create events, manage users, and access all creation items');
+    
   } catch (error) {
-    console.error('❌ Error setting admin:', error.message);
-
     if (error.code === 'auth/user-not-found') {
-      console.log('');
-      console.log('💡 User not found. Make sure:');
-      console.log('1. joseph@crucibleanalytics.dev has signed in to the app at least once');
-      console.log('2. The email is correct');
-      console.log('');
+      console.error(`❌ User ${targetEmail} not found. Please make sure the user has signed up first.`);
+    } else {
+      console.error('❌ Error setting admin role:', error.message);
     }
-
     process.exit(1);
   }
 }
 
-// Run the script
-setAdmin().then(() => {
-  console.log('Script completed successfully');
-  process.exit(0);
-}).catch((error) => {
-  console.error('Script failed:', error.message);
-  process.exit(1);
-});
+// Run the admin setup
+setAdminRole();
