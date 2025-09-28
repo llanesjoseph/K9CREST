@@ -1,0 +1,34 @@
+# VERCEL ENVIRONMENT VARIABLES TEMPLATE
+# Copy these to your Vercel project settings → Environment Variables
+
+# Firebase Client Configuration (NEXT_PUBLIC_ vars)
+NEXT_PUBLIC_FIREBASE_API_KEY=AIzaSyDQfOtv4r6MF-BhT-YAYnJvDcn-oyIXt_M
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=k9-trials-tracker.firebaseapp.com
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=k9-trials-tracker
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=k9-trials-tracker.firebasestorage.app
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=174322418803
+NEXT_PUBLIC_FIREBASE_APP_ID=1:174322418803:web:8b556b1f6f3d3dc45dd606
+NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=G-SS5GVZNWBQ
+
+# Google AI API
+GOOGLE_API_KEY=AIzaSyC7_oCz3qt2uyU2pTuOMp3UCYd46pVsOVM
+
+# Firebase Admin SDK (Get these from Firebase Console → Project Settings → Service Accounts)
+FIREBASE_PRIVATE_KEY=-----BEGIN PRIVATE KEY-----\nYOUR_PRIVATE_KEY_HERE\n-----END PRIVATE KEY-----\n
+FIREBASE_CLIENT_EMAIL=firebase-adminsdk-xxxxx@k9-trials-tracker.iam.gserviceaccount.com
+
+# Security Configuration (Optional - defaults provided)
+RATE_LIMIT_REQUESTS=100
+RATE_LIMIT_WINDOW=900000
+MAX_FILE_SIZE=10485760
+
+# Email Configuration (Optional for MVP)
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_USER=your-email@gmail.com
+EMAIL_PASS=your-app-password
+EMAIL_FROM=your-email@gmail.com
+
+# Sentry (Optional)
+SENTRY_DSN=your_sentry_dsn_here
+SENTRY_ENVIRONMENT=production
