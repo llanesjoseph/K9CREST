@@ -6,17 +6,19 @@ I've identified and secured your three API keys from the Google Cloud Console sc
 
 ### **🔑 API KEYS TO ADD:**
 
+**⚠️ SECURITY NOTICE: The API keys shown in the Google Cloud Console screenshots have been compromised and should be regenerated immediately.**
+
 1. **AI API Key** (for Google Generative AI):
-   - **Key**: `AIzaSyB8VrpiQDh4DICbDlbb6jeyTz7Rov3EVAw`
    - **Purpose**: Google Generative AI for address suggestions, CSV parsing, scheduling assistance
+   - **Action Required**: Generate new key in Google Cloud Console
 
 2. **Maps API Key** (for Google Maps and Places):
-   - **Key**: `AIzaSyCV48BsLRT-47veX6vgjWWGYHJG2xNQDtc`
-   - **Purpose**: Google Maps, Places API, address autocomplete
+   - **Purpose**: Google Maps, Places API, address autocomplete  
+   - **Action Required**: Generate new key in Google Cloud Console
 
 3. **Additional API Key** (backup/general use):
-   - **Key**: `AIzaSyAEmN3RogWpgLye-pGwqiZzXUF8eEpkOXQ`
    - **Purpose**: Backup or additional Google services
+   - **Action Required**: Generate new key in Google Cloud Console
 
 ---
 
@@ -39,17 +41,17 @@ NEXT_PUBLIC_FIREBASE_APP_ID=1:174322418803:web:8b556b1f6f3d3dc45dd606
 NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=G-SS5GVZNWBQ
 
 # Google Maps API Key (Client-side)
-NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=AIzaSyCV48BsLRT-47veX6vgjWWGYHJG2xNQDtc
+NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=YOUR_NEW_GOOGLE_MAPS_API_KEY_HERE
 
 # Google API Keys - Server-side
 # Primary AI API Key (for Google Generative AI)
-GOOGLE_API_KEY=AIzaSyB8VrpiQDh4DICbDlbb6jeyTz7Rov3EVAw
+GOOGLE_API_KEY=YOUR_NEW_GOOGLE_AI_API_KEY_HERE
 
 # Maps API Key (for Google Maps and Places API)
-GOOGLE_MAPS_API_KEY=AIzaSyCV48BsLRT-47veX6vgjWWGYHJG2xNQDtc
+GOOGLE_MAPS_API_KEY=YOUR_NEW_GOOGLE_MAPS_API_KEY_HERE
 
 # Additional API Key (backup/general use)
-GOOGLE_API_KEY_2=AIzaSyAEmN3RogWpgLye-pGwqiZzXUF8eEpkOXQ
+GOOGLE_API_KEY_2=YOUR_NEW_GOOGLE_API_KEY_2_HERE
 
 # Firebase Admin SDK (Server-side) - Add these when deploying to Vercel
 # FIREBASE_PRIVATE_KEY=your_firebase_private_key_here
