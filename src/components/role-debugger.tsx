@@ -22,9 +22,9 @@ export function RoleDebugger() {
   ];
 
   const eventMenuItems = [
-    { href: "/dashboard/events/test-event/schedule", label: "Schedule (Click to Judge)", icon: Calendar, roles: ['admin', 'judge', 'competitor', 'spectator'] },
-    { href: "/dashboard/events/test-event/competitors", label: "Competitors", icon: Users, roles: ['admin', 'judge', 'competitor', 'spectator'] },
-    { href: "/dashboard/events/test-event/leaderboard", label: "Leaderboard", icon: Trophy, roles: ['admin', 'judge', 'competitor', 'spectator'] },
+    { href: "/dashboard/events/", label: "Schedule (Click to Judge)", icon: Calendar, roles: ['admin', 'judge', 'competitor', 'spectator'] },
+    { href: "/dashboard/events/", label: "Competitors", icon: Users, roles: ['admin', 'judge', 'competitor', 'spectator'] },
+    { href: "/dashboard/events/", label: "Leaderboard", icon: Trophy, roles: ['admin', 'judge', 'competitor', 'spectator'] },
   ];
 
   const currentRole = viewAsRole || role;

@@ -144,7 +144,7 @@ export default function UsersPage() {
                                 <AvatarFallback>{user.email?.charAt(0).toUpperCase()}</AvatarFallback>
                             </Avatar>
                             <div>
-                                <div className="font-medium">{user.displayName || 'Invited User'}</div>
+                                <div className="font-medium">{user.displayName || 'User'}</div>
                                 <div className="text-sm text-muted-foreground">
                                 {user.email}
                                 </div>
