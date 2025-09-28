@@ -109,8 +109,8 @@ export function AppHeader() {
         <Link href="/dashboard" className="flex items-center gap-3 font-semibold text-lg group">
           <div className="relative">
             <Image
-              src="https://res.cloudinary.com/dr0jtjwlh/image/upload/v1755946406/SCORE_gl8aws.png"
-              alt="SCORE Logo"
+              src="https://res.cloudinary.com/dr0jtjwlh/image/upload/v1755735651/core_LOGO_ioqkg4.png"
+              alt="K9 CREST Logo"
               width={220}
               height={80}
               className="h-16 w-auto transition-all duration-200 group-hover:opacity-90 group-hover:scale-105 drop-shadow-md"
