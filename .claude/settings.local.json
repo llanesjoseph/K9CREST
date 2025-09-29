@@ -14,7 +14,8 @@
       "Bash(npm run set-admin:*)",
       "Bash(npm run typecheck:*)",
       "Bash(npm run build:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(npm install)"
     ],
     "deny": [],
     "ask": []
