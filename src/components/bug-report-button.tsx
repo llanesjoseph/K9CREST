@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import dynamic from "next/dynamic";
 import { Bug, X, Send, Loader2, CheckCircle, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,17 +24,24 @@ interface ConsoleError {
   type: "error" | "warn" | "info";
 }
 
-export function BugReportButton() {
+function BugReportButtonComponent() {
   const [isOpen, setIsOpen] = useState(false);
   const [errors, setErrors] = useState<ConsoleError[]>([]);
   const [description, setDescription] = useState("");
   const [title, setTitle] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
 
+  // Prevent SSR issues
   useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isMounted) return;
     // Capture console errors
     const originalError = console.error;
     const originalWarn = console.warn;
@@ -108,7 +116,7 @@ export function BugReportButton() {
       window.removeEventListener("error", handleError);
       window.removeEventListener("unhandledrejection", handleRejection);
     };
-  }, []);
+  }, [isMounted]);
 
   const handleSubmit = async () => {
     if (!title.trim()) {
@@ -296,12 +304,16 @@ export function BugReportButton() {
                 <div>
                   <strong>User:</strong> {user?.email || "Not logged in"}
                 </div>
-                <div>
-                  <strong>URL:</strong> {window.location.pathname}
-                </div>
-                <div className="break-all">
-                  <strong>Browser:</strong> {navigator.userAgent}
-                </div>
+                {isMounted && (
+                  <>
+                    <div>
+                      <strong>URL:</strong> {window.location.pathname}
+                    </div>
+                    <div className="break-all">
+                      <strong>Browser:</strong> {navigator.userAgent}
+                    </div>
+                  </>
+                )}
               </div>
 
               {/* Actions */}
@@ -334,3 +346,9 @@ export function BugReportButton() {
     </>
   );
 }
+
+// Export with dynamic import to prevent SSR
+export const BugReportButton = dynamic(
+  () => Promise.resolve(BugReportButtonComponent),
+  { ssr: false }
+);
