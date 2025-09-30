@@ -1,0 +1,136 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && request.auth.token.role == 'admin';
+    }
+
+    function isJudge() {
+      return isAuthenticated() && request.auth.token.role == 'judge';
+    }
+
+    function isCompetitor() {
+      return isAuthenticated() && request.auth.token.role == 'competitor';
+    }
+
+    function isSpectator() {
+      return isAuthenticated() && request.auth.token.role == 'spectator';
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isValidRole(role) {
+      return role in ['admin', 'judge', 'competitor', 'spectator'];
+    }
+
+    function isValidString(value, minLength, maxLength) {
+      return value is string && value.size() >= minLength && value.size() <= maxLength;
+    }
+
+    function isValidTimestamp(value) {
+      return value is timestamp;
+    }
+
+    // Users collection: list and write by admins; a user may read their own profile doc
+    match /users/{userId} {
+      allow read: if isAdmin() || (isAuthenticated() && request.auth.uid == userId);
+      allow create: if isAdmin() && 
+        isValidRole(request.resource.data.role) &&
+        isValidString(request.resource.data.email, 5, 100) &&
+        isValidString(request.resource.data.uid, 1, 100);
+      allow update: if isAdmin() && 
+        isValidRole(request.resource.data.role) &&
+        isValidString(request.resource.data.email, 5, 100);
+      allow delete: if isAdmin();
+    }
+
+    // Events: readable by authenticated users; writable only by admins
+    match /events/{eventId} {
+      allow read: if isAuthenticated();
+      allow create: if isAdmin() && 
+        isValidString(request.resource.data.name, 1, 100) &&
+        isValidTimestamp(request.resource.data.createdAt);
+      allow update: if isAdmin() && 
+        isValidString(request.resource.data.name, 1, 100);
+      allow delete: if isAdmin();
+
+      // Competitors subcollection
+      match /competitors/{competitorId} {
+        allow read: if isAuthenticated();
+        allow create: if isAdmin() && 
+          isValidString(request.resource.data.name, 1, 100) &&
+          isValidString(request.resource.data.dogName, 1, 100) &&
+          isValidString(request.resource.data.agency, 1, 100);
+        allow update: if isAdmin() || 
+          (isAuthenticated() && 
+           request.resource.data.userId == request.auth.uid &&
+           isValidString(request.resource.data.name, 1, 100) &&
+           isValidString(request.resource.data.dogName, 1, 100) &&
+           isValidString(request.resource.data.agency, 1, 100));
+        allow delete: if isAdmin();
+      }
+
+      // Schedule subcollection
+      match /schedule/{scheduleId} {
+        allow read: if isAuthenticated();
+        allow create: if isAdmin() && 
+          isValidString(request.resource.data.competitorId, 1, 100) &&
+          isValidString(request.resource.data.arenaId, 1, 100) &&
+          isValidString(request.resource.data.startTime, 1, 10) &&
+          isValidString(request.resource.data.date, 8, 10);
+        allow update: if isAdmin() || 
+          (isJudge() && 
+           isValidString(request.resource.data.status, 1, 20));
+        allow delete: if isAdmin();
+      }
+
+      // Judging subcollection
+      match /judging/{runId} {
+        allow read: if isAuthenticated();
+        allow create: if isAdmin();
+        allow update: if isAdmin() || 
+          (isJudge() && 
+           isValidString(request.resource.data.status, 1, 20) &&
+           (request.resource.data.totalTime == null || 
+            request.resource.data.totalTime is number));
+        allow delete: if isAdmin();
+
+        // Deductions subcollection
+        match /deductions/{deductionId} {
+          allow read: if isAuthenticated();
+          allow create: if isAdmin() || isJudge();
+          allow update: if isAdmin() || isJudge();
+          allow delete: if isAdmin() || isJudge();
+        }
+      }
+    }
+
+    // Rubrics: readable by authenticated; writable only by admins
+    match /rubrics/{rubricId} {
+      allow read: if isAuthenticated();
+      allow create: if isAdmin() && 
+        isValidString(request.resource.data.name, 1, 100) &&
+        request.resource.data.judgingInterface in ['phases', 'simple'];
+      allow update: if isAdmin() && 
+        isValidString(request.resource.data.name, 1, 100) &&
+        request.resource.data.judgingInterface in ['phases', 'simple'];
+      allow delete: if isAdmin();
+    }
+
+    // System logs (for audit trails)
+    match /system_logs/{logId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin();
+      allow update: if false; // Logs are immutable
+      allow delete: if false; // Logs are immutable
+    }
+  }
+}

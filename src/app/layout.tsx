@@ -2,6 +2,7 @@ import type {Metadata} from 'next';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster"
 import { AnalyticsLoader } from "@/components/analytics-loader";
+import { BugReportButton } from "@/components/bug-report-button";
 
 // Prefer default dynamic behavior; remove force-dynamic for better caching where applicable
 
@@ -27,6 +28,7 @@ export default function RootLayout({
         <AnalyticsLoader />
         {children}
         <Toaster />
+        <BugReportButton />
       </body>
     </html>
   );

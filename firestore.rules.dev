@@ -1,0 +1,100 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (request.auth.token.role == 'admin' ||
+         request.auth.token.email == 'joseph@crucibleanalytics.dev');
+    }
+
+    function isJudge() {
+      return isAuthenticated() && request.auth.token.role == 'judge';
+    }
+
+    function isCompetitor() {
+      return isAuthenticated() && request.auth.token.role == 'competitor';
+    }
+
+    function isSpectator() {
+      return isAuthenticated() && request.auth.token.role == 'spectator';
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isValidRole(role) {
+      return role in ['admin', 'judge', 'competitor', 'spectator'];
+    }
+
+    function isValidString(value, minLength, maxLength) {
+      return value is string && value.size() >= minLength && value.size() <= maxLength;
+    }
+
+    function isValidTimestamp(value) {
+      return value is timestamp;
+    }
+
+    // 🚨 DEVELOPMENT MODE: Users collection allows authenticated writes
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // 🚨 DEVELOPMENT MODE: Events writable by authenticated users
+    match /events/{eventId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+
+      // Competitors subcollection
+      match /competitors/{competitorId} {
+        allow read: if isAuthenticated();
+        allow write: if isAuthenticated();
+      }
+
+      // Schedule subcollection
+      match /schedule/{scheduleId} {
+        allow read: if isAuthenticated();
+        allow write: if isAuthenticated();
+      }
+
+      // Judging subcollection
+      match /judging/{runId} {
+        allow read: if isAuthenticated();
+        allow write: if isAuthenticated();
+
+        // Deductions subcollection
+        match /deductions/{deductionId} {
+          allow read: if isAuthenticated();
+          allow write: if isAuthenticated();
+        }
+      }
+
+      // Assets subcollection (for banners, etc.)
+      match /assets/{assetId} {
+        allow read: if isAuthenticated();
+        allow write: if isAuthenticated();
+      }
+    }
+
+    // 🚨 DEVELOPMENT MODE: Rubrics writable by authenticated users
+    match /rubrics/{rubricId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // System logs (for audit trails)
+    match /system_logs/{logId} {
+      allow read: if isAdmin();
+      allow create: if isAuthenticated();
+      allow update: if false;
+      allow delete: if false;
+    }
+  }
+}

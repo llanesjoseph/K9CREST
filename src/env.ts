@@ -43,6 +43,11 @@ const serverEnvSchema = clientEnvSchema.extend({
   // JWT Configuration
   JWT_SECRET: z.string().optional(), // For additional JWT validation if needed
   JWT_EXPIRES_IN: z.string().optional().default("1h"),
+
+  // Resend Email Service (for bug reports and notifications)
+  RESEND_API_KEY: z.string().optional(), // Get from https://resend.com/api-keys
+  RESEND_FROM_EMAIL: z.string().optional(),
+  BUG_REPORT_EMAIL: z.string().email("BUG_REPORT_EMAIL must be a valid email if provided").optional(),
 });
 
 // Export appropriate env based on runtime
