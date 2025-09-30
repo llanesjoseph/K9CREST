@@ -154,7 +154,7 @@ function BugReportButtonComponent() {
       setIsSuccess(true);
       toast({
         title: "Bug Report Sent!",
-        description: "Thank you for helping us improve K9CREST",
+        description: "Thank you for helping us improve SCORE",
       });
 
       // Reset form after 2 seconds
@@ -220,7 +220,7 @@ function BugReportButtonComponent() {
               Report a Bug
             </DialogTitle>
             <DialogDescription>
-              Help us improve K9CREST by reporting bugs and issues you encounter.
+              Help us improve SCORE by reporting bugs and issues you encounter.
             </DialogDescription>
           </DialogHeader>
 
