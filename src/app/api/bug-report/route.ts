@@ -1,7 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Lazy initialization to avoid build-time errors when env var is not available
+let resend: Resend | null = null;
+
+function getResendClient() {
+  if (!resend && process.env.RESEND_API_KEY) {
+    resend = new Resend(process.env.RESEND_API_KEY);
+  }
+  return resend;
+}
 
 interface BugReportData {
   title: string;
@@ -110,7 +118,16 @@ export async function POST(request: NextRequest) {
     `;
 
     // Send email via Resend
-    const { data: emailData, error: emailError } = await resend.emails.send({
+    const resendClient = getResendClient();
+    if (!resendClient) {
+      console.error('Resend client not initialized - RESEND_API_KEY may be missing');
+      return NextResponse.json(
+        { error: 'Email service not configured' },
+        { status: 500 }
+      );
+    }
+
+    const { data: emailData, error: emailError } = await resendClient.emails.send({
       from: process.env.RESEND_FROM_EMAIL || 'K9CREST Bug Hunter <bugs@k9crest.com>',
       to: process.env.BUG_REPORT_EMAIL || 'joseph@crucibleanalytics.dev',
       subject: `🐛 Bug Report: ${data.title}`,
