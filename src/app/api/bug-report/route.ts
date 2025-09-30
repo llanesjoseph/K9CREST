@@ -23,6 +23,8 @@ interface BugReportData {
   userAgent: string;
   url: string;
   userEmail: string;
+  userRole?: string;
+  viewAsRole?: string;
   timestamp: string;
 }
 
@@ -95,14 +97,21 @@ export async function POST(request: NextRequest) {
                 <td style="padding: 10px; border: 1px solid #e5e7eb;">${data.userEmail}</td>
               </tr>
               <tr>
+                <td style="padding: 10px; border: 1px solid #e5e7eb; font-weight: bold;">User Role</td>
+                <td style="padding: 10px; border: 1px solid #e5e7eb; text-transform: capitalize;">
+                  ${data.userRole || 'Unknown'}
+                  ${data.viewAsRole ? `<span style="color: #ea580c;"> (viewing as ${data.viewAsRole})</span>` : ''}
+                </td>
+              </tr>
+              <tr style="background-color: #f3f4f6;">
                 <td style="padding: 10px; border: 1px solid #e5e7eb; font-weight: bold;">URL</td>
                 <td style="padding: 10px; border: 1px solid #e5e7eb;">${data.url}</td>
               </tr>
-              <tr style="background-color: #f3f4f6;">
+              <tr>
                 <td style="padding: 10px; border: 1px solid #e5e7eb; font-weight: bold;">Timestamp</td>
                 <td style="padding: 10px; border: 1px solid #e5e7eb;">${new Date(data.timestamp).toLocaleString()}</td>
               </tr>
-              <tr>
+              <tr style="background-color: #f3f4f6;">
                 <td style="padding: 10px; border: 1px solid #e5e7eb; font-weight: bold;">User Agent</td>
                 <td style="padding: 10px; border: 1px solid #e5e7eb; font-size: 11px; word-break: break-all;">${data.userAgent}</td>
               </tr>

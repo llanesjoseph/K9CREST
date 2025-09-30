@@ -32,7 +32,7 @@ function BugReportButtonComponent() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
-  const { user } = useAuth();
+  const { user, role, viewAsRole } = useAuth();
   const { toast } = useToast();
 
   // Prevent SSR issues
@@ -143,6 +143,8 @@ function BugReportButtonComponent() {
           userAgent: navigator.userAgent,
           url: window.location.href,
           userEmail: user?.email || "Anonymous",
+          userRole: role,
+          viewAsRole: viewAsRole || undefined,
           timestamp: new Date().toISOString(),
         }),
       });
@@ -303,6 +305,13 @@ function BugReportButtonComponent() {
               <div className="text-xs text-muted-foreground bg-muted rounded-md p-3 space-y-1">
                 <div>
                   <strong>User:</strong> {user?.email || "Not logged in"}
+                </div>
+                <div>
+                  <strong>Role:</strong>{" "}
+                  <span className="capitalize">
+                    {role}
+                    {viewAsRole && <span className="text-orange-600"> (viewing as {viewAsRole})</span>}
+                  </span>
                 </div>
                 {isMounted && (
                   <>
