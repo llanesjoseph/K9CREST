@@ -21,7 +21,7 @@ interface ConsoleError {
   message: string;
   stack?: string;
   timestamp: string;
-  type: "error" | "warn" | "info";
+  type: "error" | "warn" | "info" | "log";
 }
 
 function BugReportButtonComponent() {
@@ -42,9 +42,11 @@ function BugReportButtonComponent() {
 
   useEffect(() => {
     if (!isMounted) return;
-    // Capture console errors
+    // Capture all console output
     const originalError = console.error;
     const originalWarn = console.warn;
+    const originalLog = console.log;
+    const originalInfo = console.info;
 
     console.error = (...args: any[]) => {
       const errorMessage = args
@@ -52,7 +54,7 @@ function BugReportButtonComponent() {
         .join(" ");
 
       setErrors((prev) => [
-        ...prev.slice(-9), // Keep last 10 errors
+        ...prev.slice(-49), // Keep last 50 logs
         {
           message: errorMessage,
           stack: args[0]?.stack || undefined,
@@ -70,7 +72,7 @@ function BugReportButtonComponent() {
         .join(" ");
 
       setErrors((prev) => [
-        ...prev.slice(-9),
+        ...prev.slice(-49),
         {
           message: warnMessage,
           timestamp: new Date().toISOString(),
@@ -79,6 +81,40 @@ function BugReportButtonComponent() {
       ]);
 
       originalWarn.apply(console, args);
+    };
+
+    console.log = (...args: any[]) => {
+      const logMessage = args
+        .map((arg) => (typeof arg === "object" ? JSON.stringify(arg) : String(arg)))
+        .join(" ");
+
+      setErrors((prev) => [
+        ...prev.slice(-49),
+        {
+          message: logMessage,
+          timestamp: new Date().toISOString(),
+          type: "log",
+        },
+      ]);
+
+      originalLog.apply(console, args);
+    };
+
+    console.info = (...args: any[]) => {
+      const infoMessage = args
+        .map((arg) => (typeof arg === "object" ? JSON.stringify(arg) : String(arg)))
+        .join(" ");
+
+      setErrors((prev) => [
+        ...prev.slice(-49),
+        {
+          message: infoMessage,
+          timestamp: new Date().toISOString(),
+          type: "info",
+        },
+      ]);
+
+      originalInfo.apply(console, args);
     };
 
     // Capture unhandled errors
@@ -113,6 +149,8 @@ function BugReportButtonComponent() {
     return () => {
       console.error = originalError;
       console.warn = originalWarn;
+      console.log = originalLog;
+      console.info = originalInfo;
       window.removeEventListener("error", handleError);
       window.removeEventListener("unhandledrejection", handleRejection);
     };
@@ -261,11 +299,11 @@ function BugReportButtonComponent() {
                 />
               </div>
 
-              {/* Console Errors */}
+              {/* Console Logs */}
               {errors.length > 0 && (
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <Label>Console Errors ({errors.length})</Label>
+                    <Label>Console Logs ({errors.length})</Label>
                     <Button
                       variant="ghost"
                       size="sm"
@@ -276,27 +314,31 @@ function BugReportButtonComponent() {
                     </Button>
                   </div>
                   <div className="bg-muted rounded-md p-3 max-h-64 overflow-y-auto font-mono text-xs">
-                    {errors.map((error, index) => (
-                      <div
-                        key={index}
-                        className={`mb-3 pb-3 border-b border-border last:border-0 ${
-                          error.type === "error"
-                            ? "text-red-600"
-                            : "text-yellow-600"
-                        }`}
-                      >
-                        <div className="font-semibold">
-                          [{error.type.toUpperCase()}]{" "}
-                          {new Date(error.timestamp).toLocaleTimeString()}
+                    {errors.map((error, index) => {
+                      const colorClass =
+                        error.type === "error" ? "text-red-600" :
+                        error.type === "warn" ? "text-yellow-600" :
+                        error.type === "info" ? "text-blue-600" :
+                        "text-gray-600";
+
+                      return (
+                        <div
+                          key={index}
+                          className={`mb-3 pb-3 border-b border-border last:border-0 ${colorClass}`}
+                        >
+                          <div className="font-semibold">
+                            [{error.type.toUpperCase()}]{" "}
+                            {new Date(error.timestamp).toLocaleTimeString()}
+                          </div>
+                          <div className="mt-1 text-foreground">{error.message}</div>
+                          {error.stack && (
+                            <pre className="mt-1 text-xs text-muted-foreground overflow-x-auto">
+                              {error.stack}
+                            </pre>
+                          )}
                         </div>
-                        <div className="mt-1 text-foreground">{error.message}</div>
-                        {error.stack && (
-                          <pre className="mt-1 text-xs text-muted-foreground overflow-x-auto">
-                            {error.stack}
-                          </pre>
-                        )}
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}

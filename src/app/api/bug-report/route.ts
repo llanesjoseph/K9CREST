@@ -49,23 +49,31 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Format console errors for email
+    // Format console logs for email
     const errorsHtml = data.errors.length > 0
       ? `
-        <h3 style="color: #dc2626; margin-top: 20px;">Console Errors (${data.errors.length})</h3>
+        <h3 style="color: #1f2937; margin-top: 20px;">Console Logs (${data.errors.length})</h3>
         <div style="background-color: #f3f4f6; padding: 15px; border-radius: 5px; font-family: monospace; font-size: 12px;">
-          ${data.errors.map((error) => `
-            <div style="margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #d1d5db;">
-              <div style="color: ${error.type === 'error' ? '#dc2626' : '#f59e0b'}; font-weight: bold;">
-                [${error.type.toUpperCase()}] ${new Date(error.timestamp).toLocaleString()}
+          ${data.errors.map((error) => {
+            const color =
+              error.type === 'error' ? '#dc2626' :
+              error.type === 'warn' ? '#f59e0b' :
+              error.type === 'info' ? '#2563eb' :
+              '#6b7280';
+
+            return `
+              <div style="margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #d1d5db;">
+                <div style="color: ${color}; font-weight: bold;">
+                  [${error.type.toUpperCase()}] ${new Date(error.timestamp).toLocaleString()}
+                </div>
+                <div style="color: #374151; margin-top: 5px;">${error.message}</div>
+                ${error.stack ? `<pre style="color: #6b7280; margin-top: 5px; overflow-x: auto;">${error.stack}</pre>` : ''}
               </div>
-              <div style="color: #374151; margin-top: 5px;">${error.message}</div>
-              ${error.stack ? `<pre style="color: #6b7280; margin-top: 5px; overflow-x: auto;">${error.stack}</pre>` : ''}
-            </div>
-          `).join('')}
+            `;
+          }).join('')}
         </div>
       `
-      : '<p style="color: #6b7280;">No console errors captured</p>';
+      : '<p style="color: #6b7280;">No console logs captured</p>';
 
     // Create email HTML
     const emailHtml = `
