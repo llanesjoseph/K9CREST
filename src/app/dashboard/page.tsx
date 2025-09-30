@@ -192,30 +192,6 @@ export default function Dashboard() {
             variant="info"
             description={isTrueAdmin && viewAsRole ? "Admin viewing mode" : "Active session"}
           />
-          <StatsCard
-            title="Active Events"
-            value="3"
-            icon={Calendar}
-            variant="success"
-            change={{ value: 15, type: "increase", period: "this week" }}
-            description="Events currently running"
-          />
-          <StatsCard
-            title="Total Competitors"
-            value="248"
-            icon={Users}
-            variant="default"
-            change={{ value: 8, type: "increase", period: "this month" }}
-            description="Registered participants"
-          />
-          <StatsCard
-            title="Scores Processed"
-            value="1,429"
-            icon={Activity}
-            variant="success"
-            change={{ value: 23, type: "increase", period: "today" }}
-            description="Real-time scoring updates"
-          />
         </StatsGrid>
       </div>
 
