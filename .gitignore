@@ -49,6 +49,7 @@ firestore-debug.log
 # security - sensitive files
 SECRETS_SETUP_GUIDE.txt
 VERCEL_ENV_SETUP.md
+VERCEL_ENVIRONMENT_SETUP.md
 *.key
 *.pem
 service-account*.json
