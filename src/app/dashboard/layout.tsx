@@ -1,12 +1,16 @@
 
 "use client";
 
-import { AuthProvider, useAuth } from "@/components/auth-provider";
+import { useAuth } from "@/components/auth-provider";
 import { AppHeader } from "@/components/app-header";
 import { RoleSwitcherBar } from "@/components/role-switcher-bar";
 
-function DashboardWrapper({ children }: { children: React.ReactNode }) {
-  const { user, role } = useAuth();
+export default function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const { user } = useAuth();
 
   if (!user) {
     // AuthProvider handles redirects, so this is a fallback.
@@ -23,19 +27,5 @@ function DashboardWrapper({ children }: { children: React.ReactNode }) {
         </div>
       </main>
     </div>
-  );
-}
-
-export default function DashboardLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  return (
-    <AuthProvider>
-      <DashboardWrapper>
-        {children}
-      </DashboardWrapper>
-    </AuthProvider>
   );
 }

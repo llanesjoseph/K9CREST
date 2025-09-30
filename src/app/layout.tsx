@@ -3,6 +3,7 @@ import './globals.css';
 import { Toaster } from "@/components/ui/toaster"
 import { AnalyticsLoader } from "@/components/analytics-loader";
 import { BugReportButton } from "@/components/bug-report-button";
+import { Providers } from "@/components/providers";
 
 // Prefer default dynamic behavior; remove force-dynamic for better caching where applicable
 
@@ -25,10 +26,12 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className="antialiased">
-        <AnalyticsLoader />
-        {children}
-        <Toaster />
-        <BugReportButton />
+        <Providers>
+          <AnalyticsLoader />
+          {children}
+          <Toaster />
+          <BugReportButton />
+        </Providers>
       </body>
     </html>
   );
