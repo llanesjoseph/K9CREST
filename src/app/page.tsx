@@ -1,8 +1,6 @@
 
 "use client";
 
-import Link from "next/link";
-import { Gavel, Calendar, Trophy, RadioTower } from "lucide-react";
 import { useForm, SubmitHandler } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -10,13 +8,6 @@ import { useRouter } from "next/navigation";
 import { signInWithEmailAndPassword, signInWithPopup, createUserWithEmailAndPassword, onAuthStateChanged, sendPasswordResetEmail } from "firebase/auth";
 
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
@@ -103,27 +94,26 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="w-full lg:grid lg:min-h-screen lg:grid-cols-2">
-      <div className="flex items-center justify-center py-12 border-r min-h-screen">
-        <div className="mx-auto grid w-[350px] gap-6">
-          {/* Logo - visible on all screen sizes */}
-          <div className="flex justify-center mb-4">
-            <Image
-              src="https://res.cloudinary.com/dr0jtjwlh/image/upload/v1755735658/core_LOGO_iaxkl6.png"
-              alt="SCORE Logo"
-              width={180}
-              height={144}
-              className="w-auto h-auto max-w-[180px] lg:max-w-[200px]"
-              priority
-            />
-          </div>
+    <div className="w-full min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
+      <div className="w-full max-w-md px-6 py-12">
+        {/* Logo - visible on all screen sizes */}
+        <div className="flex justify-center mb-8">
+          <Image
+            src="https://res.cloudinary.com/dr0jtjwlh/image/upload/v1755735658/core_LOGO_iaxkl6.png"
+            alt="SCORE Logo"
+            width={200}
+            height={160}
+            className="w-auto h-auto max-w-[200px]"
+            priority
+          />
+        </div>
 
-          <div className="grid gap-2 text-center">
-            <h1 className="text-3xl font-bold text-slate-800 dark:text-slate-100">{isSignUp ? 'Create Account' : 'Sign In'}</h1>
-            <p className="text-slate-600 dark:text-slate-400">
-              {isSignUp ? 'Create your professional account' : 'Access your trial management dashboard'}
-            </p>
-          </div>
+        <div className="grid gap-2 text-center mb-6">
+          <h1 className="text-3xl font-bold text-slate-800 dark:text-slate-100">{isSignUp ? 'Create Account' : 'Sign In'}</h1>
+          <p className="text-slate-600 dark:text-slate-400">
+            {isSignUp ? 'Create your professional account' : 'Access your trial management dashboard'}
+          </p>
+        </div>
           <form onSubmit={handleSubmit(isSignUp ? handleSignUp : handleLogin)} className="grid gap-4">
             <div className="grid gap-2">
               <Label htmlFor="email">Email</Label>
@@ -170,64 +160,11 @@ export default function LoginPage() {
               Continue with Google
             </Button>
           </form>
-          <div className="mt-4 text-center text-sm">
-            {isSignUp ? 'Already have an account?' : "Don't have an account?"}{" "}
-            <Button variant="link" className="p-0 h-auto" onClick={() => setIsSignUp(!isSignUp)}>
-              {isSignUp ? 'Login' : 'Sign up'}
-            </Button>
-          </div>
-        </div>
-      </div>
-      <div className="hidden bg-muted lg:flex lg:flex-col lg:items-center lg:justify-start p-12 pt-24">
-        <div className="flex items-center gap-4 text-primary mb-8">
-           <Image src="https://res.cloudinary.com/dr0jtjwlh/image/upload/v1755735658/core_LOGO_iaxkl6.png" alt="Core Logo" width={250} height={200} data-ai-hint="logo company" />
-        </div>
-        <div className="space-y-6 max-w-md text-center">
-          <h2 className="text-3xl font-bold tracking-tight text-slate-800 dark:text-slate-100">
-            Professional Trial Management System
-          </h2>
-          <p className="text-slate-600 dark:text-slate-400 text-lg leading-relaxed">
-            Comprehensive event management, real-time scoring, competitor tracking, and advanced analytics for professional trials.
-          </p>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-left pt-4">
-            <Card className="bg-white/80 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-slate-800 dark:text-slate-200">
-                  <Calendar className="text-blue-600 dark:text-blue-400 h-5 w-5" /> Event Management
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-slate-600 dark:text-slate-400">
-                  Streamlined event creation, scheduling, and comprehensive management tools.
-                </p>
-              </CardContent>
-            </Card>
-            <Card className="bg-white/80 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-slate-800 dark:text-slate-200">
-                  <Gavel className="text-blue-600 dark:text-blue-400 h-5 w-5" /> Scoring System
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-slate-600 dark:text-slate-400">
-                  Advanced rubric configuration with real-time judge interface and scoring.
-                </p>
-              </CardContent>
-            </Card>
-            <Card className="bg-white/80 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-slate-800 dark:text-slate-200">
-                  <Trophy className="text-blue-600 dark:text-blue-400 h-5 w-5" /> Analytics
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-slate-600 dark:text-slate-400">
-                  Real-time leaderboards, comprehensive reporting, and performance analytics.
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-
+        <div className="mt-4 text-center text-sm">
+          {isSignUp ? 'Already have an account?' : "Don't have an account?"}{" "}
+          <Button variant="link" className="p-0 h-auto" onClick={() => setIsSignUp(!isSignUp)}>
+            {isSignUp ? 'Login' : 'Sign up'}
+          </Button>
         </div>
       </div>
     </div>
