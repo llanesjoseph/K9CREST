@@ -104,8 +104,20 @@ export default function LoginPage() {
 
   return (
     <div className="w-full lg:grid lg:min-h-screen lg:grid-cols-2">
-      <div className="flex items-center justify-center py-12 border-r">
+      <div className="flex items-center justify-center py-12 border-r min-h-screen">
         <div className="mx-auto grid w-[350px] gap-6">
+          {/* Logo - visible on all screen sizes */}
+          <div className="flex justify-center mb-4">
+            <Image
+              src="https://res.cloudinary.com/dr0jtjwlh/image/upload/v1755735658/core_LOGO_iaxkl6.png"
+              alt="SCORE Logo"
+              width={180}
+              height={144}
+              className="w-auto h-auto max-w-[180px] lg:max-w-[200px]"
+              priority
+            />
+          </div>
+
           <div className="grid gap-2 text-center">
             <h1 className="text-3xl font-bold text-slate-800 dark:text-slate-100">{isSignUp ? 'Create Account' : 'Sign In'}</h1>
             <p className="text-slate-600 dark:text-slate-400">
