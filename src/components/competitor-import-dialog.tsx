@@ -4,7 +4,7 @@
 import { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
 import Papa from 'papaparse';
-import { Loader2, Upload, FileText, CheckCircle, AlertTriangle } from 'lucide-react';
+import { Loader2, Upload, FileText, CheckCircle, AlertTriangle, ArrowRight, Info } from 'lucide-react';
 import { writeBatch, collection, doc } from 'firebase/firestore';
 
 import {
@@ -19,11 +19,25 @@ import {
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
-import { Progress } from './ui/progress';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/components/auth-provider';
 import type { Specialty } from '@/lib/schedule-types';
+import {
+  autoDetectColumns,
+  validateMapping,
+  getFieldLabel,
+  extractValue,
+  type FieldMapping,
+} from '@/lib/smart-csv-parser';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface CompetitorImportDialogProps {
   eventId: string;
@@ -38,6 +52,7 @@ type ParsedCompetitor = {
 
 enum ImportStep {
   Upload,
+  MapColumns,
   Confirm,
   Importing,
   Complete,
@@ -47,6 +62,17 @@ enum ImportStep {
 export function CompetitorImportDialog({ eventId }: CompetitorImportDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [step, setStep] = useState<ImportStep>(ImportStep.Upload);
+  const [rawData, setRawData] = useState<any[]>([]);
+  const [headers, setHeaders] = useState<string[]>([]);
+  const [mapping, setMapping] = useState<FieldMapping>({
+    name: null,
+    dogName: null,
+    agency: null,
+    specialty_bite_work: null,
+    specialty_detection_narcotics: null,
+    specialty_detection_explosives: null,
+  });
+  const [autoConfidence, setAutoConfidence] = useState<{ [key: string]: number }>({});
   const [parsedData, setParsedData] = useState<ParsedCompetitor[]>([]);
   const [fileName, setFileName] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -60,6 +86,17 @@ export function CompetitorImportDialog({ eventId }: CompetitorImportDialogProps)
           // Reset state when closing
           setTimeout(() => {
               setStep(ImportStep.Upload);
+              setRawData([]);
+              setHeaders([]);
+              setMapping({
+                name: null,
+                dogName: null,
+                agency: null,
+                specialty_bite_work: null,
+                specialty_detection_narcotics: null,
+                specialty_detection_explosives: null,
+              });
+              setAutoConfidence({});
               setParsedData([]);
               setFileName(null);
               setError(null);
@@ -77,37 +114,33 @@ export function CompetitorImportDialog({ eventId }: CompetitorImportDialogProps)
         header: true,
         skipEmptyLines: true,
         complete: (results) => {
-          const requiredHeaders = ['name', 'dogName', 'agency'];
-          const actualHeaders = results.meta.fields || [];
-          const missingHeaders = requiredHeaders.filter(h => !actualHeaders.includes(h));
+          const csvHeaders = results.meta.fields || [];
 
-          if (missingHeaders.length > 0) {
-            setError(`CSV file is missing required columns: ${missingHeaders.join(', ')}.`);
+          if (csvHeaders.length === 0) {
+            setError('CSV file has no columns. Please check your file format.');
             setStep(ImportStep.Error);
             return;
           }
 
-          const data = (results.data as any[]).map(row => {
-            const specialties: Specialty[] = [];
-            if(row.specialty_bite_work?.toLowerCase() === 'true') {
-                specialties.push({ type: "Bite Work" });
-            }
-            if(row.specialty_detection_narcotics?.toLowerCase() === 'true') {
-                specialties.push({ type: "Detection", detectionType: "Narcotics" });
-            }
-            if(row.specialty_detection_explosives?.toLowerCase() === 'true') {
-                specialties.push({ type: "Detection", detectionType: "Explosives" });
-            }
+          setHeaders(csvHeaders);
+          setRawData(results.data as any[]);
 
-            return {
-                name: row.name,
-                dogName: row.dogName,
-                agency: row.agency,
-                specialties: specialties,
-            }
-          });
-          setParsedData(data);
-          setStep(ImportStep.Confirm);
+          // Auto-detect column mapping
+          const { mapping: detectedMapping, confidence } = autoDetectColumns(csvHeaders);
+          setMapping(detectedMapping);
+          setAutoConfidence(confidence);
+
+          // Check if we have high confidence for required fields
+          const validation = validateMapping(detectedMapping);
+
+          if (validation.valid && confidence.name > 0.8 && confidence.dogName > 0.8 && confidence.agency > 0.8) {
+            // High confidence - skip to confirm
+            processDataWithMapping(results.data as any[], detectedMapping);
+            setStep(ImportStep.Confirm);
+          } else {
+            // Show mapping UI for user review
+            setStep(ImportStep.MapColumns);
+          }
         },
         error: (err: any) => {
             setError(err.message);
@@ -117,7 +150,44 @@ export function CompetitorImportDialog({ eventId }: CompetitorImportDialogProps)
     }
   }, []);
 
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({ 
+  const processDataWithMapping = (data: any[], currentMapping: FieldMapping) => {
+    const processed = data.map(row => {
+      const specialties: Specialty[] = [];
+
+      if (extractValue(row, currentMapping, 'specialty_bite_work')) {
+        specialties.push({ type: "Bite Work" });
+      }
+      if (extractValue(row, currentMapping, 'specialty_detection_narcotics')) {
+        specialties.push({ type: "Detection", detectionType: "Narcotics" });
+      }
+      if (extractValue(row, currentMapping, 'specialty_detection_explosives')) {
+        specialties.push({ type: "Detection", detectionType: "Explosives" });
+      }
+
+      return {
+        name: extractValue(row, currentMapping, 'name') as string || '',
+        dogName: extractValue(row, currentMapping, 'dogName') as string || '',
+        agency: extractValue(row, currentMapping, 'agency') as string || '',
+        specialties,
+      };
+    });
+
+    setParsedData(processed);
+  };
+
+  const handleConfirmMapping = () => {
+    const validation = validateMapping(mapping);
+
+    if (!validation.valid) {
+      setError(`Please map the following required fields: ${validation.missing.map(f => getFieldLabel(f)).join(', ')}`);
+      return;
+    }
+
+    processDataWithMapping(rawData, mapping);
+    setStep(ImportStep.Confirm);
+  };
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: { 'text/csv': ['.csv'] },
     multiple: false,
@@ -155,16 +225,93 @@ export function CompetitorImportDialog({ eventId }: CompetitorImportDialogProps)
     switch (step) {
       case ImportStep.Upload:
         return (
-          <div {...getRootProps()} className={cn("flex flex-col items-center justify-center h-full text-center border-2 border-dashed rounded-lg cursor-pointer", isDragActive && "border-primary bg-primary/10")}>
+          <div {...getRootProps()} className={cn("flex flex-col items-center justify-center h-full text-center border-2 border-dashed rounded-lg cursor-pointer p-8", isDragActive && "border-primary bg-primary/10")}>
             <input {...getInputProps()} />
             <Upload className="mx-auto h-12 w-12 text-muted-foreground" />
             <p className="mt-4 font-medium">
               {isDragActive ? "Drop the file here" : "Drag & drop a CSV file here, or click to select"}
             </p>
-            <p className="text-sm text-muted-foreground">Required columns: name, dogName, agency</p>
-             <p className="text-xs text-muted-foreground mt-2">Optional columns for specialties: specialty_bite_work, specialty_detection_narcotics, specialty_detection_explosives (set value to TRUE)</p>
+            <p className="text-sm text-muted-foreground mt-2">The importer will automatically detect your column format</p>
+            <div className="mt-4 p-3 bg-muted rounded-md text-left max-w-md">
+              <p className="text-xs font-medium mb-1">Supported columns:</p>
+              <ul className="text-xs text-muted-foreground space-y-1">
+                <li>• Handler/Officer name (required)</li>
+                <li>• K9/Dog name (required)</li>
+                <li>• Agency/Department (required)</li>
+                <li>• Bite Work specialty (optional)</li>
+                <li>• Narcotics Detection (optional)</li>
+                <li>• Explosives Detection (optional)</li>
+              </ul>
+            </div>
           </div>
         );
+
+      case ImportStep.MapColumns:
+        return (
+          <div className="h-full overflow-y-auto space-y-4">
+            <Alert>
+              <Info className="h-4 w-4" />
+              <AlertDescription>
+                Review the detected column mappings below. The system has automatically matched your CSV columns to the required fields.
+              </AlertDescription>
+            </Alert>
+
+            <div className="space-y-3">
+              {Object.keys(mapping).map((field) => {
+                const isRequired = ['name', 'dogName', 'agency'].includes(field);
+                const confidence = autoConfidence[field] || 0;
+                const currentValue = mapping[field as keyof FieldMapping];
+
+                return (
+                  <div key={field} className="flex items-center gap-3 p-3 border rounded-lg">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <p className="text-sm font-medium">{getFieldLabel(field)}</p>
+                        {isRequired && (
+                          <span className="text-xs bg-destructive/10 text-destructive px-2 py-0.5 rounded">Required</span>
+                        )}
+                        {confidence > 0 && (
+                          <span className={cn(
+                            "text-xs px-2 py-0.5 rounded",
+                            confidence > 0.8 ? "bg-green-100 text-green-700" :
+                            confidence > 0.5 ? "bg-yellow-100 text-yellow-700" :
+                            "bg-gray-100 text-gray-700"
+                          )}>
+                            {Math.round(confidence * 100)}% match
+                          </span>
+                        )}
+                      </div>
+                      <Select
+                        value={currentValue || undefined}
+                        onValueChange={(value) => setMapping({ ...mapping, [field]: value })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select column..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none__">-- None --</SelectItem>
+                          {headers.map(header => (
+                            <SelectItem key={header} value={header}>
+                              {header}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {error && (
+              <Alert variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+          </div>
+        );
+
       case ImportStep.Confirm:
         return (
           <>
@@ -180,18 +327,33 @@ export function CompetitorImportDialog({ eventId }: CompetitorImportDialogProps)
                             <TableHead>Handler</TableHead>
                             <TableHead>K9</TableHead>
                             <TableHead>Agency</TableHead>
+                            <TableHead>Specialties</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {parsedData.map((row, i) => (
+                        {parsedData.slice(0, 50).map((row, i) => (
                             <TableRow key={i}>
                                 <TableCell>{row.name}</TableCell>
                                 <TableCell>{row.dogName}</TableCell>
                                 <TableCell>{row.agency}</TableCell>
+                                <TableCell>
+                                  <div className="flex gap-1">
+                                    {row.specialties.map((s, idx) => (
+                                      <span key={idx} className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">
+                                        {s.type === 'Detection' ? `${s.detectionType}` : s.type}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </TableCell>
                             </TableRow>
                         ))}
                     </TableBody>
                 </Table>
+                {parsedData.length > 50 && (
+                  <div className="p-3 text-center text-sm text-muted-foreground border-t">
+                    Showing first 50 of {parsedData.length} records
+                  </div>
+                )}
             </div>
           </>
         );
@@ -223,7 +385,7 @@ export function CompetitorImportDialog({ eventId }: CompetitorImportDialogProps)
         return null;
     }
   };
-  
+
   if (!isAdmin) return null;
 
   return (
@@ -234,11 +396,11 @@ export function CompetitorImportDialog({ eventId }: CompetitorImportDialogProps)
                 Import
             </Button>
         </DialogTrigger>
-        <DialogContent className="sm:max-w-lg h-[80vh] flex flex-col">
+        <DialogContent className="sm:max-w-2xl h-[80vh] flex flex-col">
         <DialogHeader>
-            <DialogTitle>Bulk Import Competitors</DialogTitle>
+            <DialogTitle>Smart Bulk Import</DialogTitle>
             <DialogDescription>
-                Upload a CSV file to add multiple competitors to the event at once.
+                Upload a CSV file in any format - we'll automatically detect your columns
             </DialogDescription>
         </DialogHeader>
         <div className="flex-grow py-4 overflow-hidden">
@@ -248,10 +410,16 @@ export function CompetitorImportDialog({ eventId }: CompetitorImportDialogProps)
             <Button variant="outline" onClick={() => handleOpenChange(false)}>
                 {step === ImportStep.Complete ? 'Close' : 'Cancel'}
             </Button>
+            {step === ImportStep.MapColumns && (
+                <Button onClick={handleConfirmMapping}>
+                  <ArrowRight className="mr-2 h-4 w-4" />
+                  Continue to Preview
+                </Button>
+            )}
             {step === ImportStep.Confirm && (
                 <Button onClick={handleImport} disabled={isImporting}>
                     {isImporting && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
-                    Confirm & Import
+                    Confirm & Import {parsedData.length} Records
                 </Button>
             )}
             {step === ImportStep.Error && (
