@@ -35,11 +35,15 @@ export function parseSpecialtyText(text: string | null | undefined): Specialty[]
     }
   }
 
-  // Bite Work patterns
+  // Bite Work patterns (includes patrol, tracking, search and rescue)
   const biteWorkPatterns = [
     /bite\s*work/i,
     /apprehension/i,
     /patrol/i,
+    /search\s*and\s*rescue/i,
+    /sar/i,
+    /tracking/i,
+    /trailing/i,
   ];
 
   for (const pattern of biteWorkPatterns) {
@@ -47,23 +51,6 @@ export function parseSpecialtyText(text: string | null | undefined): Specialty[]
       // Only add if not already present
       if (!specialties.some(s => s.type === 'Bite Work')) {
         specialties.push({ type: 'Bite Work' });
-      }
-      break;
-    }
-  }
-
-  // Search and Rescue patterns
-  const searchRescuePatterns = [
-    /search\s*and\s*rescue/i,
-    /sar/i,
-    /tracking/i,
-    /trailing/i,
-  ];
-
-  for (const pattern of searchRescuePatterns) {
-    if (pattern.test(normalized)) {
-      if (!specialties.some(s => s.type === 'Search and Rescue')) {
-        specialties.push({ type: 'Search and Rescue' });
       }
       break;
     }

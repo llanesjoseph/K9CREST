@@ -109,6 +109,53 @@ export function CompetitorImportDialog({ eventId }: CompetitorImportDialogProps)
       }
   }
 
+  const processDataWithMapping = useCallback((data: any[], currentMapping: FieldMapping) => {
+    // Find all specialty columns in the data
+    const specialtyColumns = findSpecialtyColumns(headers);
+
+    const processed = data.map(row => {
+      let specialties: Specialty[] = [];
+
+      // First, try boolean-based specialty columns (backward compatibility)
+      if (extractValue(row, currentMapping, 'specialty_bite_work')) {
+        specialties.push({ type: "Bite Work" });
+      }
+      if (extractValue(row, currentMapping, 'specialty_detection_narcotics')) {
+        specialties.push({ type: "Detection", detectionType: "Narcotics" });
+      }
+      if (extractValue(row, currentMapping, 'specialty_detection_explosives')) {
+        specialties.push({ type: "Detection", detectionType: "Explosives" });
+      }
+
+      // Then, parse text-based specialty columns (Specialty_1, Specialty_2, etc.)
+      const specialtyValues = specialtyColumns.map(col => row[col]);
+      const parsedSpecialties = parseMultipleSpecialtyColumns(specialtyValues);
+
+      // Combine both, avoiding duplicates
+      for (const specialty of parsedSpecialties) {
+        const exists = specialties.some(s => {
+          if (s.type !== specialty.type) return false;
+          if (s.type === 'Detection' && specialty.type === 'Detection') {
+            return s.detectionType === specialty.detectionType;
+          }
+          return true;
+        });
+        if (!exists) {
+          specialties.push(specialty);
+        }
+      }
+
+      return {
+        name: extractValue(row, currentMapping, 'name') as string || '',
+        dogName: extractValue(row, currentMapping, 'dogName') as string || '',
+        agency: extractValue(row, currentMapping, 'agency') as string || '',
+        specialties,
+      };
+    });
+
+    setParsedData(processed);
+  }, [headers]);
+
   const onDrop = useCallback((acceptedFiles: File[]) => {
     const file = acceptedFiles[0];
     if (file) {
@@ -223,54 +270,7 @@ export function CompetitorImportDialog({ eventId }: CompetitorImportDialogProps)
         }
       });
     }
-  }, []);
-
-  const processDataWithMapping = (data: any[], currentMapping: FieldMapping) => {
-    // Find all specialty columns in the data
-    const specialtyColumns = findSpecialtyColumns(headers);
-
-    const processed = data.map(row => {
-      let specialties: Specialty[] = [];
-
-      // First, try boolean-based specialty columns (backward compatibility)
-      if (extractValue(row, currentMapping, 'specialty_bite_work')) {
-        specialties.push({ type: "Bite Work" });
-      }
-      if (extractValue(row, currentMapping, 'specialty_detection_narcotics')) {
-        specialties.push({ type: "Detection", detectionType: "Narcotics" });
-      }
-      if (extractValue(row, currentMapping, 'specialty_detection_explosives')) {
-        specialties.push({ type: "Detection", detectionType: "Explosives" });
-      }
-
-      // Then, parse text-based specialty columns (Specialty_1, Specialty_2, etc.)
-      const specialtyValues = specialtyColumns.map(col => row[col]);
-      const parsedSpecialties = parseMultipleSpecialtyColumns(specialtyValues);
-
-      // Combine both, avoiding duplicates
-      for (const specialty of parsedSpecialties) {
-        const exists = specialties.some(s => {
-          if (s.type !== specialty.type) return false;
-          if (s.type === 'Detection' && specialty.type === 'Detection') {
-            return s.detectionType === specialty.detectionType;
-          }
-          return true;
-        });
-        if (!exists) {
-          specialties.push(specialty);
-        }
-      }
-
-      return {
-        name: extractValue(row, currentMapping, 'name') as string || '',
-        dogName: extractValue(row, currentMapping, 'dogName') as string || '',
-        agency: extractValue(row, currentMapping, 'agency') as string || '',
-        specialties,
-      };
-    });
-
-    setParsedData(processed);
-  };
+  }, [processDataWithMapping]);
 
   const handleConfirmMapping = () => {
     const validation = validateMapping(mapping);
