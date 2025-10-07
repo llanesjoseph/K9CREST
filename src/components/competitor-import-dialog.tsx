@@ -110,6 +110,77 @@ export function CompetitorImportDialog({ eventId }: CompetitorImportDialogProps)
     if (file) {
       setFileName(file.name);
       setError(null);
+
+      const fileExtension = file.name.split('.').pop()?.toLowerCase();
+
+      // Handle JSON files
+      if (fileExtension === 'json') {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          try {
+            const jsonContent = JSON.parse(e.target?.result as string);
+
+            // Handle both array and object with array property
+            let jsonData: any[] = [];
+            if (Array.isArray(jsonContent)) {
+              jsonData = jsonContent;
+            } else if (jsonContent.data && Array.isArray(jsonContent.data)) {
+              jsonData = jsonContent.data;
+            } else if (jsonContent.competitors && Array.isArray(jsonContent.competitors)) {
+              jsonData = jsonContent.competitors;
+            } else {
+              // Try to find first array property
+              const firstArrayKey = Object.keys(jsonContent).find(key => Array.isArray(jsonContent[key]));
+              if (firstArrayKey) {
+                jsonData = jsonContent[firstArrayKey];
+              } else {
+                setError('JSON file must contain an array of records or have a data/competitors array property.');
+                setStep(ImportStep.Error);
+                return;
+              }
+            }
+
+            if (jsonData.length === 0) {
+              setError('JSON file contains no records.');
+              setStep(ImportStep.Error);
+              return;
+            }
+
+            // Extract headers from first object
+            const jsonHeaders = Object.keys(jsonData[0]);
+            setHeaders(jsonHeaders);
+            setRawData(jsonData);
+
+            // Auto-detect column mapping
+            const { mapping: detectedMapping, confidence } = autoDetectColumns(jsonHeaders);
+            setMapping(detectedMapping);
+            setAutoConfidence(confidence);
+
+            // Check if we have high confidence for required fields
+            const validation = validateMapping(detectedMapping);
+
+            if (validation.valid && confidence.name > 0.8 && confidence.dogName > 0.8 && confidence.agency > 0.8) {
+              // High confidence - skip to confirm
+              processDataWithMapping(jsonData, detectedMapping);
+              setStep(ImportStep.Confirm);
+            } else {
+              // Show mapping UI for user review
+              setStep(ImportStep.MapColumns);
+            }
+          } catch (err: any) {
+            setError(`Failed to parse JSON: ${err.message}`);
+            setStep(ImportStep.Error);
+          }
+        };
+        reader.onerror = () => {
+          setError('Failed to read JSON file');
+          setStep(ImportStep.Error);
+        };
+        reader.readAsText(file);
+        return;
+      }
+
+      // Handle CSV files (default)
       Papa.parse(file, {
         header: true,
         skipEmptyLines: true,
@@ -189,7 +260,10 @@ export function CompetitorImportDialog({ eventId }: CompetitorImportDialogProps)
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    accept: { 'text/csv': ['.csv'] },
+    accept: {
+      'text/csv': ['.csv'],
+      'application/json': ['.json']
+    },
     multiple: false,
   });
 
@@ -229,9 +303,9 @@ export function CompetitorImportDialog({ eventId }: CompetitorImportDialogProps)
             <input {...getInputProps()} />
             <Upload className="mx-auto h-12 w-12 text-muted-foreground" />
             <p className="mt-4 font-medium">
-              {isDragActive ? "Drop the file here" : "Drag & drop a CSV file here, or click to select"}
+              {isDragActive ? "Drop the file here" : "Drag & drop a CSV or JSON file here, or click to select"}
             </p>
-            <p className="text-sm text-muted-foreground mt-2">The importer will automatically detect your column format</p>
+            <p className="text-sm text-muted-foreground mt-2">The importer will automatically detect your file format and column structure</p>
             <div className="mt-4 p-3 bg-muted rounded-md text-left max-w-md">
               <p className="text-xs font-medium mb-1">Supported columns:</p>
               <ul className="text-xs text-muted-foreground space-y-1">
@@ -400,7 +474,7 @@ export function CompetitorImportDialog({ eventId }: CompetitorImportDialogProps)
         <DialogHeader>
             <DialogTitle>Smart Bulk Import</DialogTitle>
             <DialogDescription>
-                Upload a CSV file in any format - we&apos;ll automatically detect your columns
+                Upload a CSV or JSON file - we&apos;ll automatically detect the format and column structure
             </DialogDescription>
         </DialogHeader>
         <div className="flex-grow py-4 overflow-hidden">
