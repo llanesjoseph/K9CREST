@@ -236,15 +236,16 @@ export function DataTable<T extends Record<string, any>>({
                       "hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors",
                       onRowClick && "cursor-pointer"
                     )}
-                    onClick={(e) => {
-                      // Don't trigger row click if clicking on a link or button
-                      if (e.target instanceof HTMLElement) {
-                        const isClickable = e.target.closest('a, button');
-                        if (!isClickable && onRowClick) {
+                    {...(onRowClick && {
+                      onClick: (e) => {
+                        // Don't trigger row click if clicking on a link or button
+                        const target = e.target as HTMLElement;
+                        const isClickable = target.closest('a, button, [role="button"]');
+                        if (!isClickable) {
                           onRowClick(row);
                         }
                       }
-                    }}
+                    })}
                   >
                     {columns.map((column) => (
                       <td
