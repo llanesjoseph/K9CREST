@@ -400,7 +400,7 @@ export function CompetitorImportDialog({ eventId }: CompetitorImportDialogProps)
         <DialogHeader>
             <DialogTitle>Smart Bulk Import</DialogTitle>
             <DialogDescription>
-                Upload a CSV file in any format - we'll automatically detect your columns
+                Upload a CSV file in any format - we&apos;ll automatically detect your columns
             </DialogDescription>
         </DialogHeader>
         <div className="flex-grow py-4 overflow-hidden">
