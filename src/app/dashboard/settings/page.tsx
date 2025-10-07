@@ -6,7 +6,7 @@ import { useState, useEffect } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { CheckCircle2, XCircle, Server, Loader2, Upload } from 'lucide-react';
+import { CheckCircle2, XCircle, Server, Loader2, Upload, Info, Mail, Shield } from 'lucide-react';
 import { doc, updateDoc, collection, query, where, getDocs, writeBatch } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import Image from 'next/image';
@@ -34,7 +34,7 @@ const profileSchema = z.object({
 type FormValues = z.infer<typeof profileSchema>;
 
 export default function SettingsPage() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, role, isTrueAdmin, viewAsRole } = useAuth();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -236,6 +236,52 @@ export default function SettingsPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Spectator Role Info Banner */}
+        {((viewAsRole as string) || role) === 'spectator' && !isTrueAdmin && (
+          <Card className="border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/30">
+            <CardHeader>
+              <div className="flex items-start gap-4">
+                <div className="p-3 rounded-lg bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400">
+                  <Info className="h-6 w-6" />
+                </div>
+                <div className="flex-1 space-y-2">
+                  <CardTitle className="text-blue-900 dark:text-blue-100">
+                    Spectator Role - View-Only Access
+                  </CardTitle>
+                  <CardDescription className="text-blue-800 dark:text-blue-200 space-y-3">
+                    <p>
+                      Your account is currently set to <strong>Spectator</strong> with view-only permissions.
+                      You cannot change your own role for security reasons.
+                    </p>
+                    <div className="space-y-2">
+                      <p className="font-semibold">To upgrade your role:</p>
+                      <ol className="list-decimal list-inside space-y-1 ml-2">
+                        <li>Contact your event administrator or system admin</li>
+                        <li>Request the appropriate role (Competitor, Judge, or Admin)</li>
+                        <li>An administrator will update your permissions</li>
+                      </ol>
+                    </div>
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-3 p-4 bg-white/50 dark:bg-slate-900/30 rounded-lg border border-blue-200 dark:border-blue-800">
+                <Shield className="h-5 w-5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-blue-900 dark:text-blue-100">
+                    Why can&apos;t I change my role?
+                  </p>
+                  <p className="text-xs text-blue-800 dark:text-blue-200 mt-1">
+                    Role changes require administrator approval to maintain security and prevent unauthorized access to sensitive features.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         <Card>
             <CardHeader>
                 <CardTitle>Competitor Profile</CardTitle>

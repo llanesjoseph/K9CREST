@@ -15,6 +15,8 @@ import {
   Award,
   Clock,
   UserCheck,
+  Info,
+  Mail,
 } from "lucide-react";
 import Link from "next/link";
 import { useAuth, UserRole } from "@/components/auth-provider";
@@ -194,6 +196,46 @@ export default function Dashboard() {
           />
         </StatsGrid>
       </div>
+
+      {/* Spectator Info Banner */}
+      {currentRole === 'spectator' && !isTrueAdmin && (
+        <Card className="border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/30">
+          <CardHeader>
+            <div className="flex items-start gap-4">
+              <div className="p-3 rounded-lg bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400">
+                <Info className="h-6 w-6" />
+              </div>
+              <div className="flex-1 space-y-2">
+                <CardTitle className="text-blue-900 dark:text-blue-100">
+                  About Your Spectator Role
+                </CardTitle>
+                <CardDescription className="text-blue-800 dark:text-blue-200 space-y-2">
+                  <p>
+                    You currently have <strong>view-only access</strong> to K9 CREST. As a spectator, you can:
+                  </p>
+                  <ul className="list-disc list-inside space-y-1 ml-2">
+                    <li>View upcoming events and schedules</li>
+                    <li>Watch live leaderboards during competitions</li>
+                    <li>Browse competitor information</li>
+                  </ul>
+                  <p className="pt-2">
+                    <strong>Need more access?</strong> If you&apos;re a competitor, judge, or need administrative access,
+                    please contact your event administrator to upgrade your role.
+                  </p>
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-2 p-3 bg-white/50 dark:bg-slate-900/30 rounded-lg border border-blue-200 dark:border-blue-800">
+              <Mail className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+              <p className="text-sm text-blue-800 dark:text-blue-200">
+                Contact an administrator to request a role change
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Action Cards Section */}
       <RoleSection title={`${currentRole.charAt(0).toUpperCase() + currentRole.slice(1)} Actions`}>

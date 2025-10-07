@@ -1,7 +1,7 @@
 
 "use client";
 
-import { PlusCircle, MoreVertical, Trash2 } from "lucide-react";
+import { PlusCircle, MoreVertical, Trash2, UserCog } from "lucide-react";
 import Link from "next/link";
 import {
   Card,
@@ -44,7 +44,25 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { auth } from "@/lib/firebase";
 
 
 interface UserProfile {
@@ -61,6 +79,10 @@ interface UserProfile {
 export default function UsersPage() {
     const [users, setUsers] = useState<UserProfile[]>([]);
     const [loading, setLoading] = useState(true);
+    const [roleChangeDialogOpen, setRoleChangeDialogOpen] = useState(false);
+    const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
+    const [selectedRole, setSelectedRole] = useState<'admin' | 'judge' | 'competitor' | 'spectator'>('spectator');
+    const [isChangingRole, setIsChangingRole] = useState(false);
     const { toast } = useToast();
     const { isAdmin } = useAuth();
 
@@ -89,7 +111,113 @@ export default function UsersPage() {
         toast({ title: "Note", description: "Delete functionality not yet implemented." });
     }
 
+    const handleOpenRoleDialog = (user: UserProfile) => {
+        setSelectedUser(user);
+        setSelectedRole(user.role);
+        setRoleChangeDialogOpen(true);
+    };
+
+    const handleChangeRole = async () => {
+        if (!selectedUser) return;
+
+        setIsChangingRole(true);
+        try {
+            // Get the current user's auth token
+            const currentUser = auth.currentUser;
+            if (!currentUser) {
+                throw new Error('Not authenticated');
+            }
+
+            const token = await currentUser.getIdToken();
+
+            // Call the API to change the role
+            const response = await fetch('/api/admin/set-role', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    uid: selectedUser.id,
+                    role: selectedRole,
+                }),
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Failed to change role');
+            }
+
+            toast({
+                title: "Role Updated",
+                description: `${selectedUser.email} is now a ${selectedRole}`,
+            });
+
+            setRoleChangeDialogOpen(false);
+            setSelectedUser(null);
+        } catch (error: any) {
+            console.error('Error changing role:', error);
+            toast({
+                variant: "destructive",
+                title: "Error",
+                description: error.message || "Failed to change user role",
+            });
+        } finally {
+            setIsChangingRole(false);
+        }
+    };
+
     return (
+        <>
+        {/* Role Change Dialog */}
+        <Dialog open={roleChangeDialogOpen} onOpenChange={setRoleChangeDialogOpen}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Change User Role</DialogTitle>
+                    <DialogDescription>
+                        Update the role for {selectedUser?.email}
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="role">New Role</Label>
+                        <Select
+                            value={selectedRole}
+                            onValueChange={(value) => setSelectedRole(value as any)}
+                        >
+                            <SelectTrigger id="role">
+                                <SelectValue placeholder="Select a role" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="admin">Admin</SelectItem>
+                                <SelectItem value="judge">Judge</SelectItem>
+                                <SelectItem value="competitor">Competitor</SelectItem>
+                                <SelectItem value="spectator">Spectator</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                        <strong>Current role:</strong> <span className="capitalize">{selectedUser?.role}</span>
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button
+                        variant="outline"
+                        onClick={() => setRoleChangeDialogOpen(false)}
+                        disabled={isChangingRole}
+                    >
+                        Cancel
+                    </Button>
+                    <Button
+                        onClick={handleChangeRole}
+                        disabled={isChangingRole || selectedRole === selectedUser?.role}
+                    >
+                        {isChangingRole ? "Updating..." : "Update Role"}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+
         <Card>
             <CardHeader className="flex flex-row items-center justify-between">
                 <div>
@@ -169,6 +297,10 @@ export default function UsersPage() {
                                         </Button>
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="end">
+                                        <DropdownMenuItem onClick={() => handleOpenRoleDialog(user)}>
+                                            <UserCog className="mr-2 h-4 w-4" />
+                                            <span>Change Role</span>
+                                        </DropdownMenuItem>
                                         <AlertDialogTrigger asChild>
                                         <DropdownMenuItem className="text-destructive focus:text-destructive focus:bg-destructive/10">
                                             <Trash2 className="mr-2 h-4 w-4" />
@@ -200,5 +332,6 @@ export default function UsersPage() {
                 </Table>
             </CardContent>
         </Card>
+        </>
     );
 }

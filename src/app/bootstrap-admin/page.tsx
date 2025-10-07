@@ -7,11 +7,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Shield, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
+const AUTHORIZED_ADMINS = [
+  'joseph@crucibleanalytics.dev',
+  'secretary@alecanpolice9.com'
+];
+
 export default function BootstrapAdminPage() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<{ success: boolean; message: string } | null>(null);
   const router = useRouter();
+
+  const isAuthorizedAdmin = user?.email && AUTHORIZED_ADMINS.includes(user.email);
 
   const handleBootstrapAdmin = async () => {
     if (!user) return;
@@ -70,15 +77,21 @@ export default function BootstrapAdminPage() {
           <Shield className="h-12 w-12 mx-auto text-primary mb-4" />
           <CardTitle>Bootstrap Admin Role</CardTitle>
           <CardDescription>
-            Set admin role for joseph@crucibleanalytics.dev
+            Set admin role for authorized users
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="text-sm text-muted-foreground">
             <p><strong>Current User:</strong> {user.email}</p>
-            <p className="mt-2">
-              This endpoint will set admin role for joseph@crucibleanalytics.dev only.
-            </p>
+            {isAuthorizedAdmin ? (
+              <p className="mt-2 text-green-600 dark:text-green-400 font-medium">
+                ✓ You are authorized to bootstrap admin access
+              </p>
+            ) : (
+              <p className="mt-2 text-red-600 dark:text-red-400">
+                You are not authorized to use this bootstrap function
+              </p>
+            )}
           </div>
 
           {result && (
@@ -98,17 +111,22 @@ export default function BootstrapAdminPage() {
 
           <Button
             onClick={handleBootstrapAdmin}
-            disabled={loading || user.email !== 'joseph@crucibleanalytics.dev'}
+            disabled={loading || !isAuthorizedAdmin}
             className="w-full"
           >
             {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
             {loading ? 'Setting Admin Role...' : 'Set Admin Role'}
           </Button>
 
-          {user.email !== 'joseph@crucibleanalytics.dev' && (
-            <p className="text-sm text-muted-foreground text-center">
-              Only joseph@crucibleanalytics.dev can use this bootstrap function.
-            </p>
+          {!isAuthorizedAdmin && (
+            <div className="text-sm text-muted-foreground text-center space-y-2">
+              <p className="font-medium">Authorized Admins:</p>
+              <ul className="text-xs space-y-1">
+                {AUTHORIZED_ADMINS.map(email => (
+                  <li key={email}>{email}</li>
+                ))}
+              </ul>
+            </div>
           )}
 
           {result?.success && (

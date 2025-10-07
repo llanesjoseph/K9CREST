@@ -24,13 +24,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized - Invalid token' }, { status: 401 });
     }
 
-    // Check if the user is joseph@crucibleanalytics.dev
-    const targetAdminEmail = 'joseph@crucibleanalytics.dev';
+    // Check if the user is one of the authorized admin emails
+    const authorizedAdminEmails = [
+      'joseph@crucibleanalytics.dev',
+      'secretary@alecanpolice9.com'
+    ];
     const userRecord = await getAuth().getUser(decoded.uid);
 
-    if (userRecord.email !== targetAdminEmail) {
+    if (!userRecord.email || !authorizedAdminEmails.includes(userRecord.email)) {
       return NextResponse.json({
-        error: 'Forbidden - Only the designated admin can use this endpoint'
+        error: 'Forbidden - Only designated admins can use this endpoint'
       }, { status: 403 });
     }
 
@@ -40,20 +43,20 @@ export async function POST(request: NextRequest) {
     // Also set in Firestore
     const db = getFirestore();
     await db.collection('users').doc(decoded.uid).set({
-      email: targetAdminEmail,
+      email: userRecord.email,
       role: 'admin',
       updatedAt: new Date().toISOString()
     }, { merge: true });
 
     console.log('Bootstrap admin set:', {
-      email: targetAdminEmail,
+      email: userRecord.email,
       uid: decoded.uid,
       timestamp: new Date().toISOString()
     });
 
     return NextResponse.json({
       success: true,
-      message: `Admin role successfully set for ${targetAdminEmail}`,
+      message: `Admin role successfully set for ${userRecord.email}`,
       uid: decoded.uid
     });
 
