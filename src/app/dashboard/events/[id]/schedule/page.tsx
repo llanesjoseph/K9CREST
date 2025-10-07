@@ -7,7 +7,7 @@ import React, { useState, useEffect, useMemo, useReducer, useCallback } from 're
 // Removed generateStaticParams - not compatible with client components
 import { collection, onSnapshot, doc, setDoc, deleteDoc, writeBatch, query, getDocs, updateDoc, Timestamp } from 'firebase/firestore';
 import { generateTimeSlots } from '@/lib/schedule-helpers';
-import { Trash2, AlertTriangle, PlusCircle, Users, X, Eraser, Wand2, Clock, Loader2, FileDown, GripVertical, Upload, ListChecks, Hash, Gavel, ClipboardCheck, Dog, HelpCircle } from 'lucide-react';
+import { Trash2, AlertTriangle, PlusCircle, Users, X, Eraser, Wand2, Clock, Loader2, FileDown, GripVertical, Upload, ListChecks, Hash, Gavel, ClipboardCheck, Dog, HelpCircle, MapPin, Calendar, Info } from 'lucide-react';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragOverlay, DragStartEvent, DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -802,7 +802,7 @@ export default function SchedulePage() {
 
                 <div className="flex-1 flex flex-col">
                     <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center gap-4 border-b">
-                        <div>
+                        <div className="flex-1">
                             <CardTitle className="text-2xl">{eventDetails?.name || <Skeleton className="h-8 w-64 inline-block" />}</CardTitle>
                             <CardDescription>
                                 {role === 'judge' ? 'Click on scheduled runs to start judging and scoring.' :
@@ -811,6 +811,75 @@ export default function SchedulePage() {
                             </CardDescription>
                         </div>
                     </CardHeader>
+
+                    {/* Event Details Card */}
+                    {eventDetails && (
+                        <div className="border-b bg-muted/30 p-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                {/* Location */}
+                                <div className="flex items-start gap-3">
+                                    <div className="p-2 rounded-lg bg-primary/10">
+                                        <MapPin className="h-4 w-4 text-primary" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-xs text-muted-foreground uppercase tracking-wide">Location</p>
+                                        <p className="text-sm font-medium truncate">{(eventDetails as any).location || 'Not set'}</p>
+                                    </div>
+                                </div>
+
+                                {/* Date Range */}
+                                <div className="flex items-start gap-3">
+                                    <div className="p-2 rounded-lg bg-primary/10">
+                                        <Calendar className="h-4 w-4 text-primary" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-xs text-muted-foreground uppercase tracking-wide">Event Dates</p>
+                                        <p className="text-sm font-medium">
+                                            {eventDetails.startDate && format(eventDetails.startDate.toDate(), 'MMM dd')}
+                                            {eventDetails.endDate && ` - ${format(eventDetails.endDate.toDate(), 'MMM dd, yyyy')}`}
+                                            {!eventDetails.endDate && eventDetails.startDate && `, ${format(eventDetails.startDate.toDate(), 'yyyy')}`}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {/* Event Times */}
+                                <div className="flex items-start gap-3">
+                                    <div className="p-2 rounded-lg bg-primary/10">
+                                        <Clock className="h-4 w-4 text-primary" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-xs text-muted-foreground uppercase tracking-wide">Daily Schedule</p>
+                                        <p className="text-sm font-medium">
+                                            {eventDetails.eventStartTime || '8:00 AM'} - {eventDetails.eventEndTime || '5:00 PM'}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {/* Status & Competitors */}
+                                <div className="flex items-start gap-3">
+                                    <div className="p-2 rounded-lg bg-primary/10">
+                                        <Info className="h-4 w-4 text-primary" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-xs text-muted-foreground uppercase tracking-wide">Status</p>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-sm font-medium capitalize">{(eventDetails as any).status || 'Draft'}</span>
+                                            <span className="text-xs text-muted-foreground">• {competitors.length} competitors</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Description */}
+                            {(eventDetails as any).description && (
+                                <div className="mt-4 pt-4 border-t">
+                                    <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Description</p>
+                                    <p className="text-sm text-muted-foreground">{(eventDetails as any).description}</p>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
                     <div className="flex-1 overflow-auto">
                         {isFullyLoading ? (
                             <div className="p-6 space-y-4"><Skeleton className="h-10 w-full" /><Skeleton className="h-24 w-full" /><Skeleton className="h-24 w-full" /></div>
