@@ -6,12 +6,9 @@
 import type { Specialty } from './schedule-types';
 
 /**
- * Parse a specialty text value and return structured Specialty object(s)
- * Handles comma-separated values and various text formats
+ * Parse a single specialty token (one value, no commas)
  */
-export function parseSpecialtyText(text: string | null | undefined): Specialty[] {
-  if (!text || typeof text !== 'string') return [];
-
+function parseSingleSpecialty(text: string): Specialty[] {
   const normalized = text.toLowerCase().trim();
   if (!normalized) return [];
 
@@ -19,10 +16,10 @@ export function parseSpecialtyText(text: string | null | undefined): Specialty[]
 
   // Detection patterns with specific types
   const detectionPatterns = [
-    { pattern: /narcotics?\s*detection|drug\s*detection|narc/i, type: 'Narcotics' },
-    { pattern: /explosives?\s*detection|bomb\s*detection|explosive/i, type: 'Explosives' },
-    { pattern: /contraband\s*inspection|contraband/i, type: 'Contraband' },
-    { pattern: /currency\s*detection|money/i, type: 'Currency' },
+    { pattern: /narcotics|drug|narc/i, type: 'Narcotics' },
+    { pattern: /explosiv|bomb/i, type: 'Explosives' },
+    { pattern: /contraband/i, type: 'Contraband' },
+    { pattern: /currency|money/i, type: 'Currency' },
   ];
 
   // Check for detection specialties
@@ -37,13 +34,15 @@ export function parseSpecialtyText(text: string | null | undefined): Specialty[]
 
   // Bite Work patterns (includes patrol, tracking, search and rescue)
   const biteWorkPatterns = [
-    /bite\s*work/i,
+    /bite/i,
     /apprehension/i,
     /patrol/i,
-    /search\s*and\s*rescue/i,
+    /search.*rescue/i,
     /sar/i,
     /tracking/i,
     /trailing/i,
+    /building.*search/i,
+    /baggage/i,
   ];
 
   for (const pattern of biteWorkPatterns) {
@@ -57,6 +56,49 @@ export function parseSpecialtyText(text: string | null | undefined): Specialty[]
   }
 
   return specialties;
+}
+
+/**
+ * Parse a specialty text value and return structured Specialty object(s)
+ * Handles comma-separated values and various text formats
+ */
+export function parseSpecialtyText(text: string | null | undefined): Specialty[] {
+  if (!text || typeof text !== 'string') return [];
+
+  const normalized = text.trim();
+  if (!normalized) return [];
+
+  const allSpecialties: Specialty[] = [];
+
+  // Split on commas to handle comma-separated values
+  const parts = normalized.split(',').map(p => p.trim()).filter(p => p.length > 0);
+
+  console.log(`🔎 Parsing specialty text: "${text}" → ${parts.length} parts:`, parts);
+
+  for (const part of parts) {
+    const parsed = parseSingleSpecialty(part);
+
+    if (parsed.length > 0) {
+      console.log(`  ✨ "${part}" → `, parsed);
+    }
+
+    // Add only unique specialties
+    for (const specialty of parsed) {
+      const exists = allSpecialties.some(s => {
+        if (s.type !== specialty.type) return false;
+        if (s.type === 'Detection' && specialty.type === 'Detection') {
+          return s.detectionType === specialty.detectionType;
+        }
+        return true;
+      });
+
+      if (!exists) {
+        allSpecialties.push(specialty);
+      }
+    }
+  }
+
+  return allSpecialties;
 }
 
 /**
@@ -88,22 +130,25 @@ export function parseMultipleSpecialtyColumns(values: (string | null | undefined
 }
 
 /**
- * Find all specialty columns in headers (specialty_1, specialty_2, specialty 1, etc.)
+ * Find all specialty columns in headers (Specialty_1, specialty_2, specialty 1, etc.)
  */
 export function findSpecialtyColumns(headers: string[]): string[] {
   const specialtyColumns: string[] = [];
 
   for (const header of headers) {
-    const normalized = header.toLowerCase().trim();
-    // Match patterns like: specialty_1, specialty 1, specialty1, spec_1, etc.
+    const normalized = header.toLowerCase().trim().replace(/\s+/g, '_');
+
+    // Match patterns like: Specialty_1, specialty_2, specialty 1, specialty1, spec_1, etc.
     if (
-      /^specialty[\s_-]*\d+$/i.test(normalized) ||
-      /^spec[\s_-]*\d+$/i.test(normalized) ||
-      /^specialties?$/i.test(normalized)
+      normalized.match(/^specialty_?\d+$/) ||
+      normalized.match(/^spec_?\d+$/) ||
+      normalized.match(/^specialt(y|ies)$/)
     ) {
       specialtyColumns.push(header);
+      console.log(`✅ Matched specialty column: "${header}"`);
     }
   }
 
+  console.log(`🔍 Total specialty columns found: ${specialtyColumns.length}`, specialtyColumns);
   return specialtyColumns;
 }

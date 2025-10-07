@@ -112,8 +112,9 @@ export function CompetitorImportDialog({ eventId }: CompetitorImportDialogProps)
   const processDataWithMapping = useCallback((data: any[], currentMapping: FieldMapping) => {
     // Find all specialty columns in the data
     const specialtyColumns = findSpecialtyColumns(headers);
+    console.log('🔍 Found specialty columns:', specialtyColumns);
 
-    const processed = data.map(row => {
+    const processed = data.map((row, idx) => {
       let specialties: Specialty[] = [];
 
       // First, try boolean-based specialty columns (backward compatibility)
@@ -129,7 +130,16 @@ export function CompetitorImportDialog({ eventId }: CompetitorImportDialogProps)
 
       // Then, parse text-based specialty columns (Specialty_1, Specialty_2, etc.)
       const specialtyValues = specialtyColumns.map(col => row[col]);
+
+      if (idx < 3) {
+        console.log(`📊 Row ${idx + 1} specialty values:`, specialtyValues);
+      }
+
       const parsedSpecialties = parseMultipleSpecialtyColumns(specialtyValues);
+
+      if (idx < 3) {
+        console.log(`✨ Row ${idx + 1} parsed specialties:`, parsedSpecialties);
+      }
 
       // Combine both, avoiding duplicates
       for (const specialty of parsedSpecialties) {
@@ -152,6 +162,9 @@ export function CompetitorImportDialog({ eventId }: CompetitorImportDialogProps)
         specialties,
       };
     });
+
+    console.log('✅ Total processed:', processed.length, 'records');
+    console.log('🎯 Sample with specialties:', processed.filter(p => p.specialties.length > 0).slice(0, 3));
 
     setParsedData(processed);
   }, [headers]);
