@@ -693,12 +693,18 @@ export default function SchedulePage() {
 
     const activeCompetitor = useMemo(() => sortedCompetitors.find(c => c.id === activeId), [activeId, sortedCompetitors]);
     const isFullyLoading = Object.values(loading).some(Boolean) || authLoading;
-    const timeSlots = useMemo(() => generateTimeSlots({ 
-        duration: eventDetails?.scheduleBlockDuration, 
-        lunchBreak: eventDetails?.lunchBreak,
-        eventStartTime: eventDetails?.eventStartTime,
-        eventEndTime: eventDetails?.eventEndTime,
-    }), [eventDetails]);
+    const timeSlots = useMemo(() => {
+        // Provide defaults in HH:mm format if eventDetails is not loaded yet
+        const startTime = eventDetails?.eventStartTime || '09:00';
+        const endTime = eventDetails?.eventEndTime || '17:00';
+
+        return generateTimeSlots({
+            duration: eventDetails?.scheduleBlockDuration,
+            lunchBreak: eventDetails?.lunchBreak,
+            eventStartTime: startTime,
+            eventEndTime: endTime,
+        });
+    }, [eventDetails]);
     const isDraggable = canModify; // Only admins can drag and modify
 
 
@@ -850,7 +856,7 @@ export default function SchedulePage() {
                                     <div className="flex-1 min-w-0">
                                         <p className="text-xs text-muted-foreground uppercase tracking-wide">Daily Schedule</p>
                                         <p className="text-sm font-medium">
-                                            {eventDetails.eventStartTime || '8:00 AM'} - {eventDetails.eventEndTime || '5:00 PM'}
+                                            {eventDetails.eventStartTime || '09:00'} - {eventDetails.eventEndTime || '17:00'}
                                         </p>
                                     </div>
                                 </div>
