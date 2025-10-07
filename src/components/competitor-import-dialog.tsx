@@ -31,6 +31,10 @@ import {
   type FieldMapping,
 } from '@/lib/smart-csv-parser';
 import {
+  findSpecialtyColumns,
+  parseMultipleSpecialtyColumns,
+} from '@/lib/specialty-parser';
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -222,9 +226,13 @@ export function CompetitorImportDialog({ eventId }: CompetitorImportDialogProps)
   }, []);
 
   const processDataWithMapping = (data: any[], currentMapping: FieldMapping) => {
-    const processed = data.map(row => {
-      const specialties: Specialty[] = [];
+    // Find all specialty columns in the data
+    const specialtyColumns = findSpecialtyColumns(headers);
 
+    const processed = data.map(row => {
+      let specialties: Specialty[] = [];
+
+      // First, try boolean-based specialty columns (backward compatibility)
       if (extractValue(row, currentMapping, 'specialty_bite_work')) {
         specialties.push({ type: "Bite Work" });
       }
@@ -233,6 +241,24 @@ export function CompetitorImportDialog({ eventId }: CompetitorImportDialogProps)
       }
       if (extractValue(row, currentMapping, 'specialty_detection_explosives')) {
         specialties.push({ type: "Detection", detectionType: "Explosives" });
+      }
+
+      // Then, parse text-based specialty columns (Specialty_1, Specialty_2, etc.)
+      const specialtyValues = specialtyColumns.map(col => row[col]);
+      const parsedSpecialties = parseMultipleSpecialtyColumns(specialtyValues);
+
+      // Combine both, avoiding duplicates
+      for (const specialty of parsedSpecialties) {
+        const exists = specialties.some(s => {
+          if (s.type !== specialty.type) return false;
+          if (s.type === 'Detection' && specialty.type === 'Detection') {
+            return s.detectionType === specialty.detectionType;
+          }
+          return true;
+        });
+        if (!exists) {
+          specialties.push(specialty);
+        }
       }
 
       return {
@@ -312,9 +338,8 @@ export function CompetitorImportDialog({ eventId }: CompetitorImportDialogProps)
                 <li>• Handler/Officer name (required)</li>
                 <li>• K9/Dog name (required)</li>
                 <li>• Agency/Department (required)</li>
-                <li>• Bite Work specialty (optional)</li>
-                <li>• Narcotics Detection (optional)</li>
-                <li>• Explosives Detection (optional)</li>
+                <li>• Specialty columns with text values (optional)</li>
+                <li className="text-xs pl-3">Examples: &quot;Narcotics Detection&quot;, &quot;Bite Work&quot;, &quot;Explosives&quot;</li>
               </ul>
             </div>
           </div>
