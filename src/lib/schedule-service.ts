@@ -1,16 +1,27 @@
 export type RetryOptions = {
   baseDelay?: number; // milliseconds
   jitter?: number; // max random additional delay in ms
+  authToken?: string; // Firebase ID token for authentication
 };
 
 export async function postJSONWithRetry<T>(url: string, body: unknown, tries = 3, opts: RetryOptions = {}): Promise<T> {
-  const { baseDelay = 600, jitter = 0 } = opts;
+  const { baseDelay = 600, jitter = 0, authToken } = opts;
   let lastErr: any;
   for (let i = 0; i < tries; i++) {
     try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      };
+
+      // Add Authorization header if token is provided
+      if (authToken) {
+        headers['Authorization'] = `Bearer ${authToken}`;
+      }
+
       const res = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        headers,
         body: JSON.stringify(body),
       });
       const text = await res.text();

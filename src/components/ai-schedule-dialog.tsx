@@ -5,6 +5,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Wand2, Loader2, AlertTriangle, FileCheck2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { collection, writeBatch, doc, getDocs, getDoc } from 'firebase/firestore';
+import { getAuth } from 'firebase/auth';
 
 import {
   Dialog,
@@ -66,6 +67,16 @@ export function AiScheduleDialog({ eventId, arenas, competitors, eventDays, curr
     setStep(ScheduleStep.Generating);
     setError(null);
     try {
+        // Get the current user's Firebase ID token
+        const auth = getAuth();
+        const user = auth.currentUser;
+
+        if (!user) {
+            throw new Error('You must be logged in to generate a schedule');
+        }
+
+        const idToken = await user.getIdToken();
+
         // Provide defaults in HH:mm format if not set
         const startTime = eventDetailsRef.current?.eventStartTime || '09:00';
         const endTime = eventDetailsRef.current?.eventEndTime || '17:00';
@@ -83,8 +94,12 @@ export function AiScheduleDialog({ eventId, arenas, competitors, eventDays, curr
             arenas,
             competitors,
         };
-        
-        const response = await postJSONWithRetry<GenerateScheduleOutput>('/api/schedule', input, 3, { baseDelay: 500, jitter: 200 });
+
+        const response = await postJSONWithRetry<GenerateScheduleOutput>('/api/schedule', input, 3, {
+            baseDelay: 500,
+            jitter: 200,
+            authToken: idToken
+        });
 
         if ('error' in response && typeof (response as any).error === 'string') {
             throw new Error((response as any).error);
