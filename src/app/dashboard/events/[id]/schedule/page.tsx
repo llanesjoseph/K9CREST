@@ -713,6 +713,54 @@ export default function SchedulePage() {
         <TooltipProvider>
             <div className="flex h-full min-h-[calc(100vh-theme(spacing.16))]">
                  <div className="w-[380px] border-r flex flex-col">
+                    {canModify && (
+                         <div className="p-4 border-b space-y-4">
+                             <div>
+                                <h2 className="text-xl font-bold">Manage Arenas</h2>
+                                <p className="text-sm text-muted-foreground">Create arenas for scheduling.</p>
+                             </div>
+                             <div className="space-y-3">
+                                 <Input type="text" placeholder="New Arena Name" value={newArenaName} onChange={e => setNewArenaName(e.target.value)} />
+                                 <div className="flex flex-col sm:flex-row gap-2">
+                                     <Select value={newArenaSpecialty} onValueChange={(val) => setNewArenaSpecialty(val)}>
+                                         <SelectTrigger><SelectValue placeholder="Select specialty" /></SelectTrigger>
+                                         <SelectContent>
+                                             <SelectItem value="Any">Any Specialty</SelectItem><SelectItem value="Bite Work">Bite Work</SelectItem>
+                                             <SelectItem value="Detection (Narcotics)">Detection (Narcotics)</SelectItem><SelectItem value="Detection (Explosives)">Detection (Explosives)</SelectItem>
+                                         </SelectContent>
+                                     </Select>
+                                     <Select value={selectedRubricId} onValueChange={setSelectedRubricId}>
+                                        <SelectTrigger><SelectValue placeholder="Assign Rubric" /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="none">No Rubric</SelectItem>
+                                            {rubrics.map((rubric) => (<SelectItem key={rubric.id} value={rubric.id}>{rubric.name}</SelectItem>))}
+                                            <Separator />
+                                            <AssignRubricDialog onRubricCreated={setSelectedRubricId}>
+                                                 <Button variant="ghost" className="w-full justify-start pl-2 font-normal"><PlusCircle className="mr-2 h-4 w-4" /> Create New</Button>
+                                            </AssignRubricDialog>
+                                        </SelectContent>
+                                    </Select>
+                                 </div>
+                                 <Button onClick={addArena} className="w-full"><PlusCircle className="mr-2 h-4 w-4"/> Add Arena </Button>
+
+                                 {arenas.length > 0 && (
+                                    <div className="mt-4 space-y-2">
+                                        <p className="text-xs font-semibold text-muted-foreground uppercase">Current Arenas ({arenas.length})</p>
+                                        <div className="space-y-1">
+                                            {arenas.map(arena => (
+                                                <div key={arena.id} className="flex items-center justify-between p-2 bg-muted/50 rounded-md text-sm">
+                                                    <div>
+                                                        <span className="font-medium">{arena.name}</span>
+                                                        <span className="text-xs text-muted-foreground ml-2">({arena.specialtyType})</span>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                 )}
+                             </div>
+                         </div>
+                     )}
                     <div className="p-4 border-b space-y-4">
                         <div>
                             <h2 className="text-xl font-bold">Competitors</h2>
@@ -747,8 +795,8 @@ export default function SchedulePage() {
                             </div>
                         </div>
                     </div>
-                     <div className="flex-grow p-4 overflow-hidden relative">
-                         <ScrollArea className="absolute inset-0 h-full w-full p-0 pr-4">
+                     <div className="flex-1 p-4 overflow-hidden relative">
+                         <ScrollArea className="h-full w-full">
                             {loading.competitors ? (
                                 <div className="space-y-2"><Skeleton className="h-20 w-full" /><Skeleton className="h-20 w-full" /><Skeleton className="h-20 w-full" /></div>
                             ) : (
@@ -775,35 +823,6 @@ export default function SchedulePage() {
                             )}
                         </ScrollArea>
                      </div>
-                     {canModify && (
-                         <div className="p-4 border-t space-y-4">
-                             <h3 className="text-lg font-semibold">Manage Arenas</h3>
-                             <div className="space-y-3">
-                                 <Input type="text" placeholder="New Arena Name" value={newArenaName} onChange={e => setNewArenaName(e.target.value)} />
-                                 <div className="flex flex-col sm:flex-row gap-2">
-                                     <Select value={newArenaSpecialty} onValueChange={(val) => setNewArenaSpecialty(val)}>
-                                         <SelectTrigger><SelectValue placeholder="Select specialty" /></SelectTrigger>
-                                         <SelectContent>
-                                             <SelectItem value="Any">Any Specialty</SelectItem><SelectItem value="Bite Work">Bite Work</SelectItem>
-                                             <SelectItem value="Detection (Narcotics)">Detection (Narcotics)</SelectItem><SelectItem value="Detection (Explosives)">Detection (Explosives)</SelectItem>
-                                         </SelectContent>
-                                     </Select>
-                                     <Select value={selectedRubricId} onValueChange={setSelectedRubricId}>
-                                        <SelectTrigger><SelectValue placeholder="Assign Rubric" /></SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="none">No Rubric</SelectItem>
-                                            {rubrics.map((rubric) => (<SelectItem key={rubric.id} value={rubric.id}>{rubric.name}</SelectItem>))}
-                                            <Separator />
-                                            <AssignRubricDialog onRubricCreated={setSelectedRubricId}>
-                                                 <Button variant="ghost" className="w-full justify-start pl-2 font-normal"><PlusCircle className="mr-2 h-4 w-4" /> Create New</Button>
-                                            </AssignRubricDialog>
-                                        </SelectContent>
-                                    </Select>
-                                 </div>
-                                 <Button onClick={addArena} className="w-full"><PlusCircle className="mr-2 h-4 w-4"/> Add Arena </Button>
-                             </div>
-                         </div>
-                     )}
                 </div>
 
                 <div className="flex-1 flex flex-col">
@@ -902,9 +921,12 @@ export default function SchedulePage() {
                                     <div key={day.toISOString()}>
                                         <h3 className="text-xl font-bold mb-4 sticky top-0 bg-background/80 backdrop-blur-sm py-3 z-10 -mt-3 pt-3">{format(day, 'EEEE, MMM dd')}</h3>
                                         {arenas.length === 0 ? (
-                                            <div className="text-center text-muted-foreground py-12 border-2 border-dashed rounded-lg flex flex-col justify-center items-center mt-4 min-h-[200px]">
+                                            <div className="text-center text-muted-foreground py-12 border-2 border-dashed rounded-lg flex flex-col justify-center items-center mt-4 min-h-[200px] gap-3">
                                                 <AlertTriangle className="mx-auto h-8 w-8" />
-                                                <p className="mt-4 font-semibold">No Arenas Found</p>
+                                                <div>
+                                                    <p className="font-semibold">No Arenas Found</p>
+                                                    {canModify && <p className="text-sm mt-2">Add arenas using the form at the top of the left sidebar</p>}
+                                                </div>
                                             </div>
                                         ) : (
                                             <div className="space-y-6">
