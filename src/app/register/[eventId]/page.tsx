@@ -55,32 +55,32 @@ export default function EventRegistrationPage() {
   const [additionalInfo, setAdditionalInfo] = useState('');
 
   useEffect(() => {
-    loadEvent();
-  }, [eventId]);
-
-  const loadEvent = async () => {
-    try {
-      const eventDoc = await getDoc(doc(db, 'events', eventId));
-      if (eventDoc.exists()) {
-        setEvent({ id: eventDoc.id, ...eventDoc.data() } as EventInfo);
-      } else {
-        toast({
-          title: 'Event Not Found',
-          description: 'This event does not exist or the link is invalid.',
+    const loadEvent = async () => {
+      try {
+        const eventDoc = await getDoc(doc(db, 'events', eventId));
+        if (eventDoc.exists()) {
+          setEvent({ id: eventDoc.id, ...eventDoc.data() } as EventInfo);
+        } else {
+          toast({
+            title: 'Event Not Found',
+            description: 'This event does not exist or the link is invalid.',
           variant: 'destructive',
         });
       }
-    } catch (error) {
-      console.error('Error loading event:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load event details.',
-        variant: 'destructive',
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+      } catch (error) {
+        console.error('Error loading event:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to load event details.',
+          variant: 'destructive',
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadEvent();
+  }, [eventId, toast]);
 
   const handleSpecialtyToggle = (specialtyId: string) => {
     setSelectedSpecialties(prev =>
