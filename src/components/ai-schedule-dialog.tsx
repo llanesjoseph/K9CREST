@@ -66,11 +66,15 @@ export function AiScheduleDialog({ eventId, arenas, competitors, eventDays, curr
     setStep(ScheduleStep.Generating);
     setError(null);
     try {
+        // Provide defaults in HH:mm format if not set
+        const startTime = eventDetailsRef.current?.eventStartTime || '09:00';
+        const endTime = eventDetailsRef.current?.eventEndTime || '17:00';
+
         const timeSlots = generateTimeSlots({
             duration: eventDetailsRef.current?.scheduleBlockDuration,
             lunchBreak: eventDetailsRef.current?.lunchBreak,
-            eventStartTime: eventDetailsRef.current?.eventStartTime,
-            eventEndTime: eventDetailsRef.current?.eventEndTime,
+            eventStartTime: startTime,
+            eventEndTime: endTime,
         });
 
         const input = {
