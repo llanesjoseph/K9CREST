@@ -1,12 +1,31 @@
 export const firebaseConfig = {
-  apiKey: "AIzaSyDQfOtv4r6MF-BhT-YAYnJvDcn-oyIXt_M",
-  authDomain: "k9-trials-tracker.firebaseapp.com",
-  projectId: "k9-trials-tracker",
-  storageBucket: "k9-trials-tracker.firebasestorage.app",
-  messagingSenderId: "174322418803",
-  appId: "1:174322418803:web:8b556b1f6f3d3dc45dd606",
-  measurementId: "G-SS5GVZNWBQ",
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY!,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN!,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID!,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET!,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID!,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID!,
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
-export const isFirebaseConfigured = () =>
-  Object.values(firebaseConfig).every((v) => typeof v === "string" && v.length > 0);
+export const isFirebaseConfigured = () => {
+  const requiredVars = [
+    'NEXT_PUBLIC_FIREBASE_API_KEY',
+    'NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN',
+    'NEXT_PUBLIC_FIREBASE_PROJECT_ID',
+    'NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET',
+    'NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID',
+    'NEXT_PUBLIC_FIREBASE_APP_ID',
+  ];
+
+  const missingVars = requiredVars.filter(varName => !process.env[varName]);
+
+  if (missingVars.length > 0) {
+    console.error('Missing required Firebase environment variables:', missingVars);
+    return false;
+  }
+
+  return Object.entries(firebaseConfig)
+    .filter(([key]) => key !== 'measurementId') // measurementId is optional
+    .every(([_, value]) => typeof value === 'string' && value.length > 0);
+};

@@ -7,12 +7,13 @@ export const SpecialtyLabelSchema = z.enum([
   "Bite Work",
   "Detection (Narcotics)",
   "Detection (Explosives)",
+  "Detection (Currency)",
 ]);
 export type SpecialtyLabel = z.infer<typeof SpecialtyLabelSchema>;
 
 export const SpecialtySchema = z.object({
   type: z.enum(["Bite Work", "Detection"]),
-  detectionType: z.enum(["Narcotics", "Explosives"]).optional(),
+  detectionType: z.enum(["Narcotics", "Explosives", "Currency"]).optional(),
 });
 export type Specialty = z.infer<typeof SpecialtySchema>;
 

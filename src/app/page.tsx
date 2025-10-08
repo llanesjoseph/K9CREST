@@ -45,42 +45,85 @@ export default function LoginPage() {
 
   const handleLogin: SubmitHandler<FormValues> = async ({ email, password }) => {
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      // Use rate-limited API endpoint instead of direct Firebase call
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Login failed');
+      }
+
       toast({ title: "Success", description: "Logged in successfully." });
       router.push("/dashboard");
     } catch (error: any) {
+      console.error('Login error:', error);
       toast({
         variant: "destructive",
         title: "Error",
-        description: error.message,
+        description: error.message || 'Login failed. Please try again.',
       });
     }
   };
-  
+
   const handleSignUp: SubmitHandler<FormValues> = async ({ email, password }) => {
     try {
-      await createUserWithEmailAndPassword(auth, email, password);
-      toast({ title: "Success", description: "Account created successfully. Please log in." });
+      // Use rate-limited API endpoint instead of direct Firebase call
+      const response = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Signup failed');
+      }
+
+      toast({
+        title: "Success",
+        description: data.message || "Account created successfully. Please log in."
+      });
       setIsSignUp(false); // Switch to login view
     } catch (error: any) {
-       toast({
+      console.error('Signup error:', error);
+      toast({
         variant: "destructive",
         title: "Error",
-        description: error.message,
+        description: error.message || 'Signup failed. Please try again.',
       });
     }
   };
 
   const handleGoogleLogin = async () => {
     try {
+      // Google OAuth still uses Firebase directly (can't be proxied easily)
+      // But we sanitize the error messages
       await signInWithPopup(auth, googleProvider);
       toast({ title: "Success", description: "Logged in successfully." });
       router.push("/dashboard");
     } catch (error: any) {
-       toast({
+      console.error('Google login error:', error);
+
+      let errorMessage = 'Google login failed. Please try again.';
+
+      if (error.code === 'auth/popup-closed-by-user') {
+        errorMessage = 'Login cancelled.';
+      } else if (error.code === 'auth/popup-blocked') {
+        errorMessage = 'Popup blocked. Please allow popups for this site.';
+      } else if (error.code === 'auth/account-exists-with-different-credential') {
+        errorMessage = 'An account already exists with this email using a different login method.';
+      }
+
+      toast({
         variant: "destructive",
         title: "Error",
-        description: error.message,
+        description: errorMessage,
       });
     }
   };

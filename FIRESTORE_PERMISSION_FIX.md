@@ -1,3 +1,4 @@
+
 # 🔥 FIRESTORE PERMISSION FIX
 
 ## 🚨 Problem

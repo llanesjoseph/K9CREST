@@ -55,62 +55,126 @@ service cloud.firestore {
     // Events: readable by authenticated users; writable only by admins
     match /events/{eventId} {
       allow read: if isAuthenticated();
-      allow create: if isAdmin() && 
+      allow create: if isAdmin() &&
         isValidString(request.resource.data.name, 1, 100) &&
-        isValidTimestamp(request.resource.data.createdAt);
-      allow update: if isAdmin() && 
-        isValidString(request.resource.data.name, 1, 100);
-      allow delete: if isAdmin();
+        isValidString(request.resource.data.location, 1, 200) &&
+        isValidTimestamp(request.resource.data.createdAt) &&
+        request.resource.data.createdBy == request.auth.uid;
+      allow update: if isAdmin() &&
+        isValidString(request.resource.data.name, 1, 100) &&
+        isValidString(request.resource.data.location, 1, 200) &&
+        // Prevent changing createdBy and createdAt
+        request.resource.data.createdBy == resource.data.createdBy &&
+        request.resource.data.createdAt == resource.data.createdAt;
+      allow delete: if isAdmin() && resource != null; // Ensure document exists
 
       // Competitors subcollection
       match /competitors/{competitorId} {
         allow read: if isAuthenticated();
-        allow create: if isAdmin() && 
-          isValidString(request.resource.data.name, 1, 100) &&
+        allow create: if isAdmin() &&
+          isValidString(request.resource.data.firstName, 1, 50) &&
+          isValidString(request.resource.data.lastName, 1, 50) &&
           isValidString(request.resource.data.dogName, 1, 100) &&
-          isValidString(request.resource.data.agency, 1, 100);
-        allow update: if isAdmin() || 
-          (isAuthenticated() && 
-           request.resource.data.userId == request.auth.uid &&
-           isValidString(request.resource.data.name, 1, 100) &&
-           isValidString(request.resource.data.dogName, 1, 100) &&
-           isValidString(request.resource.data.agency, 1, 100));
-        allow delete: if isAdmin();
+          isValidString(request.resource.data.agency, 1, 100) &&
+          request.resource.data.specialties is list &&
+          request.resource.data.specialties.size() <= 10;
+        allow update: if isAdmin() &&
+          isValidString(request.resource.data.firstName, 1, 50) &&
+          isValidString(request.resource.data.lastName, 1, 50) &&
+          isValidString(request.resource.data.dogName, 1, 100) &&
+          isValidString(request.resource.data.agency, 1, 100) &&
+          request.resource.data.specialties is list &&
+          request.resource.data.specialties.size() <= 10;
+        allow delete: if isAdmin() && resource != null;
+      }
+
+      // Arenas subcollection (NEW)
+      match /arenas/{arenaId} {
+        allow read: if isAuthenticated();
+        allow create: if isAdmin() &&
+          isValidString(request.resource.data.name, 1, 100) &&
+          isValidString(request.resource.data.specialtyType, 1, 50);
+        allow update: if isAdmin() &&
+          isValidString(request.resource.data.name, 1, 100) &&
+          isValidString(request.resource.data.specialtyType, 1, 50);
+        allow delete: if isAdmin() && resource != null;
       }
 
       // Schedule subcollection
       match /schedule/{scheduleId} {
         allow read: if isAuthenticated();
-        allow create: if isAdmin() && 
+        allow create: if isAdmin() &&
           isValidString(request.resource.data.competitorId, 1, 100) &&
           isValidString(request.resource.data.arenaId, 1, 100) &&
           isValidString(request.resource.data.startTime, 1, 10) &&
+          isValidString(request.resource.data.endTime, 1, 10) &&
           isValidString(request.resource.data.date, 8, 10);
-        allow update: if isAdmin() || 
-          (isJudge() && 
-           isValidString(request.resource.data.status, 1, 20));
-        allow delete: if isAdmin();
+        allow update: if isAdmin() ||
+          (isJudge() &&
+           isValidString(request.resource.data.status, 1, 20) &&
+           // Judges can only update status, not scheduling details
+           request.resource.data.competitorId == resource.data.competitorId &&
+           request.resource.data.arenaId == resource.data.arenaId &&
+           request.resource.data.startTime == resource.data.startTime &&
+           request.resource.data.date == resource.data.date);
+        allow delete: if isAdmin() && resource != null;
       }
 
       // Judging subcollection
       match /judging/{runId} {
         allow read: if isAuthenticated();
-        allow create: if isAdmin();
-        allow update: if isAdmin() || 
-          (isJudge() && 
+        allow create: if isAdmin() &&
+          isValidString(request.resource.data.competitorId, 1, 100) &&
+          isValidString(request.resource.data.rubricId, 1, 100);
+        allow update: if isAdmin() ||
+          (isJudge() &&
+           resource != null &&
            isValidString(request.resource.data.status, 1, 20) &&
-           (request.resource.data.totalTime == null || 
-            request.resource.data.totalTime is number));
-        allow delete: if isAdmin();
+           (request.resource.data.totalTime == null ||
+            request.resource.data.totalTime is number) &&
+           // Judges cannot change competitor or rubric after creation
+           request.resource.data.competitorId == resource.data.competitorId &&
+           request.resource.data.rubricId == resource.data.rubricId);
+        allow delete: if isAdmin() && resource != null;
 
         // Deductions subcollection
         match /deductions/{deductionId} {
           allow read: if isAuthenticated();
-          allow create: if isAdmin() || isJudge();
-          allow update: if isAdmin() || isJudge();
+          allow create: if (isAdmin() || isJudge()) &&
+            isValidString(request.resource.data.deduction, 1, 200) &&
+            request.resource.data.points is number &&
+            request.resource.data.points >= 0 &&
+            request.resource.data.points <= 100;
+          allow update: if (isAdmin() || isJudge()) &&
+            resource != null &&
+            isValidString(request.resource.data.deduction, 1, 200) &&
+            request.resource.data.points is number &&
+            request.resource.data.points >= 0 &&
+            request.resource.data.points <= 100;
           allow delete: if isAdmin() || isJudge();
         }
       }
+    }
+
+    // Scores collection (top-level for leaderboard queries)
+    match /scores/{scoreId} {
+      allow read: if isAuthenticated();
+      allow create: if (isAdmin() || isJudge()) &&
+        isValidString(request.resource.data.eventId, 1, 100) &&
+        isValidString(request.resource.data.competitorId, 1, 100) &&
+        request.resource.data.score is number &&
+        request.resource.data.score >= 0 &&
+        isValidTimestamp(request.resource.data.submittedAt);
+      allow update: if (isAdmin() || isJudge()) &&
+        resource != null &&
+        isValidString(request.resource.data.eventId, 1, 100) &&
+        isValidString(request.resource.data.competitorId, 1, 100) &&
+        request.resource.data.score is number &&
+        request.resource.data.score >= 0 &&
+        // Prevent changing event/competitor after creation
+        request.resource.data.eventId == resource.data.eventId &&
+        request.resource.data.competitorId == resource.data.competitorId;
+      allow delete: if isAdmin() && resource != null;
     }
 
     // Rubrics: readable by authenticated; writable only by admins

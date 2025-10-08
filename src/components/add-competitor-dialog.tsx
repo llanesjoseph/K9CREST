@@ -27,7 +27,7 @@ import { useAuth } from './auth-provider';
 
 const specialtySchema = z.object({
   type: z.enum(["Bite Work", "Detection"]),
-  detectionType: z.enum(["Narcotics", "Explosives"]).optional(),
+  detectionType: z.enum(["Narcotics", "Explosives", "Currency"]).optional(),
 });
 
 const competitorSchema = z.object({
@@ -43,6 +43,7 @@ const specialtiesOptions = [
     { id: 'biteWork', label: 'Bite Work' },
     { id: 'detectionNarcotics', label: 'Detection (Narcotics)' },
     { id: 'detectionExplosives', label: 'Detection (Explosives)' },
+    { id: 'detectionCurrency', label: 'Detection (Currency)' },
 ]
 
 export function AddCompetitorDialog({ eventId }: { eventId: string }) {
@@ -158,14 +159,14 @@ export function AddCompetitorDialog({ eventId }: { eventId: string }) {
                                 <Label htmlFor="biteWork" className="font-normal">Bite Work</Label>
                             </div>
                              <div className="flex items-center space-x-2">
-                                <Checkbox 
+                                <Checkbox
                                     id="detectionNarcotics"
                                     checked={field.value?.some(s => s.detectionType === 'Narcotics')}
                                      onCheckedChange={(checked) => {
                                         const current = field.value || [];
                                         let newValue;
                                         if(checked) {
-                                            newValue = [...current.filter(s => s.detectionType !== 'Explosives'), { type: 'Detection', detectionType: 'Narcotics' }];
+                                            newValue = [...current.filter(s => s.detectionType !== 'Explosives' && s.detectionType !== 'Currency'), { type: 'Detection', detectionType: 'Narcotics' }];
                                         } else {
                                             newValue = current.filter(s => s.detectionType !== 'Narcotics');
                                         }
@@ -182,7 +183,7 @@ export function AddCompetitorDialog({ eventId }: { eventId: string }) {
                                         const current = field.value || [];
                                         let newValue;
                                         if(checked) {
-                                            newValue = [...current.filter(s => s.detectionType !== 'Narcotics'), { type: 'Detection', detectionType: 'Explosives' }];
+                                            newValue = [...current.filter(s => s.detectionType !== 'Narcotics' && s.detectionType !== 'Currency'), { type: 'Detection', detectionType: 'Explosives' }];
                                         } else {
                                             newValue = current.filter(s => s.detectionType !== 'Explosives');
                                         }
@@ -190,6 +191,23 @@ export function AddCompetitorDialog({ eventId }: { eventId: string }) {
                                     }}
                                  />
                                 <Label htmlFor="detectionExplosives" className="font-normal">Detection (Explosives)</Label>
+                            </div>
+                             <div className="flex items-center space-x-2">
+                                <Checkbox
+                                    id="detectionCurrency"
+                                    checked={field.value?.some(s => s.detectionType === 'Currency')}
+                                    onCheckedChange={(checked) => {
+                                        const current = field.value || [];
+                                        let newValue;
+                                        if(checked) {
+                                            newValue = [...current.filter(s => s.detectionType !== 'Narcotics' && s.detectionType !== 'Explosives'), { type: 'Detection', detectionType: 'Currency' }];
+                                        } else {
+                                            newValue = current.filter(s => s.detectionType !== 'Currency');
+                                        }
+                                        field.onChange(newValue);
+                                    }}
+                                 />
+                                <Label htmlFor="detectionCurrency" className="font-normal">Detection (Currency)</Label>
                             </div>
                         </div>
                     )}

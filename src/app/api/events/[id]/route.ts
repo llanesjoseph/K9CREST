@@ -1,32 +1,80 @@
 import { NextResponse } from "next/server";
-import { getAuth } from "firebase-admin/auth";
 import { adminDb } from "@/lib/firebase-admin";
+import { withRole, addSecurityHeaders } from "@/lib/auth-middleware";
+import { sanitizeError } from "@/lib/security";
+import { z } from "zod";
 
-export async function DELETE(req: Request, { params }: { params: { id: string } }) {
+// Input validation schema
+const EventIdSchema = z.object({
+  id: z.string().min(1).max(100).regex(/^[a-zA-Z0-9_-]+$/, 'Invalid event ID format'),
+});
+
+export const DELETE = withRole('admin', async (req, authContext, { params }: { params: { id: string } }) => {
   try {
-    const authHeader = req.headers.get('authorization') || '';
-    const idToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
-    if (!idToken) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    const decoded = await getAuth().verifyIdToken(idToken);
-    if (decoded.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    // Validate event ID
+    const validation = EventIdSchema.safeParse(params);
+    if (!validation.success) {
+      return NextResponse.json(
+        { error: 'Invalid event ID' },
+        { status: 400 }
+      );
+    }
 
-    const eventId = params.id;
-    if (!eventId) return NextResponse.json({ error: 'Missing id' }, { status: 400 });
-
-    // Delete the event and its subcollections (competitors)
+    const eventId = validation.data.id;
     const eventRef = adminDb.collection('events').doc(eventId);
+
+    // Check if event exists
+    const eventDoc = await eventRef.get();
+    if (!eventDoc.exists) {
+      return NextResponse.json(
+        { error: 'Event not found' },
+        { status: 404 }
+      );
+    }
 
     // Delete competitors subcollection in batches
     const competitorsSnap = await eventRef.collection('competitors').get();
+
+    // Prevent deletion of events with too many competitors (to avoid timeout)
+    if (competitorsSnap.size > 500) {
+      return NextResponse.json(
+        {
+          error: 'Event has too many competitors. Please use batch deletion.',
+          count: competitorsSnap.size
+        },
+        { status: 400 }
+      );
+    }
+
     const batch = adminDb.batch();
     competitorsSnap.forEach((doc) => batch.delete(doc.ref));
     await batch.commit();
 
+    // Delete the event document
     await eventRef.delete();
 
-    return NextResponse.json({ ok: true });
+    console.log('Event deleted:', {
+      eventId,
+      deletedBy: authContext.uid,
+      competitorsDeleted: competitorsSnap.size,
+      timestamp: new Date().toISOString(),
+    });
+
+    const response = NextResponse.json({
+      ok: true,
+      eventId,
+      competitorsDeleted: competitorsSnap.size
+    });
+    return addSecurityHeaders(response);
   } catch (error: any) {
-    return NextResponse.json({ error: String(error?.message || error) }, { status: 500 });
+    console.error("Delete Event API Error:", {
+      adminUid: authContext.uid,
+      error: error.message,
+      timestamp: new Date().toISOString(),
+    });
+
+    const sanitized = sanitizeError(error);
+    return NextResponse.json(sanitized, { status: 500 });
   }
-}
+});
 

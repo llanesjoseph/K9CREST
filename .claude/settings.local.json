@@ -15,7 +15,20 @@
       "Bash(npm run typecheck:*)",
       "Bash(npm run build:*)",
       "Bash(curl:*)",
-      "Bash(npm install)"
+      "Bash(npm install)",
+      "Bash(if exist .next rmdir /S /Q .next)",
+      "Bash(node:*)",
+      "Bash(copy firestore.rules firestore.rules.prod)",
+      "Bash(copy firestore.rules.dev firestore.rules)",
+      "Bash(firebase deploy:*)",
+      "Bash(firebase:*)",
+      "Bash(npm install:*)",
+      "Bash(git rm:*)",
+      "Bash(git log:*)",
+      "Bash(npm audit:*)",
+      "Bash(npm run test:*)",
+      "Bash(npm run dev:server:*)",
+      "Bash(npm run:*)"
     ],
     "deny": [],
     "ask": []

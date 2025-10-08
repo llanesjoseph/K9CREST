@@ -41,36 +41,29 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
-        // 🚀 AGGRESSIVE ADMIN OVERRIDE: Force joseph@crucibleanalytics.dev to be admin
-        if (firebaseUser.email === 'joseph@crucibleanalytics.dev') {
-          console.log('🔥 ADMIN OVERRIDE ACTIVATED: Force setting joseph@crucibleanalytics.dev as admin');
-          setTrueRole('admin');
-          setUser(firebaseUser);
-          setViewAsRole(null);
-          setLoading(false);
-
-          // Try to set server-side admin claims in background (fire and forget)
-          firebaseUser.getIdToken().then(token => {
-            fetch('/api/bootstrap-admin', {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json',
-              },
-            }).catch(() => {}); // Ignore errors, we already have client-side admin
-          }).catch(() => {});
-
-          return;
-        }
-
         try {
-          // Regular user flow
+          // SECURE: Always verify role server-side using cryptographically verified tokens
           const token = await firebaseUser.getIdToken(true);
-          const decoded = JSON.parse(atob(token.split('.')[1] || 'e30='));
-          const claimRole = (decoded?.role as UserRole) || 'spectator';
-          setTrueRole(claimRole);
-          setUser(firebaseUser);
-        } catch {
+
+          // Call server-side endpoint to verify token and get role
+          const response = await fetch('/api/auth/verify-role', {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          });
+
+          if (response.ok) {
+            const { role } = await response.json();
+            setTrueRole((role as UserRole) || 'spectator');
+            setUser(firebaseUser);
+          } else {
+            // If verification fails, default to spectator
+            setTrueRole('spectator');
+            setUser(firebaseUser);
+          }
+        } catch (error) {
+          console.error('Failed to verify user role:', error);
           setTrueRole('spectator');
           setUser(firebaseUser);
         }

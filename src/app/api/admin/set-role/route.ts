@@ -1,33 +1,65 @@
 import { NextResponse } from "next/server";
 import { getAuth } from "firebase-admin/auth";
 import { adminDb } from "@/lib/firebase-admin";
+import { withRole, addSecurityHeaders } from "@/lib/auth-middleware";
+import { sanitizeError } from "@/lib/security";
+import { z } from "zod";
 
-export async function POST(req: Request) {
+// Input validation schema
+const SetRoleSchema = z.object({
+  uid: z.string().min(1).max(128).regex(/^[a-zA-Z0-9]+$/, 'Invalid UID format'),
+  role: z.enum(['admin', 'judge', 'competitor', 'spectator']),
+});
+
+export const POST = withRole('admin', async (req, authContext) => {
   try {
-    // Verify caller is admin via Firebase App Hosting IAM (assumed) or future session verification.
-    // For now, require a bearer token ID token in Authorization and check its custom claim.
-    const authHeader = req.headers.get('authorization') || '';
-    const idToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
-    if (!idToken) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // Validate input
+    const rawInput = await req.json();
+    const input = SetRoleSchema.parse(rawInput);
 
-    const decoded = await getAuth().verifyIdToken(idToken);
-    if (decoded.role !== 'admin') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    // Prevent admins from accidentally removing their own admin role
+    if (input.uid === authContext.uid && input.role !== 'admin') {
+      return NextResponse.json(
+        { error: 'Cannot remove your own admin privileges' },
+        { status: 400 }
+      );
     }
 
-    const { uid, role } = await req.json();
-    if (!uid || !role || !['admin', 'judge', 'competitor', 'spectator'].includes(role)) {
-      return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
-    }
+    // Set custom claims in Firebase Auth
+    await getAuth().setCustomUserClaims(input.uid, { role: input.role });
 
-    await getAuth().setCustomUserClaims(uid, { role });
+    // Update user profile in Firestore
+    await adminDb.collection('users').doc(input.uid).set(
+      {
+        role: input.role,
+        updatedAt: new Date(),
+        updatedBy: authContext.uid,
+      },
+      { merge: true }
+    );
 
-    // Optionally write to a users profile doc
-    await adminDb.collection('users').doc(uid).set({ role }, { merge: true });
-
-    return NextResponse.json({ ok: true });
+    const response = NextResponse.json({
+      ok: true,
+      uid: input.uid,
+      role: input.role
+    });
+    return addSecurityHeaders(response);
   } catch (error: any) {
-    return NextResponse.json({ error: String(error?.message || error) }, { status: 500 });
+    console.error("Set Role API Error:", {
+      adminUid: authContext.uid,
+      error: error.message,
+      timestamp: new Date().toISOString(),
+    });
+
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { error: 'Invalid request data - uid and role are required' },
+        { status: 400 }
+      );
+    }
+
+    const sanitized = sanitizeError(error);
+    return NextResponse.json(sanitized, { status: 500 });
   }
-}
+});
 

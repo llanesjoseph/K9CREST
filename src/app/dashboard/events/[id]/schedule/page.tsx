@@ -167,6 +167,7 @@ const CompetitorItem = ({ competitor, isDraggable, dragHandle, onRunClick, allAr
             'Bite Work': 'bg-orange-400',
             'Detection (Narcotics)': 'bg-blue-400',
             'Detection (Explosives)': 'bg-green-400',
+            'Detection (Currency)': 'bg-purple-400',
             'Any': 'bg-gray-400'
         }
         return (
@@ -319,6 +320,7 @@ const TimeSlot = ({
         'Bite Work': 'bg-orange-500/20 text-orange-800 dark:text-orange-200 border-orange-500/50',
         'Detection (Narcotics)': 'bg-blue-500/20 text-blue-800 dark:text-blue-200 border-blue-500/50',
         'Detection (Explosives)': 'bg-green-500/20 text-green-800 dark:text-green-200 border-green-500/50',
+        'Detection (Currency)': 'bg-purple-500/20 text-purple-800 dark:text-purple-200 border-purple-500/50',
         'Any': 'bg-gray-500/20 text-gray-800 dark:text-gray-200 border-gray-500/50',
     };
     
@@ -726,7 +728,7 @@ export default function SchedulePage() {
                                          <SelectTrigger><SelectValue placeholder="Select specialty" /></SelectTrigger>
                                          <SelectContent>
                                              <SelectItem value="Any">Any Specialty</SelectItem><SelectItem value="Bite Work">Bite Work</SelectItem>
-                                             <SelectItem value="Detection (Narcotics)">Detection (Narcotics)</SelectItem><SelectItem value="Detection (Explosives)">Detection (Explosives)</SelectItem>
+                                             <SelectItem value="Detection (Narcotics)">Detection (Narcotics)</SelectItem><SelectItem value="Detection (Explosives)">Detection (Explosives)</SelectItem><SelectItem value="Detection (Currency)">Detection (Currency)</SelectItem>
                                          </SelectContent>
                                      </Select>
                                      <Select value={selectedRubricId} onValueChange={setSelectedRubricId}>
